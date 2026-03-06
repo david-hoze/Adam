@@ -5,6 +5,8 @@
 | Blank Eden bootstrap | Implemented | runtime + TUI path; validated in tests and demo |
 | Seeded Eden bootstrap code path | Implemented | ingests `assets/seed_canon/`; heavy-path validation started on real canon files |
 | Fixed-pane amber TUI | Implemented | preserved and refined in v1.1 |
+| Panel-based launcher for startup and runtime surfaces | Implemented | startup launcher + left-side surface menu replace flag-heavy normal access |
+| `python -m eden` default entry path | Implemented | no subcommand required for the normal TUI path; flags remain optional overrides |
 | Multiline composer | Implemented | `TextArea`-based; covered by TUI smoke test |
 | Backend clutter removed from prime chat pane | Implemented | backend/model path now live on startup/config surfaces instead |
 | Session-start inference profile flow | Implemented | startup/new-session modal |
@@ -43,7 +45,7 @@
 
 Validated in this patch:
 
-- `.venv/bin/pytest -q` -> `24 passed`
+- `.venv/bin/pytest -q` -> `27 passed`
 - CLI observatory fallback from occupied requested port to actual port `8877`
 - live observatory preview / commit / revert succeeded against a real experiment
 - mock demo export wrote graph, basin, geometry, measurement, and index artifacts

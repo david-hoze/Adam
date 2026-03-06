@@ -19,6 +19,7 @@ eden/models/mock.py
 eden/observatory/exporters.py
 eden/observatory/geometry.py
 eden/observatory/server.py
+eden/observatory/service.py
 eden/storage/graph_store.py
 eden/storage/schema.py
 eden/tui/app.py
@@ -29,9 +30,11 @@ eden_adam.egg-info/entry_points.txt
 eden_adam.egg-info/requires.txt
 eden_adam.egg-info/top_level.txt
 tests/test_budget.py
+tests/test_cli_entry.py
 tests/test_geometry.py
 tests/test_inference_profiles.py
 tests/test_ingest.py
+tests/test_observatory_measurements.py
 tests/test_observatory_server.py
 tests/test_regard.py
 tests/test_runtime_e2e.py

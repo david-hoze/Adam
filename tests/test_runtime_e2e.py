@@ -52,3 +52,28 @@ def test_blank_bootstrap_chat_feedback_and_exports(runtime, tmp_path) -> None:
     assert export_paths["graph_html"].endswith(".html")
     geometry_payload = json.loads((tmp_path / "exports" / "geometry_diagnostics.json").read_text())
     assert "local_reports" in geometry_payload
+
+
+def test_runtime_launch_profile_and_session_snapshot(runtime) -> None:
+    updated = runtime.update_runtime_launch_profile(backend="mlx", model_path="/tmp/qwen-mlx")
+    assert updated["backend"] == "mlx"
+    assert updated["model_path"] == "/tmp/qwen-mlx"
+    assert runtime.runtime_launch_profile()["backend"] == "mlx"
+    runtime.update_runtime_launch_profile(backend="mock", model_path=None)
+
+    experiment = runtime.initialize_experiment("blank")
+    session = runtime.start_session(experiment["id"], title="Resume Me")
+    outcome = runtime.chat(session_id=session["id"], user_text="Summarize the current persistent persona state.")
+
+    snapshot = runtime.session_state_snapshot(session["id"])
+
+    assert snapshot["experiment_id"] == experiment["id"]
+    assert snapshot["experiment_name"] == experiment["name"]
+    assert snapshot["session_id"] == session["id"]
+    assert snapshot["session_title"] == "Resume Me"
+    assert snapshot["last_turn_id"] == outcome.turn["id"]
+    assert snapshot["last_response"] == outcome.turn["membrane_text"]
+    assert snapshot["last_active_set"]
+    assert snapshot["last_trace"]
+    assert snapshot["current_budget"]["prompt_budget_tokens"] > 0
+    assert snapshot["current_profile"]["profile_name"].startswith("manual:")

@@ -1,17 +1,20 @@
 # TUI Spec
 
-The TUI remains the primary EDEN runtime surface in v1.1.
+The TUI remains the primary EDEN runtime surface in v1.2.
 
 ## Startup flow
 
 Startup screen:
 
 - startup summary
-- backend input
+- runtime launcher panel
+- backend select
 - MLX model path input
 - `Blank Eden`, `Seeded Eden`, `Resume Latest`
+- `Open Observatory`, `Export Latest`, `Help`
 - startup log
 - launch-contract panel
+- remembered local runtime path pulled from the repo-local `.venv` workflow
 
 Session-start modal:
 
@@ -39,9 +42,11 @@ Session-start modal:
 
 Left column:
 
-- control surface
-- export / observatory / new-session controls
-- motion / debug / help controls
+- surface menu
+- `Enter Adam`, `Profile`, `Help`
+- `New Session`, `Blank Eden`, `Seeded Eden`
+- `Resume Latest`, `Observatory`, `Export`
+- motion / debug toggles
 - ingest path input and ingest button
 - telemetry / graph stats
 - bounded history
@@ -66,9 +71,12 @@ Right column:
 - fixed panes, no primary scrolling transcript
 - amber-on-dark operator grammar preserved
 - backend/model-path information removed from prime live-chat real estate
+- normal entry path is `.venv/bin/python -m eden` or `.venv/bin/python -m eden app`
+- launcher settings are remembered locally so flags become overrides, not the default control path
 - multiline composition is first-class
 - active-set and trace panes can show preview state while the operator types
 - budget changes are visible rather than implicit
+- latest-session resume restores the latest persisted session surface instead of forcing a new session flow
 
 ## Budget panel contents
 

@@ -33,13 +33,21 @@ Install MLX support for the real backend:
 
 ## Run
 
-Launch the TUI with the fast mock path:
+Fastest normal path:
 
 ```bash
-.venv/bin/python -m eden app --backend mock
+.venv/bin/python -m eden
 ```
 
-Launch the TUI with MLX:
+Equivalent explicit TUI command:
+
+```bash
+.venv/bin/python -m eden app
+```
+
+The startup launcher now lets you choose the runtime path, open Blank Eden / Seeded Eden / Resume Latest, export the latest surfaces, or open the observatory without front-loading a bunch of flags. EDEN remembers the last backend and MLX model path you used locally.
+
+Use flags only when you want to override the remembered launcher settings. For example, to force MLX from the shell:
 
 ```bash
 .venv/bin/python -m eden app --backend mlx --model-path /absolute/path/to/Qwen3.5-35B-A3B-4bit-MLX
@@ -79,18 +87,20 @@ Useful flags:
 
 ## First Run
 
-1. Start the TUI with `.venv/bin/python -m eden app --backend mock`.
-2. Choose `Blank Eden`, `Seeded Eden`, or `Resume Latest`.
-3. In the session-start modal choose the inference profile mode and bounded parameters for that session.
-4. Use the multiline composer to write a turn and send it with `Ctrl+S`.
-5. Watch the `Inference Circumstances / Budget` panel update as you type and after retrieval preview refreshes.
-6. Inspect the `Aperture / Active Set` and `Cogitation / Decision Trace` panes.
-7. Apply `Accept`, `Edit`, `Reject`, or `Skip` feedback.
-8. Use `Export` to write graph, basin, geometry, measurement, and index artifacts.
-9. Use `Observatory` to ensure the local server is running and open the current experiment's index page.
-10. In the browser observatory use `INSPECT`, `MEASURE`, `EDIT`, `ABLATE`, or `COMPARE`.
-11. Preview a change first, then commit it if the before/after metrics support the edit.
-12. Revert recent observatory-originated mutations from the measurement ledger when needed.
+1. Start EDEN with `.venv/bin/python -m eden`.
+2. In the startup launcher choose the runtime path (`Mock Adam` or `MLX Adam`) and set the MLX model path if needed.
+3. Choose `Blank Eden`, `Seeded Eden`, or `Resume Latest`.
+4. In the session-start modal choose the inference profile mode and bounded parameters for that session.
+5. Once chat is up, use the left-side `Surface Menu` to jump between `Enter Adam`, profile edits, new blank/seeded experiments, `Resume Latest`, `Observatory`, `Export`, and `Ingest`.
+6. Use the multiline composer to write a turn and send it with `Ctrl+S`.
+7. Watch the `Inference Circumstances / Budget` panel update as you type and after retrieval preview refreshes.
+8. Inspect the `Aperture / Active Set` and `Cogitation / Decision Trace` panes.
+9. Apply `Accept`, `Edit`, `Reject`, or `Skip` feedback.
+10. Use `Export` to write graph, basin, geometry, measurement, and index artifacts.
+11. Use `Observatory` to ensure the local server is running and open the current experiment's index page.
+12. In the browser observatory use `INSPECT`, `MEASURE`, `EDIT`, `ABLATE`, or `COMPARE`.
+13. Preview a change first, then commit it if the before/after metrics support the edit.
+14. Revert recent observatory-originated mutations from the measurement ledger when needed.
 
 ## Inference notes
 

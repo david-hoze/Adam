@@ -30,6 +30,7 @@ from .utils import now_utc, safe_excerpt, top_phrases
 
 
 CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F]")
+RUNTIME_LAUNCH_PROFILE_KEY = "runtime_launch_profile"
 
 
 @dataclass(slots=True)
@@ -105,6 +106,24 @@ class EdenRuntime:
 
     def default_session_profile_request(self) -> InferenceProfileRequest:
         return default_profile_request(self.settings)
+
+    def runtime_launch_profile(self) -> dict[str, Any]:
+        stored = self.store.read_config(RUNTIME_LAUNCH_PROFILE_KEY) or {}
+        backend = str(stored.get("backend") or self.settings.model_backend or "mock").lower()
+        model_path = str(stored.get("model_path") or self.settings.model_path or "").strip()
+        return {"backend": backend, "model_path": model_path}
+
+    def update_runtime_launch_profile(self, *, backend: str, model_path: str | None) -> dict[str, Any]:
+        normalized_backend = (backend or "mock").strip().lower() or "mock"
+        normalized_model_path = (model_path or "").strip()
+        self.settings.model_backend = normalized_backend
+        self.settings.model_path = normalized_model_path or None
+        payload = {
+            "backend": normalized_backend,
+            "model_path": normalized_model_path or None,
+        }
+        self.store.upsert_config(RUNTIME_LAUNCH_PROFILE_KEY, payload)
+        return {"backend": normalized_backend, "model_path": normalized_model_path}
 
     def _session_profile_request(self, session_id: str) -> InferenceProfileRequest:
         session = self.store.get_session(session_id)
@@ -312,6 +331,39 @@ class EdenRuntime:
 
     def session_profile_request(self, session_id: str) -> dict[str, Any]:
         return self._session_profile_request(session_id).to_dict()
+
+    def session_state_snapshot(self, session_id: str) -> dict[str, Any]:
+        session = self.store.get_session(session_id)
+        experiment = self.store.get_experiment(session["experiment_id"])
+        snapshot = {
+            "experiment_id": experiment["id"],
+            "experiment_name": experiment["name"],
+            "session_id": session["id"],
+            "session_title": session["title"],
+            "profile_request": self.session_profile_request(session_id),
+            "last_turn_id": None,
+            "last_response": "",
+            "last_active_set": [],
+            "last_trace": [],
+            "current_budget": None,
+            "current_profile": None,
+        }
+        turns = self.store.list_turns(session_id, limit=1)
+        if not turns:
+            return snapshot
+        turn = turns[0]
+        metadata = json.loads(turn["metadata_json"] or "{}")
+        snapshot.update(
+            {
+                "last_turn_id": turn["id"],
+                "last_response": turn["membrane_text"],
+                "last_active_set": json.loads(turn["active_set_json"] or "[]"),
+                "last_trace": json.loads(turn["trace_json"] or "[]"),
+                "current_budget": metadata.get("budget"),
+                "current_profile": metadata.get("inference_profile"),
+            }
+        )
+        return snapshot
 
     def update_session_profile_request(self, session_id: str, **updates: Any) -> dict[str, Any]:
         request = self._session_profile_request(session_id)

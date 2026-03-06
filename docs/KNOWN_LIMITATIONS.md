@@ -9,6 +9,7 @@
 - The browser observatory remains a lightweight HTML/JS layer over a small local JSON API. It is interactive, but it is not a full graph IDE with arbitrary drag-to-wire editing.
 - Geometry for editing previews is computed over EDEN's exported simple graph topology. Multiple relation types between the same node pair remain inspectable in provenance, but geometry itself is still evaluated on the collapsed neighborhood structure.
 - `current_active_set` geometry export is based on the latest persisted active set for the selected session, not the unsent live composer preview.
+- `Resume Latest` restores the latest persisted session state, not an unsent draft from the composer.
 - Seeded Eden remains materially heavier than Blank Eden. The seeded path is real, but full canon ingest can still take substantial time and graph space.
 - Retrieval remains lexical/graph-heuristic rather than embedding-based.
 - Known memode confidence is currently operator-supplied plus provenance-backed. There is not yet a separate learned confidence model for memode validity.

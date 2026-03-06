@@ -29,7 +29,9 @@ PANEL = "#140d05"
 @dataclass(slots=True)
 class UiState:
     experiment_id: str | None = None
+    experiment_name: str | None = None
     session_id: str | None = None
+    session_title: str | None = None
     last_turn_id: str | None = None
     last_response: str = ""
     last_active_set: list[dict[str, Any]] | None = None
@@ -46,6 +48,7 @@ class HelpModal(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         help_text = Text.from_markup(
             "[bold #ffbf66]EDEN Controls[/]\n\n"
+            "Use the left-side surface menu to move between Adam, session setup, exports, observatory, and ingest.\n\n"
             "[bold]F1[/] help overlay\n"
             "[bold]Ctrl+S[/] send current input\n"
             "[bold]F2[/] export graph, basin, and geometry artifacts\n"
@@ -71,11 +74,19 @@ class HelpModal(ModalScreen[None]):
 
 
 class SessionConfigModal(ModalScreen[dict[str, Any] | None]):
-    def __init__(self, defaults: dict[str, Any], *, title_text: str, action_label: str) -> None:
+    def __init__(
+        self,
+        defaults: dict[str, Any],
+        *,
+        title_text: str,
+        action_label: str,
+        show_title_input: bool = True,
+    ) -> None:
         super().__init__()
         self.defaults = defaults
         self.title_text = title_text
         self.action_label = action_label
+        self.show_title_input = show_title_input
 
     def compose(self) -> ComposeResult:
         summary = Text.from_markup(
@@ -85,7 +96,8 @@ class SessionConfigModal(ModalScreen[dict[str, Any] | None]):
         yield Static(Panel(summary, title="Session Start", border_style=AMBER), id="session_config_header")
         with Horizontal(id="session_config_shell"):
             with Vertical(classes="session_config_column"):
-                yield Input(value=self.defaults.get("title", "Operator Session"), id="session_title_input", placeholder="session title")
+                if self.show_title_input:
+                    yield Input(value=self.defaults.get("title", "Operator Session"), id="session_title_input", placeholder="session title")
                 yield Select(
                     [("MANUAL", "manual"), ("RUNTIME_AUTO", "runtime_auto"), ("ADAM_AUTO", "adam_auto")],
                     value=self.defaults.get("mode", "manual"),
@@ -149,7 +161,12 @@ class SessionConfigModal(ModalScreen[dict[str, Any] | None]):
 
     def _payload(self) -> dict[str, Any]:
         return {
-            "title": self.query_one("#session_title_input", Input).value.strip() or "Operator Session",
+            "title": (
+                self.query_one("#session_title_input", Input).value.strip()
+                if self.show_title_input
+                else self.defaults.get("title", "Operator Session")
+            )
+            or "Operator Session",
             "mode": str(self.query_one("#mode_select", Select).value),
             "budget_mode": str(self.query_one("#budget_mode_select", Select).value),
             "low_motion": str(self.query_one("#low_motion_select", Select).value) == "true",
@@ -266,27 +283,44 @@ class StartupScreen(Screen):
         with Horizontal(id="startup_shell"):
             with Vertical(classes="column"):
                 yield Static(id="startup_summary")
-                yield Input(value="mock", id="backend_input", placeholder="backend: mock or mlx")
+                yield Static(id="runtime_path_panel")
+                yield Select(
+                    [("Mock Adam", "mock"), ("MLX Adam", "mlx")],
+                    value="mock",
+                    allow_blank=False,
+                    id="backend_select",
+                    prompt="Runtime path",
+                )
                 yield Input(id="model_path_input", placeholder="MLX model path (required when backend=mlx)")
                 with Horizontal():
                     yield Button("Blank Eden", id="blank_btn", variant="primary")
                     yield Button("Seeded Eden", id="seeded_btn")
                     yield Button("Resume Latest", id="resume_btn")
+                with Horizontal():
+                    yield Button("Open Observatory", id="startup_observatory_btn")
+                    yield Button("Export Latest", id="startup_export_btn")
+                    yield Button("Help", id="startup_help_btn")
                 yield Static(id="startup_hint")
             with Vertical(classes="column"):
                 yield RichLog(id="startup_log", wrap=True, auto_scroll=True, highlight=True)
         yield Footer()
 
     def on_mount(self) -> None:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        launch = app.runtime.runtime_launch_profile()
+        self.query_one("#backend_select", Select).value = launch["backend"]
+        self.query_one("#model_path_input", Input).value = launch["model_path"]
         self.query_one("#startup_summary", Static).update(self._summary_text())
+        self._refresh_runtime_path_panel()
         self.query_one("#startup_hint", Static).update(
             Panel(
                 Text.from_markup(
                     f"[bold {AMBER}]Launch Contract[/]\n"
-                    "- choose Blank Eden or Seeded Eden\n"
-                    "- configure backend/model path here, not in the live chat pane\n"
-                    "- every new session opens an inference-profile flow before Adam starts responding\n"
-                    "- observability stays local-first and reuses existing exports when possible"
+                    "- launch from the repo-local interpreter: .venv/bin/python -m eden\n"
+                    "- choose Blank Eden, Seeded Eden, or Resume Latest here instead of juggling startup flags\n"
+                    "- backend and MLX model path now live in this launcher and are remembered locally\n"
+                    "- observatory/export utilities stay available from this startup panel and from the running chat surface"
                 ),
                 title="Startup Surface",
                 border_style=AMBER,
@@ -301,12 +335,34 @@ class StartupScreen(Screen):
         content = Text.from_markup(
             f"[bold {AMBER}]EDEN / ADAM[/]\n"
             f"repo={app.repo_root}\n"
+            f"python={app.repo_root / '.venv' / 'bin' / 'python'}\n"
             f"seed_canon={len(list((app.repo_root / 'assets' / 'seed_canon').rglob('*.pdf')))} pdf files\n"
             f"db={app.repo_root / 'data' / 'eden.db'}\n"
             f"exports={app.repo_root / 'exports'}\n"
             f"controls={', '.join(controls)}"
         )
         return Panel(content, title="Startup Summary", border_style=AMBER)
+
+    def _runtime_launch_profile(self) -> dict[str, Any]:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        backend = str(self.query_one("#backend_select", Select).value or "mock")
+        model_path = self.query_one("#model_path_input", Input).value.strip()
+        profile = app.runtime.update_runtime_launch_profile(backend=backend, model_path=model_path)
+        self.query_one("#model_path_input", Input).disabled = profile["backend"] != "mlx"
+        return profile
+
+    def _refresh_runtime_path_panel(self) -> None:
+        profile = self._runtime_launch_profile()
+        model_path = profile["model_path"] or "not required for mock path"
+        text = Text.from_markup(
+            f"[bold {AMBER}]Runtime Path[/]\n"
+            f"backend={profile['backend']}\n"
+            f"model_path={safe_excerpt(model_path, limit=120)}\n\n"
+            "Use `.venv/bin/python -m eden` or `.venv/bin/python -m eden app`.\n"
+            "The launcher remembers this path so you only need flags when overriding it."
+        )
+        self.query_one("#runtime_path_panel", Static).update(Panel(text, title="Runtime Launcher", border_style=AMBER))
 
     def _poll_logs(self) -> None:
         app = self.app
@@ -320,10 +376,23 @@ class StartupScreen(Screen):
     async def _launch_session_worker(self, action: str) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
-        backend = self.query_one("#backend_input", Input).value.strip().lower() or "mock"
-        model_path = self.query_one("#model_path_input", Input).value.strip() or None
-        app.runtime.settings.model_backend = backend
-        app.runtime.settings.model_path = model_path
+        launch = self._runtime_launch_profile()
+        if launch["backend"] == "mlx" and not launch["model_path"]:
+            self.query_one("#startup_log", RichLog).write("[WARN] MLX launch selected but no model path was provided.")
+            return
+        if action == "resume":
+            latest = app.runtime.store.get_latest_experiment()
+            if latest is None:
+                self.query_one("#startup_log", RichLog).write("[WARN] No existing experiment. Create one first.")
+                return
+            latest_session = app.runtime.store.get_latest_session(latest["id"])
+            if latest_session is None:
+                self.query_one("#startup_log", RichLog).write("[WARN] Latest experiment has no sessions yet.")
+                return
+            snapshot = await asyncio.to_thread(partial(app.runtime.session_state_snapshot, latest_session["id"]))
+            app.apply_session_snapshot(snapshot)
+            await app.push_screen(ChatScreen())
+            return
         defaults = app.runtime.default_session_profile_request().to_dict()
         payload = await app.push_screen_wait(
             SessionConfigModal(
@@ -334,14 +403,7 @@ class StartupScreen(Screen):
         )
         if payload is None:
             return
-        if action == "resume":
-            latest = app.runtime.store.get_latest_experiment()
-            if latest is None:
-                self.query_one("#startup_log", RichLog).write("[WARN] No existing experiment. Create one first.")
-                return
-            experiment = latest
-        else:
-            experiment = await asyncio.to_thread(partial(app.runtime.initialize_experiment, action))
+        experiment = await asyncio.to_thread(partial(app.runtime.initialize_experiment, action))
         session = await asyncio.to_thread(
             partial(
                 app.runtime.start_session,
@@ -350,10 +412,20 @@ class StartupScreen(Screen):
                 profile_request=payload,
             )
         )
-        app.ui_state.experiment_id = experiment["id"]
-        app.ui_state.session_id = session["id"]
-        app.ui_state.current_profile = None
-        app.ui_state.current_budget = None
+        app.apply_session_snapshot(
+            {
+                "experiment_id": experiment["id"],
+                "experiment_name": experiment["name"],
+                "session_id": session["id"],
+                "session_title": session["title"],
+                "last_turn_id": None,
+                "last_response": "",
+                "last_active_set": [],
+                "last_trace": [],
+                "current_profile": None,
+                "current_budget": None,
+            }
+        )
         await app.push_screen(ChatScreen())
 
     def begin_launch_session(self, action: str) -> None:
@@ -371,6 +443,65 @@ class StartupScreen(Screen):
     def handle_resume(self) -> None:
         self.begin_launch_session("resume")
 
+    @on(Select.Changed, "#backend_select")
+    @on(Input.Changed, "#model_path_input")
+    def handle_runtime_path_change(self, _event) -> None:
+        self._refresh_runtime_path_panel()
+
+    async def _startup_export_worker(self) -> None:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        latest = app.runtime.store.get_latest_experiment()
+        if latest is None:
+            self.query_one("#startup_log", RichLog).write("[WARN] No experiment available to export.")
+            return
+        latest_session = app.runtime.store.get_latest_session(latest["id"])
+        paths = await asyncio.to_thread(
+            partial(
+                app.runtime.export_observability,
+                experiment_id=latest["id"],
+                session_id=latest_session["id"] if latest_session else None,
+            )
+        )
+        names = [Path(paths[key]).name for key in ("graph_html", "basin_html", "geometry_html") if key in paths]
+        self.query_one("#startup_log", RichLog).write(f"[INFO] Exported latest surfaces :: {', '.join(names)}")
+
+    async def _startup_observatory_worker(self) -> None:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        status = await asyncio.to_thread(partial(app.runtime.start_observatory, reuse_existing=True))
+        app.ui_state.observatory_status = status
+        target_url = status["url"]
+        latest = app.runtime.store.get_latest_experiment()
+        if latest is not None:
+            latest_session = app.runtime.store.get_latest_session(latest["id"])
+            paths = await asyncio.to_thread(
+                partial(
+                    app.runtime.export_observability,
+                    experiment_id=latest["id"],
+                    session_id=latest_session["id"] if latest_session else None,
+                )
+            )
+            target = Path(paths.get("observatory_index_html") or paths.get("geometry_html") or paths.get("graph_html", ""))
+            if target.name:
+                target_url = status["url"] + f"{latest['id']}/{target.name}"
+        webbrowser.open(target_url)
+        self.query_one("#startup_log", RichLog).write(
+            f"[INFO] Observatory {'reused' if status['reused_existing'] else 'started'} :: {target_url}"
+        )
+
+    @on(Button.Pressed, "#startup_export_btn")
+    def handle_startup_export(self) -> None:
+        self.run_worker(self._startup_export_worker(), exclusive=True, group="startup_export")
+
+    @on(Button.Pressed, "#startup_observatory_btn")
+    def handle_startup_observatory(self) -> None:
+        self.run_worker(self._startup_observatory_worker(), exclusive=True, group="startup_observatory")
+
+    @on(Button.Pressed, "#startup_help_btn")
+    async def handle_startup_help(self) -> None:
+        await self.app.push_screen(HelpModal())
+
 
 class ChatScreen(Screen):
     def __init__(self) -> None:
@@ -385,13 +516,20 @@ class ChatScreen(Screen):
             with Vertical(id="left_column"):
                 yield Static(id="control_panel")
                 with Horizontal():
-                    yield Button("Export", id="export_btn", variant="primary")
-                    yield Button("Observatory", id="observatory_btn")
+                    yield Button("Enter Adam", id="enter_adam_btn", variant="primary")
+                    yield Button("Profile", id="profile_btn")
+                    yield Button("Help", id="help_btn")
+                with Horizontal():
                     yield Button("New Session", id="new_session_btn")
+                    yield Button("Blank Eden", id="blank_surface_btn")
+                    yield Button("Seeded Eden", id="seeded_surface_btn")
+                with Horizontal():
+                    yield Button("Resume Latest", id="resume_surface_btn")
+                    yield Button("Observatory", id="observatory_btn")
+                    yield Button("Export", id="export_btn")
                 with Horizontal():
                     yield Button("Low Motion", id="motion_btn")
                     yield Button("Debug", id="debug_btn")
-                    yield Button("Help", id="help_btn")
                 yield Input(id="ingest_path_input", placeholder="document path (.pdf/.csv/.txt/.md)")
                 yield Button("Ingest Document", id="ingest_btn")
                 yield Static(id="telemetry_panel")
@@ -433,15 +571,22 @@ class ChatScreen(Screen):
         current_profile = app.ui_state.current_profile or {}
         current_budget = app.ui_state.current_budget or {}
         control_text = Text.from_markup(
-            f"[bold {AMBER}]Command Surface[/]\n"
-            f"experiment={app.ui_state.experiment_id}\n"
-            f"session={app.ui_state.session_id}\n"
+            f"[bold {AMBER}]Surface Menu[/]\n"
+            f"enter_adam=focus composer\n"
+            f"profile=adjust current session request\n"
+            f"blank/seeded=open a fresh experiment\n"
+            f"resume_latest=rehydrate the newest saved session\n"
+            f"observatory/export=browser surfaces\n\n"
+            f"experiment={app.ui_state.experiment_name or app.ui_state.experiment_id}\n"
+            f"session={app.ui_state.session_title or app.ui_state.session_id}\n"
+            f"runtime={app.runtime.settings.model_backend}\n"
+            f"model_path={safe_excerpt(app.runtime.settings.model_path or 'mock path', limit=42)}\n"
             f"observatory={(app.ui_state.observatory_status or {}).get('url', 'offline')}\n"
             f"last_turn={app.ui_state.last_turn_id or 'none'}\n"
             f"requested_mode={current_profile.get('requested_mode', 'pending')}\n"
             f"effective_mode={current_profile.get('effective_mode', 'pending')}"
         )
-        self.query_one("#control_panel", Static).update(Panel(control_text, title="Control Surface", border_style=AMBER))
+        self.query_one("#control_panel", Static).update(Panel(control_text, title="Surface Menu", border_style=AMBER))
         telemetry_text = Text.from_markup(
             f"[bold {AMBER}]Graph Health[/]\n"
             f"memes={health['memes']} memodes={health['memodes']} edges={health['edges']}\n"
@@ -705,15 +850,20 @@ class ChatScreen(Screen):
                 profile_request=payload,
             )
         )
-        app.ui_state.session_id = session["id"]
-        app.ui_state.last_turn_id = None
-        app.ui_state.last_response = ""
-        app.ui_state.last_active_set = []
-        app.ui_state.last_trace = []
-        app.ui_state.preview_active_set = []
-        app.ui_state.preview_trace = []
-        app.ui_state.current_budget = None
-        app.ui_state.current_profile = None
+        app.apply_session_snapshot(
+            {
+                "experiment_id": app.ui_state.experiment_id,
+                "experiment_name": app.ui_state.experiment_name,
+                "session_id": session["id"],
+                "session_title": session["title"],
+                "last_turn_id": None,
+                "last_response": "",
+                "last_active_set": [],
+                "last_trace": [],
+                "current_budget": None,
+                "current_profile": None,
+            }
+        )
         app.ui_state.last_feedback = "Opened a new session."
         self._set_text_area("#composer_input", "")
         self.refresh_panels()
@@ -725,6 +875,133 @@ class ChatScreen(Screen):
     @on(Button.Pressed, "#new_session_btn")
     def handle_new_session(self) -> None:
         self.begin_new_session_flow()
+
+    async def _edit_profile_worker(self) -> None:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        if not app.ui_state.session_id:
+            return
+        defaults = await asyncio.to_thread(partial(app.runtime.session_profile_request, app.ui_state.session_id))
+        defaults["title"] = app.ui_state.session_title or defaults.get("title", "Current Session")
+        payload = await app.push_screen_wait(
+            SessionConfigModal(
+                defaults,
+                title_text="Adjust Session Profile",
+                action_label="Apply Profile",
+                show_title_input=False,
+            )
+        )
+        if payload is None:
+            return
+        updated = await asyncio.to_thread(
+            partial(
+                app.runtime.update_session_profile_request,
+                app.ui_state.session_id,
+                mode=payload["mode"],
+                budget_mode=payload["budget_mode"],
+                low_motion=payload["low_motion"],
+                debug=payload["debug"],
+                temperature=payload["temperature"],
+                max_output_tokens=payload["max_output_tokens"],
+                top_p=payload["top_p"],
+                repetition_penalty=payload["repetition_penalty"],
+                retrieval_depth=payload["retrieval_depth"],
+                max_context_items=payload["max_context_items"],
+                response_char_cap=payload["response_char_cap"],
+            )
+        )
+        app.ui_state.last_feedback = (
+            f"Updated session profile: {updated['mode']} / {updated['budget_mode']} / low_motion={updated['low_motion']}"
+        )
+        self.refresh_panels()
+        self._schedule_preview_refresh()
+
+    def begin_edit_profile_flow(self) -> None:
+        self.run_worker(self._edit_profile_worker(), exclusive=True, group="profile")
+
+    @on(Button.Pressed, "#profile_btn")
+    def handle_profile(self) -> None:
+        self.begin_edit_profile_flow()
+
+    async def _launch_surface_worker(self, action: str) -> None:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        if action == "resume":
+            latest = app.runtime.store.get_latest_experiment()
+            if latest is None:
+                app.ui_state.last_feedback = "No experiment available to resume."
+                self.refresh_panels()
+                return
+            latest_session = app.runtime.store.get_latest_session(latest["id"])
+            if latest_session is None:
+                app.ui_state.last_feedback = "Latest experiment has no saved session yet."
+                self.refresh_panels()
+                return
+            snapshot = await asyncio.to_thread(partial(app.runtime.session_state_snapshot, latest_session["id"]))
+            app.apply_session_snapshot(snapshot)
+            app.ui_state.last_feedback = f"Resumed {snapshot['session_title']}."
+            self._set_text_area("#composer_input", "")
+            self.refresh_panels()
+            self._schedule_preview_refresh()
+            return
+        defaults = app.runtime.default_session_profile_request().to_dict()
+        payload = await app.push_screen_wait(
+            SessionConfigModal(
+                defaults,
+                title_text=f"{action.title()} Experiment Session",
+                action_label="Open Session",
+            )
+        )
+        if payload is None:
+            return
+        experiment = await asyncio.to_thread(partial(app.runtime.initialize_experiment, action))
+        session = await asyncio.to_thread(
+            partial(
+                app.runtime.start_session,
+                experiment["id"],
+                title=payload["title"],
+                profile_request=payload,
+            )
+        )
+        app.apply_session_snapshot(
+            {
+                "experiment_id": experiment["id"],
+                "experiment_name": experiment["name"],
+                "session_id": session["id"],
+                "session_title": session["title"],
+                "last_turn_id": None,
+                "last_response": "",
+                "last_active_set": [],
+                "last_trace": [],
+                "current_profile": None,
+                "current_budget": None,
+            }
+        )
+        app.ui_state.last_feedback = f"Opened a new {action} experiment session."
+        self._set_text_area("#composer_input", "")
+        self.refresh_panels()
+        self._schedule_preview_refresh()
+
+    def begin_surface_launch(self, action: str) -> None:
+        self.run_worker(self._launch_surface_worker(action), exclusive=True, group=f"surface_{action}")
+
+    @on(Button.Pressed, "#blank_surface_btn")
+    def handle_blank_surface(self) -> None:
+        self.begin_surface_launch("blank")
+
+    @on(Button.Pressed, "#seeded_surface_btn")
+    def handle_seeded_surface(self) -> None:
+        self.begin_surface_launch("seeded")
+
+    @on(Button.Pressed, "#resume_surface_btn")
+    def handle_resume_surface(self) -> None:
+        self.begin_surface_launch("resume")
+
+    @on(Button.Pressed, "#enter_adam_btn")
+    def handle_enter_adam(self) -> None:
+        self.query_one("#composer_input", TextArea).focus()
+        self.app.ui_state.last_feedback = "Composer focused."
+        self.refresh_panels()
 
     @on(Button.Pressed, "#motion_btn")
     async def handle_motion(self) -> None:
@@ -859,6 +1136,20 @@ class EdenTuiApp(App):
         self.runtime = runtime
         self.repo_root = Path(__file__).resolve().parents[2]
         self.ui_state = UiState()
+
+    def apply_session_snapshot(self, snapshot: dict[str, Any]) -> None:
+        self.ui_state.experiment_id = snapshot["experiment_id"]
+        self.ui_state.experiment_name = snapshot.get("experiment_name")
+        self.ui_state.session_id = snapshot["session_id"]
+        self.ui_state.session_title = snapshot.get("session_title")
+        self.ui_state.last_turn_id = snapshot.get("last_turn_id")
+        self.ui_state.last_response = snapshot.get("last_response", "")
+        self.ui_state.last_active_set = list(snapshot.get("last_active_set") or [])
+        self.ui_state.last_trace = list(snapshot.get("last_trace") or [])
+        self.ui_state.preview_active_set = list(snapshot.get("last_active_set") or [])
+        self.ui_state.preview_trace = list(snapshot.get("last_trace") or [])
+        self.ui_state.current_profile = snapshot.get("current_profile")
+        self.ui_state.current_budget = snapshot.get("current_budget")
 
     async def on_mount(self) -> None:
         await self.push_screen(StartupScreen())

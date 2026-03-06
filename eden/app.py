@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 import webbrowser
 from pathlib import Path
@@ -14,13 +15,14 @@ from .tui.app import run_tui
 
 
 def build_runtime(args) -> EdenRuntime:
+    store = GraphStore(DB_PATH)
+    launch_profile = store.read_config("runtime_launch_profile") or {}
     settings = RuntimeSettings(
-        model_backend=getattr(args, "backend", "mock"),
-        model_path=getattr(args, "model_path", None),
+        model_backend=getattr(args, "backend", None) or launch_profile.get("backend") or "mock",
+        model_path=getattr(args, "model_path", None) or launch_profile.get("model_path"),
         observatory_host=getattr(args, "host", "127.0.0.1"),
         observatory_port=getattr(args, "port", 8741),
     )
-    store = GraphStore(DB_PATH)
     runtime_log = RuntimeLog(RUNTIME_LOG_PATH)
     return EdenRuntime(store=store, settings=settings, runtime_log=runtime_log)
 
@@ -91,16 +93,19 @@ def cmd_observatory(args) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = list(argv) if argv is not None else sys.argv[1:]
+    if not argv or argv[0].startswith("-"):
+        argv = ["app", *argv]
     parser = argparse.ArgumentParser(prog="eden", description="EDEN local-first memetic runtime.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     app_parser = subparsers.add_parser("app", help="Launch the Textual TUI.")
-    app_parser.add_argument("--backend", default="mock", choices=["mock", "mlx"])
+    app_parser.add_argument("--backend", default=None, choices=["mock", "mlx"])
     app_parser.add_argument("--model-path", default=None)
     app_parser.set_defaults(func=cmd_app)
 
     demo_parser = subparsers.add_parser("demo", help="Run a one-turn demo and export observability artifacts.")
-    demo_parser.add_argument("--backend", default="mock", choices=["mock", "mlx"])
+    demo_parser.add_argument("--backend", default=None, choices=["mock", "mlx"])
     demo_parser.add_argument("--model-path", default=None)
     demo_parser.add_argument("--mode", default="blank", choices=["blank", "seeded"])
     demo_parser.add_argument("--prompt", default="Explain how ADAM persists identity through the graph.")
@@ -110,21 +115,21 @@ def main(argv: list[str] | None = None) -> int:
     demo_parser.set_defaults(func=cmd_demo)
 
     ingest_parser = subparsers.add_parser("ingest", help="Ingest a document into an existing experiment.")
-    ingest_parser.add_argument("--backend", default="mock", choices=["mock", "mlx"])
+    ingest_parser.add_argument("--backend", default=None, choices=["mock", "mlx"])
     ingest_parser.add_argument("--model-path", default=None)
     ingest_parser.add_argument("experiment_id")
     ingest_parser.add_argument("path")
     ingest_parser.set_defaults(func=cmd_ingest)
 
     export_parser = subparsers.add_parser("export", help="Export graph and basin artifacts for an experiment.")
-    export_parser.add_argument("--backend", default="mock", choices=["mock", "mlx"])
+    export_parser.add_argument("--backend", default=None, choices=["mock", "mlx"])
     export_parser.add_argument("--model-path", default=None)
     export_parser.add_argument("experiment_id")
     export_parser.add_argument("--session-id", default=None)
     export_parser.set_defaults(func=cmd_export)
 
     observatory_parser = subparsers.add_parser("observatory", help="Serve the exports directory over HTTP.")
-    observatory_parser.add_argument("--backend", default="mock", choices=["mock", "mlx"])
+    observatory_parser.add_argument("--backend", default=None, choices=["mock", "mlx"])
     observatory_parser.add_argument("--model-path", default=None)
     observatory_parser.add_argument("--host", default="127.0.0.1")
     observatory_parser.add_argument("--port", type=int, default=8741)
