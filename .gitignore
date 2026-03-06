@@ -13,4 +13,6 @@ data/*.sqlite
 exports/latest/
 exports/context/
 exports/.eden_observatory.json
+exports/*/graph_knowledge_base.html
+exports/*/graph_knowledge_base.json
 models/

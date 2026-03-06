@@ -6,9 +6,11 @@
 - The prompt-budget ticker is an EDEN-side working estimate. It does not guarantee the true maximum usable context of every future model build.
 - Exact token counting is only available when a tokenizer-backed counter is available. MLX preview mode before model/tokenizer load can still be heuristic.
 - Geometry diagnostics are computed from graph topology, co-occurrence structure, active-set recurrence, and temporal traces. They do not inspect internal latent activations from the model itself.
+- On large seeded graphs, observatory geometry falls back to sparse-safe approximations instead of dense spectral/PCA layouts. The outputs stay useful for operator diagnostics, but they are not mathematically identical to the small-graph exact path.
 - Mirror, chirality, and translation-symmetry outputs are derived proxies. They are evidence-bearing diagnostics, but they are not proof of metaphysical “sacred geometry.”
 - The browser observatory remains a lightweight HTML/JS layer over a small local JSON API. It is interactive, but it is not a full graph IDE with arbitrary drag-to-wire editing.
 - Geometry for editing previews is computed over EDEN's exported simple graph topology. Multiple relation types between the same node pair remain inspectable in provenance, but geometry itself is still evaluated on the collapsed neighborhood structure.
+- Seeded geometry exports cap per-memode local reports to a bounded, relevance-sorted subset so observatory/export remains responsive on this machine. The browser payload is intentionally not an exhaustive local-report dump for every memode.
 - `current_active_set` geometry export is based on the latest persisted active set for the selected session, not the unsent live composer preview.
 - `Resume Latest` restores the latest persisted session state, not an unsent draft from the composer.
 - Seeded Eden remains materially heavier than Blank Eden. The seeded path is real, but full canon ingest can still take substantial time and graph space.

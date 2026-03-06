@@ -43,46 +43,55 @@ Session-start modal:
 
 ## Chat screen
 
-Left column:
+Top split:
 
-- surface menu
-- `Enter Adam`, `Profile`, `Help`
-- `New Session`, `Blank Eden`, `Seeded Eden`
-- `Resume Latest`, `Observatory`, `Export`
-- motion / debug toggles
-- ingest path input and ingest button
-- telemetry / graph stats
-- bounded history
+- left operator bay:
+  - session ribbon
+  - operator status panel
+  - multiline `TextArea` composer for Brian the operator
+  - primary actions: `Send`, `Review`, `Deck`, `Profile`
+  - secondary actions: `New Session`, `Observatory`, `Export`, `Help`
+- right ritual bay:
+  - animated amber ritual engine
+  - dedicated Adam membrane response panel
+  - compact ritual status panel
 
-Center column:
+Bottom strip:
 
-- Adam core sigil
-- dedicated response panel
-- dedicated `Inference Circumstances / Budget` panel
-- multiline `TextArea` composer
-- send button
-- dedicated feedback panel and status
+- forensic structured log as the live command-line console
 
-Right column:
+Secondary surfaces:
 
-- dedicated Qwen thinking / reasoning panel for model-emitted reasoning text
-- aperture / active set
-- cogitation / decision trace
-- forensic structured log
+- `Deck` modal:
+  - `Inference Circumstances / Budget`
+  - graph telemetry
+  - bounded history
+  - Qwen thinking / reasoning
+  - aperture / active set
+  - cogitation / decision trace
+  - ingest input
+  - `Blank Eden`, `Seeded Eden`, `Resume Latest`
+  - `New Session`, low-motion toggle, debug toggle
+- `Review` modal:
+  - explicit accept / edit / reject / skip feedback surface
+  - explanation and corrected-answer fields
+  - last-response summary
 
 ## Design contract
 
 - fixed panes, no primary scrolling transcript
 - amber-on-dark operator grammar preserved
+- ritual-first primary chat surface: operator left, animation/right, console bottom
 - backend/model-path entry removed from the launcher and from prime live-chat real estate
 - normal entry path is `.venv/bin/python -m eden` or `.venv/bin/python -m eden app`
 - launcher settings are remembered locally so flags become overrides, not the default control path
 - MLX is the default runtime path; mock remains a fallback path
 - the launcher reports model readiness, shard progress, and repo-local storage instead of asking for a manual MLX path
 - multiline composition is first-class
-- MLX/Qwen model-emitted thinking is surfaced in its own panel instead of leaking into the main Adam response
-- active-set and trace panes can show preview state while the operator types
-- budget changes are visible rather than implicit
+- operator turns are persisted and graph-ingested as `Brian the operator: ...`
+- MLX/Qwen model-emitted thinking is surfaced in Deck instead of leaking into the main Adam response
+- active-set and trace panes can still show preview state while the operator types; they are just moved off the prime surface
+- budget changes remain visible, but now live in Deck instead of the prime chat pane
 - latest-session resume restores the latest persisted session surface instead of forcing a new session flow
 
 ## Budget panel contents
@@ -110,3 +119,4 @@ Right column:
 - `F3`: ensure/open local observatory
 - `F4`: toggle low-motion in the current session request
 - `F5`: open the new-session inference-profile flow
+- `F6`: open the operator deck

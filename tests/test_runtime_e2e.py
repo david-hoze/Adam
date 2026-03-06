@@ -19,10 +19,12 @@ def test_blank_bootstrap_chat_feedback_and_exports(runtime, tmp_path) -> None:
     assert len(outcome.active_set) > 0
     assert outcome.profile["requested_mode"] == "manual"
     assert outcome.budget["prompt_budget_tokens"] > 0
+    assert outcome.turn["user_text"].startswith("Brian the operator:")
 
     turn_metadata = json.loads(outcome.turn["metadata_json"])
     assert turn_metadata["budget"]["remaining_input_tokens"] >= 0
     assert turn_metadata["inference_profile"]["profile_name"].startswith("manual:")
+    assert turn_metadata["operator_input_raw"] == "How does Adam remain the same persona over time?"
 
     feedback = runtime.apply_feedback(
         session_id=session["id"],

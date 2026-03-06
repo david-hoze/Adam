@@ -33,6 +33,7 @@ from .utils import now_utc, safe_excerpt, top_phrases
 
 CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F]")
 RUNTIME_LAUNCH_PROFILE_KEY = "runtime_launch_profile"
+OPERATOR_LABEL = "Brian the operator"
 
 
 @dataclass(slots=True)
@@ -438,7 +439,7 @@ class EdenRuntime:
             return "No prior turns."
         parts = []
         for turn in turns:
-            parts.append(f"T{turn['turn_index']} USER: {safe_excerpt(turn['user_text'], limit=220)}")
+            parts.append(f"T{turn['turn_index']} {safe_excerpt(turn['user_text'], limit=220)}")
             parts.append(f"T{turn['turn_index']} ADAM: {safe_excerpt(turn['membrane_text'], limit=220)}")
         return "\n".join(parts)
 
@@ -479,9 +480,18 @@ class EdenRuntime:
             f"{feedback_context}\n\n"
             "RECENT HISTORY\n"
             f"{history_context}\n\n"
-            f"USER: {user_text}"
+            f"{self._operator_utterance(user_text)}"
         )
         return system_prompt, conversation_prompt
+
+    def _operator_utterance(self, user_text: str) -> str:
+        cleaned = (user_text or "").strip()
+        if not cleaned:
+            return f"{OPERATOR_LABEL}:"
+        normalized_prefix = f"{OPERATOR_LABEL}:"
+        if cleaned.lower().startswith(normalized_prefix.lower()):
+            return cleaned
+        return f"{normalized_prefix} {cleaned}"
 
     def _apply_membrane(
         self,
@@ -587,6 +597,7 @@ class EdenRuntime:
         session = self.store.get_session(session_id)
         experiment_id = session["experiment_id"]
         preview = self.preview_turn(session_id=session_id, user_text=user_text)
+        operator_text = self._operator_utterance(user_text)
         active_set = {"items": preview.active_set, "trace": preview.trace}
         profile = preview.profile
         budget = preview.budget
@@ -647,13 +658,15 @@ class EdenRuntime:
         turn = self.store.record_turn(
             experiment_id=experiment_id,
             session_id=session_id,
-            user_text=user_text,
+            user_text=operator_text,
             prompt_context=conversation_prompt,
             response_text=result.text,
             membrane_text=membrane_text,
             active_set=active_set["items"],
             trace=trace,
             metadata={
+                "operator_label": OPERATOR_LABEL,
+                "operator_input_raw": user_text,
                 "inference_profile": profile,
                 "budget": budget,
                 "model_result": {
@@ -690,10 +703,10 @@ class EdenRuntime:
             experiment_id=experiment_id,
             turn_id=turn["id"],
             session_id=session_id,
-            text=user_text,
+            text=operator_text,
             domain="knowledge",
             source_kind="turn_user",
-            actor="user",
+            actor="brian_operator",
         )
         indexed_adam = self._index_text_into_graph(
             experiment_id=experiment_id,

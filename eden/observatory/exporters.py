@@ -12,6 +12,10 @@ from ..utils import now_utc, safe_excerpt
 from .geometry import compute_ablation_report, compute_coordinate_sets, compute_geometry_metrics, compute_selection_geometry
 
 
+NODE_TOPOLOGY_EXACT_LIMIT = 1200
+LOCAL_GEOMETRY_REPORT_LIMIT = 24
+
+
 class ObservatoryExporter:
     def __init__(self, store, retrieval_service, runtime_log) -> None:
         self.store = store
@@ -686,8 +690,12 @@ class ObservatoryExporter:
         for item in geometry["communities"]:
             for member in item["members"]:
                 community_lookup[member] = item["community_id"]
-        clustering = nx.clustering(graph)
-        triangles = nx.triangles(graph)
+        if graph.number_of_nodes() <= NODE_TOPOLOGY_EXACT_LIMIT:
+            clustering = nx.clustering(graph)
+            triangles = nx.triangles(graph)
+        else:
+            clustering = {node_id: 0.0 for node_id in graph.nodes()}
+            triangles = {node_id: 0 for node_id in graph.nodes()}
         active_set_counts: Counter[str] = Counter()
         for turn in snapshot["turns"]:
             for item in json.loads(turn["active_set_json"] or "[]"):
@@ -808,9 +816,18 @@ class ObservatoryExporter:
                 radius=1,
                 node_order=graph_model["node_order"],
             )
-        for node in graph_model["nodes"]:
-            if node["kind"] != "memode":
-                continue
+        memode_nodes = [node for node in graph_model["nodes"] if node["kind"] == "memode"]
+        memode_nodes.sort(
+            key=lambda node: (
+                0 if session_id and node.get("session_id") == session_id else 1,
+                -int(node.get("recent_active_set_presence", 0) or 0),
+                -float(node.get("evidence", 0.0) or 0.0),
+                -int(node.get("usage_count", 0) or 0),
+                -int(node.get("feedback_count", 0) or 0),
+                node["label"],
+            )
+        )
+        for node in memode_nodes[:LOCAL_GEOMETRY_REPORT_LIMIT]:
             member_ids = [member_id for member_id in node.get("member_ids", []) if member_id in graph]
             if len(member_ids) < 2:
                 continue
