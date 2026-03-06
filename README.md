@@ -94,13 +94,13 @@ Useful flags:
 3. If the local Qwen model is not cached yet, use `Prepare Qwen` once. EDEN stores it under `models/` in this repo.
 4. Choose `Blank Eden`, `Seeded Eden`, or `Resume Latest`.
 5. In the session-start modal choose the inference profile mode and bounded parameters for that session.
-6. Once chat is up, use the left-side `Surface Menu` to jump between `Enter Adam`, profile edits, new blank/seeded experiments, `Resume Latest`, `Observatory`, `Export`, and `Ingest`.
-7. Use the multiline composer to write a turn and send it with `Ctrl+S`.
-8. Watch the `Inference Circumstances / Budget` panel update as you type and after retrieval preview refreshes.
-9. Inspect the dedicated Qwen thinking panel, the `Aperture / Active Set`, and the `Cogitation / Decision Trace` panes.
-10. Apply `Accept`, `Edit`, `Reject`, or `Skip` feedback.
+6. Once chat is up, use the left operator bay to write a turn for Brian the operator and send it with `Ctrl+S`.
+7. The primary chat surface is now simplified: operator input on the left, animated ritual field and Adam membrane on the right, live console on the bottom.
+8. Open `Deck` when you want the hidden diagnostic surfaces: budget, thinking, active set, trace, telemetry, history, ingest, and launch utilities.
+9. Open `Review` when you want to apply `Accept`, `Edit`, `Reject`, or `Skip` feedback.
+10. Use `Profile` for the bounded hyperparameter / inference-mode surface.
 11. Use `Export` to write graph, basin, geometry, measurement, and index artifacts.
-12. Use `Observatory` to ensure the local server is running and open the current experiment's index page.
+12. Use `Observatory` to ensure the local server is running and open the current experiment's latest existing artifact without forcing a fresh export first.
 13. In the browser observatory use `INSPECT`, `MEASURE`, `EDIT`, `ABLATE`, or `COMPARE`.
 14. Preview a change first, then commit it if the before/after metrics support the edit.
 15. Revert recent observatory-originated mutations from the measurement ledger when needed.

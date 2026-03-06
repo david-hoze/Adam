@@ -21,4 +21,8 @@ async def test_tui_boots_blank_mode_and_uses_multiline_composer(runtime) -> None
         composer.load_text("line one\nline two")
         await pilot.pause()
         assert "\n" in composer.text
-        assert app.screen.query_one("#budget_panel")
+        assert app.screen.query_one("#ritual_panel")
+        assert app.screen.query_one("#forensic_log")
+        app.screen.query_one("#deck_btn", Button).press()
+        await pilot.pause()
+        assert app.screen.query_one("#deck_budget_panel")

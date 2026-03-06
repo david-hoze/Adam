@@ -8,6 +8,13 @@ import networkx as nx
 import numpy as np
 
 
+DENSE_LAYOUT_NODE_LIMIT = 240
+DENSE_MATRIX_NODE_LIMIT = 320
+EXACT_TRIANGLE_NODE_LIMIT = 1200
+COMMUNITY_EXACT_NODE_LIMIT = 900
+CHIRALITY_SAMPLE_LIMIT = 4000
+
+
 def compute_coordinate_sets(
     graph: nx.Graph,
     *,
@@ -16,9 +23,20 @@ def compute_coordinate_sets(
     nodes = list(graph.nodes())
     if not nodes:
         return {name: {} for name in ("force", "spectral", "pca", "circular_candidate", "temporal")}
-    force = nx.spring_layout(graph, seed=42, iterations=80) if graph.number_of_edges() else nx.circular_layout(graph)
-    spectral = _spectral_coords(graph, nodes)
-    pca = _pca_coords(graph, nodes)
+    large_graph = _use_sparse_approximations(graph)
+    if graph.number_of_edges():
+        if large_graph:
+            spectral = _structural_projection_coords(graph, nodes, node_order=node_order or nodes, variant="spectral")
+            pca = _structural_projection_coords(graph, nodes, node_order=node_order or nodes, variant="pca")
+            force = _relaxed_force_coords(graph, nodes, base_coords=pca, node_order=node_order or nodes)
+        else:
+            force = nx.spring_layout(graph, seed=42, iterations=80, method="force")
+            spectral = _spectral_coords(graph, nodes)
+            pca = _pca_coords(graph, nodes)
+    else:
+        spectral = _structural_projection_coords(graph, nodes, node_order=node_order or nodes, variant="spectral")
+        pca = _structural_projection_coords(graph, nodes, node_order=node_order or nodes, variant="pca")
+        force = nx.circular_layout(graph)
     circular = _circular_candidate_coords(nodes, spectral)
     temporal = _temporal_coords(nodes, node_order or nodes)
     return {
@@ -46,24 +64,40 @@ def compute_geometry_metrics(
             "projection_quality": {},
         }
     degree_values = np.array([graph.degree(node) for node in nodes], dtype=float)
-    cycle_basis = nx.cycle_basis(graph)
-    cycle_nodes = {node for cycle in cycle_basis for node in cycle}
+    cycle_nodes = _cycle_nodes(graph)
     n = graph.number_of_nodes()
     m = graph.number_of_edges()
-    clustering_mean = float(np.mean(list(nx.clustering(graph).values()))) if n else 0.0
+    clustering_values = nx.clustering(graph)
+    clustering_mean = float(np.mean(list(clustering_values.values()))) if n else 0.0
     transitivity = float(nx.transitivity(graph) if n >= 3 else 0.0)
-    triangle_density = float(sum(nx.triangles(graph).values()) / 3 / max(1, n))
-    communities = list(nx.community.greedy_modularity_communities(graph)) if n >= 2 and m else [set(nodes)]
-    modularity = float(nx.community.modularity(graph, communities)) if len(communities) > 1 and m else 0.0
+    if n <= EXACT_TRIANGLE_NODE_LIMIT:
+        triangle_density = float(sum(nx.triangles(graph).values()) / 3 / max(1, n))
+    else:
+        triangle_density = clustering_mean
+    communities = _communities(graph, nodes)
+    modularity = float(nx.community.modularity(graph, communities, weight="weight")) if len(communities) > 1 and m else 0.0
     coords = coords or compute_coordinate_sets(graph, node_order=node_order)
-    adjacency = nx.to_numpy_array(graph, nodelist=nodes, weight="weight", dtype=float)
-    laplacian = np.diag(adjacency.sum(axis=1)) - adjacency
-    adj_eigs = np.sort(np.linalg.eigvalsh(adjacency))[::-1]
-    lap_eigs = np.sort(np.linalg.eigvalsh(laplacian))
-    pca_summary = _pca_summary(adjacency)
+    large_graph = _use_sparse_approximations(graph)
+    if large_graph:
+        pca_summary = _structural_projection_summary(graph, nodes, node_order=node_order or nodes)
+        translation = _translation_symmetry_proxy_sparse(graph, node_order=node_order or nodes)
+        spectral_radius = _power_iteration_spectral_radius(graph, nodes)
+        algebraic_connectivity = _algebraic_connectivity_proxy(graph, degree_values)
+        laplacian_eigengap = algebraic_connectivity * max(0.0, 1.0 - modularity)
+        adjacency_top_eigengap = max(0.0, spectral_radius - float(np.mean(degree_values) if len(degree_values) else 0.0))
+    else:
+        adjacency = nx.to_numpy_array(graph, nodelist=nodes, weight="weight", dtype=float)
+        laplacian = np.diag(adjacency.sum(axis=1)) - adjacency
+        adj_eigs = np.sort(np.linalg.eigvalsh(adjacency))[::-1]
+        lap_eigs = np.sort(np.linalg.eigvalsh(laplacian))
+        pca_summary = _pca_summary(adjacency)
+        translation = _translation_symmetry_proxy(adjacency, node_order=nodes if node_order is None else node_order, graph_nodes=nodes)
+        spectral_radius = float(adj_eigs[0]) if len(adj_eigs) else 0.0
+        algebraic_connectivity = float(lap_eigs[1]) if len(lap_eigs) > 1 else 0.0
+        laplacian_eigengap = float(lap_eigs[2] - lap_eigs[1]) if len(lap_eigs) > 2 else 0.0
+        adjacency_top_eigengap = float(adj_eigs[0] - adj_eigs[1]) if len(adj_eigs) > 1 else spectral_radius
     mirror = _mirror_symmetry(coords.get("pca", {}))
     chirality = _chirality_proxy(directed_graph or nx.DiGraph(graph), coords)
-    translation = _translation_symmetry_proxy(adjacency, node_order=nodes if node_order is None else node_order, graph_nodes=nodes)
     return {
         "counts": {"nodes": n, "edges": m},
         "metrics": {
@@ -122,10 +156,11 @@ def compute_geometry_metrics(
         ],
         "projection_quality": {
             "pca_explained_variance_top2": pca_summary["explained_variance_top2"],
-            "adjacency_spectral_radius": float(adj_eigs[0]) if len(adj_eigs) else 0.0,
-            "laplacian_algebraic_connectivity": float(lap_eigs[1]) if len(lap_eigs) > 1 else 0.0,
-            "laplacian_eigengap": float(lap_eigs[2] - lap_eigs[1]) if len(lap_eigs) > 2 else 0.0,
-            "adjacency_top_eigengap": float(adj_eigs[0] - adj_eigs[1]) if len(adj_eigs) > 1 else float(adj_eigs[0]) if len(adj_eigs) else 0.0,
+            "adjacency_spectral_radius": spectral_radius,
+            "laplacian_algebraic_connectivity": algebraic_connectivity,
+            "laplacian_eigengap": laplacian_eigengap,
+            "adjacency_top_eigengap": adjacency_top_eigengap,
+            "mode": "sparse_approximate" if large_graph else "dense_exact",
         },
     }
 
@@ -298,6 +333,160 @@ def _circular_candidate_coords(nodes: list[str], spectral: dict[str, np.ndarray]
     return coords
 
 
+def _use_sparse_approximations(graph: nx.Graph) -> bool:
+    return graph.number_of_nodes() > DENSE_MATRIX_NODE_LIMIT or graph.number_of_edges() > (DENSE_MATRIX_NODE_LIMIT * 8)
+
+
+def _communities(graph: nx.Graph, nodes: list[str]) -> list[set[str]]:
+    if graph.number_of_nodes() < 2 or graph.number_of_edges() == 0:
+        return [set(nodes)]
+    if graph.number_of_nodes() <= COMMUNITY_EXACT_NODE_LIMIT:
+        return [set(group) for group in nx.community.greedy_modularity_communities(graph, weight="weight")]
+    return [set(group) for group in nx.community.asyn_lpa_communities(graph, weight="weight", seed=42)]
+
+
+def _cycle_nodes(graph: nx.Graph) -> set[str]:
+    cycle_nodes: set[str] = set()
+    for component in nx.biconnected_components(graph):
+        if len(component) > 2:
+            cycle_nodes.update(component)
+    return cycle_nodes
+
+
+def _structural_feature_matrix(
+    graph: nx.Graph,
+    nodes: list[str],
+    *,
+    node_order: list[str],
+) -> np.ndarray:
+    order_index = {node: index for index, node in enumerate(node_order) if node in graph}
+    component_sizes: dict[str, int] = {}
+    for component in nx.connected_components(graph) if graph.number_of_nodes() else []:
+        size = len(component)
+        for node in component:
+            component_sizes[node] = size
+    degree = np.array([graph.degree(node) for node in nodes], dtype=float)
+    weighted_degree = np.array([graph.degree(node, weight="weight") for node in nodes], dtype=float)
+    neighbor_degree: list[float] = []
+    for node in nodes:
+        neighbors = list(graph.neighbors(node))
+        if not neighbors:
+            neighbor_degree.append(0.0)
+            continue
+        neighbor_degree.append(float(np.mean([graph.degree(neighbor) for neighbor in neighbors])))
+    order_fraction = np.array(
+        [
+            order_index.get(node, index) / max(1, len(node_order) - 1)
+            for index, node in enumerate(nodes)
+        ],
+        dtype=float,
+    )
+    component_fraction = np.array([component_sizes.get(node, 1) / max(1, len(nodes)) for node in nodes], dtype=float)
+    feature_matrix = np.column_stack(
+        (
+            np.log1p(degree),
+            np.log1p(np.maximum(weighted_degree, 0.0)),
+            np.log1p(np.array(neighbor_degree, dtype=float)),
+            order_fraction,
+            component_fraction,
+        )
+    )
+    centered = feature_matrix - feature_matrix.mean(axis=0, keepdims=True)
+    scales = centered.std(axis=0, keepdims=True)
+    scales[scales == 0.0] = 1.0
+    return centered / scales
+
+
+def _project_feature_matrix(feature_matrix: np.ndarray) -> tuple[np.ndarray, float]:
+    if feature_matrix.shape[0] == 1:
+        return np.array([[0.0, 0.0]], dtype=float), 0.0
+    u, s, _ = np.linalg.svd(feature_matrix, full_matrices=False)
+    if feature_matrix.shape[1] == 1:
+        coords = np.column_stack((u[:, 0] * s[0], np.zeros(feature_matrix.shape[0])))
+    else:
+        coords = u[:, :2] * s[:2]
+    power = np.square(s)
+    explained = float(power[:2].sum() / max(1e-9, power.sum()))
+    return coords, explained
+
+
+def _structural_projection_coords(
+    graph: nx.Graph,
+    nodes: list[str],
+    *,
+    node_order: list[str],
+    variant: str,
+) -> dict[str, np.ndarray]:
+    feature_matrix = _structural_feature_matrix(graph, nodes, node_order=node_order)
+    coords, _ = _project_feature_matrix(feature_matrix)
+    if variant == "spectral":
+        coords = np.column_stack((coords[:, 0], feature_matrix[:, 3]))
+    elif variant == "pca":
+        coords = np.column_stack((coords[:, 0], coords[:, 1] if coords.shape[1] > 1 else feature_matrix[:, 1]))
+    coord_map = {node: coords[index] for index, node in enumerate(nodes)}
+    return _normalize_coords(coord_map)
+
+
+def _structural_projection_summary(graph: nx.Graph, nodes: list[str], *, node_order: list[str]) -> dict[str, float]:
+    feature_matrix = _structural_feature_matrix(graph, nodes, node_order=node_order)
+    _, explained = _project_feature_matrix(feature_matrix)
+    return {"explained_variance_top2": explained}
+
+
+def _relaxed_force_coords(
+    graph: nx.Graph,
+    nodes: list[str],
+    *,
+    base_coords: dict[str, np.ndarray],
+    node_order: list[str],
+) -> dict[str, np.ndarray]:
+    if len(nodes) == 1:
+        return {nodes[0]: np.array([0.0, 0.0])}
+    positions = _normalize_coords({node: np.array(base_coords[node], dtype=float) for node in nodes})
+    circular = _circular_candidate_coords(nodes, positions)
+    temporal = {
+        node: np.array([(point["x"] * 2.0) - 1.0, (point["y"] * 2.0) - 1.0], dtype=float)
+        for node, point in _temporal_coords(nodes, node_order).items()
+    }
+    degree = {node: float(graph.degree(node)) for node in nodes}
+    max_degree = max(1.0, max(degree.values(), default=1.0))
+    for _ in range(12):
+        updated: dict[str, np.ndarray] = {}
+        for node in nodes:
+            neighbors = list(graph.neighbors(node))
+            current = positions[node]
+            if neighbors:
+                weights = np.array(
+                    [abs(float(graph[node][neighbor].get("weight", 1.0) or 1.0)) for neighbor in neighbors],
+                    dtype=float,
+                )
+                weight_total = float(weights.sum()) or 1.0
+                neighbor_mean = sum((positions[neighbor] * weight) for neighbor, weight in zip(neighbors, weights, strict=False)) / weight_total
+            else:
+                neighbor_mean = current
+            degree_scale = degree[node] / max_degree
+            anchor = (0.55 * base_coords[node]) + (0.25 * circular[node] * (0.65 + (0.35 * degree_scale))) + (0.20 * temporal[node])
+            updated[node] = (0.48 * current) + (0.30 * neighbor_mean) + (0.22 * anchor)
+        positions = _normalize_coords(updated)
+    return positions
+
+
+def _normalize_coords(coords: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+    if not coords:
+        return {}
+    nodes = list(coords)
+    matrix = np.vstack([coords[node] for node in nodes]).astype(float)
+    matrix -= matrix.mean(axis=0, keepdims=True)
+    spread = float(np.max(np.linalg.norm(matrix, axis=1))) if len(nodes) > 1 else 0.0
+    if spread <= 1e-9:
+        for index, node in enumerate(nodes):
+            angle = (2 * math.pi * index) / max(1, len(nodes))
+            coords[node] = np.array([math.cos(angle), math.sin(angle)], dtype=float)
+        return coords
+    matrix /= spread
+    return {node: matrix[index] for index, node in enumerate(nodes)}
+
+
 def _temporal_coords(nodes: list[str], node_order: list[str]) -> dict[str, dict[str, float]]:
     positions = {node: index for index, node in enumerate(node_order) if node in nodes}
     span = max(1, len(positions) - 1)
@@ -385,8 +574,13 @@ def _chirality_proxy(directed_graph: nx.DiGraph, coord_sets: dict[str, dict[str,
         if len(coords) < 3:
             continue
         signed_areas: list[float] = []
+        budget = CHIRALITY_SAMPLE_LIMIT
         for source in directed_graph.nodes():
+            if budget <= 0:
+                break
             for middle in directed_graph.successors(source):
+                if budget <= 0:
+                    break
                 for target in directed_graph.successors(middle):
                     if len({source, middle, target}) < 3:
                         continue
@@ -396,6 +590,9 @@ def _chirality_proxy(directed_graph: nx.DiGraph, coord_sets: dict[str, dict[str,
                     b = np.array([coords[middle]["x"], coords[middle]["y"]], dtype=float)
                     c = np.array([coords[target]["x"], coords[target]["y"]], dtype=float)
                     signed_areas.append(float((((b[0] - a[0]) * (c[1] - a[1])) - ((b[1] - a[1]) * (c[0] - a[0]))) / 2))
+                    budget -= 1
+                    if budget <= 0:
+                        break
         if not signed_areas:
             continue
         mean_abs = float(np.mean(np.abs(signed_areas))) or 1.0
@@ -428,3 +625,73 @@ def _translation_symmetry_proxy(adjacency: np.ndarray, *, node_order: list[str],
         "method": "variance explained by edge-distance offset bins",
         "sample_size": len(values),
     }
+
+
+def _translation_symmetry_proxy_sparse(graph: nx.Graph, node_order: list[str]) -> dict[str, Any]:
+    if graph.number_of_edges() == 0 or len(node_order) < 4:
+        return {"score": 0.0, "method": "ordered-offset proxy unavailable for this slice", "sample_size": 0}
+    positions = {node: index for index, node in enumerate(node_order) if node in graph}
+    by_offset: dict[int, list[float]] = defaultdict(list)
+    for source, target, data in graph.edges(data=True):
+        left = positions.get(source)
+        right = positions.get(target)
+        if left is None or right is None:
+            continue
+        offset = abs(left - right)
+        if offset == 0:
+            continue
+        by_offset[offset].append(float(data.get("weight", 1.0) or 1.0))
+    if not by_offset:
+        return {"score": 0.0, "method": "ordered-offset proxy unavailable for this slice", "sample_size": 0}
+    means = {offset: float(np.mean(values)) for offset, values in by_offset.items()}
+    residuals: list[float] = []
+    values: list[float] = []
+    for offset, bucket in by_offset.items():
+        for value in bucket:
+            values.append(value)
+            residuals.append(value - means[offset])
+    total_var = float(np.var(values))
+    residual_var = float(np.var(residuals))
+    if total_var == 0.0:
+        return {"score": 0.0, "method": "ordered-offset proxy had zero variance", "sample_size": len(values)}
+    return {
+        "score": max(0.0, min(1.0, 1.0 - (residual_var / total_var))),
+        "method": "sparse edge-distance offset bins",
+        "sample_size": len(values),
+    }
+
+
+def _power_iteration_spectral_radius(graph: nx.Graph, nodes: list[str], *, steps: int = 16) -> float:
+    if not nodes or graph.number_of_edges() == 0:
+        return 0.0
+    index = {node: idx for idx, node in enumerate(nodes)}
+    vector = np.full(len(nodes), 1.0 / math.sqrt(len(nodes)), dtype=float)
+    for _ in range(steps):
+        updated = np.zeros(len(nodes), dtype=float)
+        for source, target, data in graph.edges(data=True):
+            weight = abs(float(data.get("weight", 1.0) or 1.0))
+            left = index[source]
+            right = index[target]
+            updated[left] += weight * vector[right]
+            updated[right] += weight * vector[left]
+        norm = float(np.linalg.norm(updated))
+        if norm <= 1e-9:
+            return 0.0
+        vector = updated / norm
+    rayleigh = np.zeros(len(nodes), dtype=float)
+    for source, target, data in graph.edges(data=True):
+        weight = abs(float(data.get("weight", 1.0) or 1.0))
+        left = index[source]
+        right = index[target]
+        rayleigh[left] += weight * vector[right]
+        rayleigh[right] += weight * vector[left]
+    return float(vector @ rayleigh)
+
+
+def _algebraic_connectivity_proxy(graph: nx.Graph, degree_values: np.ndarray) -> float:
+    n = graph.number_of_nodes()
+    if n < 2 or graph.number_of_edges() == 0 or nx.number_connected_components(graph) > 1:
+        return 0.0
+    edge_density = (2.0 * graph.number_of_edges()) / max(1.0, n * (n - 1))
+    min_degree = float(np.min(degree_values)) / max(1.0, n - 1)
+    return float(max(0.0, min(1.0, (0.6 * edge_density) + (0.4 * min_degree))))
