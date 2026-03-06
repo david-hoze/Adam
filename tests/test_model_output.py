@@ -1,0 +1,27 @@
+from __future__ import annotations
+
+from eden.models.base import ModelResult, split_model_output
+
+
+def test_split_model_output_with_think_block() -> None:
+    reasoning, answer = split_model_output("<think>\nstep 1\nstep 2\n</think>\n\nAnswer:\nReady.")
+    assert reasoning == "step 1\nstep 2"
+    assert answer == "Answer:\nReady."
+
+
+def test_split_model_output_with_reasoning_only_fallback_shape() -> None:
+    text = "Thinking Process:\n\n1. Analyze the request.\n2. Plan the answer."
+    reasoning, answer = split_model_output(text)
+    assert reasoning == text
+    assert answer == text
+
+
+def test_model_result_defaults_answer_and_raw_to_text() -> None:
+    result = ModelResult(
+        backend="mock",
+        text="Answer:\nReady.",
+        tokens_estimate=12,
+        metadata={},
+    )
+    assert result.answer_text == "Answer:\nReady."
+    assert result.raw_text == "Answer:\nReady."

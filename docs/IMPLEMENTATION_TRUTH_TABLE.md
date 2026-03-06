@@ -7,8 +7,12 @@
 | Fixed-pane amber TUI | Implemented | preserved and refined in v1.1 |
 | Panel-based launcher for startup and runtime surfaces | Implemented | startup launcher + left-side surface menu replace flag-heavy normal access |
 | `python -m eden` default entry path | Implemented | no subcommand required for the normal TUI path; flags remain optional overrides |
+| Local repo-managed MLX model storage | Implemented | default MLX model target is `models/qwen3.5-35b-a3b-mlx-mxfp4` under repo root |
+| Local MLX shard-readiness tracking | Implemented | startup/runtime distinguish metadata-only, partial, and ready model states |
+| Repo-local Qwen 3.5 MLX backend | Implemented | repo-local 4-shard model completed and real MLX generation succeeded |
 | Multiline composer | Implemented | `TextArea`-based; covered by TUI smoke test |
-| Backend clutter removed from prime chat pane | Implemented | backend/model path now live on startup/config surfaces instead |
+| Backend clutter removed from prime chat pane | Implemented | launcher shows runtime choice + MLX readiness instead of path entry fields |
+| Dedicated model thinking panel | Implemented | MLX/Qwen reasoning is kept on and surfaced separately from the final answer |
 | Session-start inference profile flow | Implemented | startup/new-session modal |
 | Manual inference mode | Implemented | persisted in session metadata and surfaced per turn |
 | Runtime auto inference mode | Implemented | deterministic bounded heuristics; tested |
@@ -38,15 +42,18 @@
 | Revert observatory-originated mutation | Implemented | explicit `revert` action stored as its own event |
 | Local selection geometry | Implemented | geometry lab + graph preview support selection-local metrics |
 | TUI trace of observatory edits | Implemented | runtime log and trace events emitted on commit / revert |
-| Full selected Qwen/Qwen3.5-35B-A3B model load on this machine | Instrumented / blocked by missing local model path | adapter ready, model path absent during patch |
+| Default Qwen 3.5 MLX local pathing | Implemented | runtime prepares repo-local model storage automatically when MLX is selected |
 | Weight training / fine-tuning / LoRA | Deferred by design | explicitly out of scope |
 | Governor / hidden planner | Deferred by design | explicitly absent |
 | Embedding-based semantic retrieval | Deferred | lexical/graph retrieval only |
 
 Validated in this patch:
 
-- `.venv/bin/pytest -q` -> `27 passed`
+- `.venv/bin/pytest -q` -> `31 passed`
 - CLI observatory fallback from occupied requested port to actual port `8877`
 - live observatory preview / commit / revert succeeded against a real experiment
 - mock demo export wrote graph, basin, geometry, measurement, and index artifacts
 - observatory graph instrument and geometry lab opened in a real browser session
+- repo-local Qwen MLX model completed under `models/qwen3.5-35b-a3b-mlx-mxfp4`
+- direct MLX generation succeeded against the repo-local Qwen model
+- EDEN runtime chat completed against the repo-local MLX backend with separate reasoning and answer surfaces

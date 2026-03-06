@@ -32,8 +32,10 @@ class UiState:
     experiment_name: str | None = None
     session_id: str | None = None
     session_title: str | None = None
+    model_status: dict[str, Any] | None = None
     last_turn_id: str | None = None
     last_response: str = ""
+    last_reasoning: str = ""
     last_active_set: list[dict[str, Any]] | None = None
     last_trace: list[dict[str, Any]] | None = None
     preview_active_set: list[dict[str, Any]] | None = None
@@ -56,6 +58,8 @@ class HelpModal(ModalScreen[None]):
             "[bold]F4[/] toggle low motion for the current session request\n"
             "[bold]F5[/] open the new-session inference-profile flow\n"
             "[bold]Esc[/] close this overlay\n\n"
+            "When the backend emits explicit reasoning, EDEN surfaces it in the dedicated thinking panel.\n"
+            "That panel shows model-emitted text, not claimed hidden chain-of-thought.\n\n"
             "Inference modes:\n"
             "- MANUAL: operator-specified bounded parameters\n"
             "- RUNTIME_AUTO: deterministic transparent runtime policy\n"
@@ -284,18 +288,21 @@ class StartupScreen(Screen):
             with Vertical(classes="column"):
                 yield Static(id="startup_summary")
                 yield Static(id="runtime_path_panel")
+                yield Static(id="model_status_panel")
                 yield Select(
-                    [("Mock Adam", "mock"), ("MLX Adam", "mlx")],
-                    value="mock",
+                    [("Adam / Local MLX", "mlx"), ("Mock Fallback", "mock")],
+                    value="mlx",
                     allow_blank=False,
                     id="backend_select",
-                    prompt="Runtime path",
+                    prompt="Runtime surface",
                 )
-                yield Input(id="model_path_input", placeholder="MLX model path (required when backend=mlx)")
                 with Horizontal():
                     yield Button("Blank Eden", id="blank_btn", variant="primary")
                     yield Button("Seeded Eden", id="seeded_btn")
                     yield Button("Resume Latest", id="resume_btn")
+                with Horizontal():
+                    yield Button("Prepare Qwen", id="prepare_mlx_btn")
+                    yield Button("Refresh Model", id="refresh_model_btn")
                 with Horizontal():
                     yield Button("Open Observatory", id="startup_observatory_btn")
                     yield Button("Export Latest", id="startup_export_btn")
@@ -310,16 +317,19 @@ class StartupScreen(Screen):
         assert isinstance(app, EdenTuiApp)
         launch = app.runtime.runtime_launch_profile()
         self.query_one("#backend_select", Select).value = launch["backend"]
-        self.query_one("#model_path_input", Input).value = launch["model_path"]
+        app.ui_state.model_status = app.runtime.mlx_model_status()
         self.query_one("#startup_summary", Static).update(self._summary_text())
         self._refresh_runtime_path_panel()
+        self._refresh_model_status_panel()
         self.query_one("#startup_hint", Static).update(
             Panel(
                 Text.from_markup(
                     f"[bold {AMBER}]Launch Contract[/]\n"
                     "- launch from the repo-local interpreter: .venv/bin/python -m eden\n"
+                    "- default runtime is Adam on local MLX with Qwen 3.5 35B A3B\n"
+                    "- model storage stays inside this repo under models/\n"
                     "- choose Blank Eden, Seeded Eden, or Resume Latest here instead of juggling startup flags\n"
-                    "- backend and MLX model path now live in this launcher and are remembered locally\n"
+                    "- the launcher shows MLX readiness and can prepare the local model directly\n"
                     "- observatory/export utilities stay available from this startup panel and from the running chat surface"
                 ),
                 title="Startup Surface",
@@ -334,11 +344,12 @@ class StartupScreen(Screen):
         controls = ["profile_mode", "budget_mode", "retrieval_depth", "max_context_items", "response_char_cap"]
         content = Text.from_markup(
             f"[bold {AMBER}]EDEN / ADAM[/]\n"
-            f"repo={app.repo_root}\n"
-            f"python={app.repo_root / '.venv' / 'bin' / 'python'}\n"
+            f"repo=Adam\n"
+            f"python=.venv/bin/python\n"
             f"seed_canon={len(list((app.repo_root / 'assets' / 'seed_canon').rglob('*.pdf')))} pdf files\n"
-            f"db={app.repo_root / 'data' / 'eden.db'}\n"
-            f"exports={app.repo_root / 'exports'}\n"
+            f"db=data/eden.db\n"
+            f"models=models/\n"
+            f"exports=exports/\n"
             f"controls={', '.join(controls)}"
         )
         return Panel(content, title="Startup Summary", border_style=AMBER)
@@ -347,22 +358,49 @@ class StartupScreen(Screen):
         app = self.app
         assert isinstance(app, EdenTuiApp)
         backend = str(self.query_one("#backend_select", Select).value or "mock")
-        model_path = self.query_one("#model_path_input", Input).value.strip()
-        profile = app.runtime.update_runtime_launch_profile(backend=backend, model_path=model_path)
-        self.query_one("#model_path_input", Input).disabled = profile["backend"] != "mlx"
-        return profile
+        return app.runtime.update_runtime_launch_profile(backend=backend, model_path=None)
 
     def _refresh_runtime_path_panel(self) -> None:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
         profile = self._runtime_launch_profile()
-        model_path = profile["model_path"] or "not required for mock path"
+        model_status = app.ui_state.model_status or app.runtime.mlx_model_status()
+        default_runtime = f"Adam / {model_status['label']}" if profile["backend"] == "mlx" else "Mock Adam fallback"
+        model_stage = str(model_status.get("stage", "missing")).replace("_", " ")
         text = Text.from_markup(
-            f"[bold {AMBER}]Runtime Path[/]\n"
+            f"[bold {AMBER}]Runtime Surface[/]\n"
             f"backend={profile['backend']}\n"
-            f"model_path={safe_excerpt(model_path, limit=120)}\n\n"
+            f"default={default_runtime}\n\n"
+            f"model_state={model_stage}\n"
+            f"storage=models/{Path(model_status['local_dir']).name}\n\n"
             "Use `.venv/bin/python -m eden` or `.venv/bin/python -m eden app`.\n"
-            "The launcher remembers this path so you only need flags when overriding it."
+            "The launcher remembers the runtime choice, and MLX is the default local path."
         )
-        self.query_one("#runtime_path_panel", Static).update(Panel(text, title="Runtime Launcher", border_style=AMBER))
+        self.query_one("#runtime_path_panel", Static).update(Panel(text, title="Runtime Surface", border_style=AMBER))
+
+    def _refresh_model_status_panel(self) -> None:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        status = app.runtime.mlx_model_status()
+        app.ui_state.model_status = status
+        readiness = "READY" if status["ready"] else "PREPARING" if status.get("safetensor_count") else "NOT CACHED"
+        storage = f"models/{Path(status['local_dir']).name}"
+        expected = status.get("weight_files_expected")
+        shard_progress = (
+            f"{status['weight_files_present']}/{expected}"
+            if expected
+            else str(status["weight_files_present"])
+        )
+        text = Text.from_markup(
+            f"[bold {AMBER}]Default MLX Model[/]\n"
+            f"label={status['label']}\n"
+            f"base={status['base_model']}\n"
+            f"source={status['repo_id']}\n"
+            f"cache={readiness} stage={status.get('stage', 'missing')}\n"
+            f"weights={shard_progress} size={status.get('gib_on_disk', 0)} GiB\n"
+            f"storage={storage}"
+        )
+        self.query_one("#model_status_panel", Static).update(Panel(text, title="MLX Model Status", border_style=AMBER))
 
     def _poll_logs(self) -> None:
         app = self.app
@@ -377,9 +415,12 @@ class StartupScreen(Screen):
         app = self.app
         assert isinstance(app, EdenTuiApp)
         launch = self._runtime_launch_profile()
-        if launch["backend"] == "mlx" and not launch["model_path"]:
-            self.query_one("#startup_log", RichLog).write("[WARN] MLX launch selected but no model path was provided.")
-            return
+        if launch["backend"] == "mlx":
+            status = await self._ensure_local_mlx_model()
+            if status is None:
+                return
+            app.ui_state.model_status = status
+            self._refresh_model_status_panel()
         if action == "resume":
             latest = app.runtime.store.get_latest_experiment()
             if latest is None:
@@ -420,6 +461,7 @@ class StartupScreen(Screen):
                 "session_title": session["title"],
                 "last_turn_id": None,
                 "last_response": "",
+                "last_reasoning": "",
                 "last_active_set": [],
                 "last_trace": [],
                 "current_profile": None,
@@ -444,8 +486,42 @@ class StartupScreen(Screen):
         self.begin_launch_session("resume")
 
     @on(Select.Changed, "#backend_select")
-    @on(Input.Changed, "#model_path_input")
     def handle_runtime_path_change(self, _event) -> None:
+        self._refresh_runtime_path_panel()
+        self._refresh_model_status_panel()
+
+    async def _ensure_local_mlx_model(self) -> dict[str, Any] | None:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        status = await asyncio.to_thread(app.runtime.mlx_model_status)
+        if status["ready"]:
+            return status
+        self.query_one("#startup_log", RichLog).write(
+            f"[INFO] Preparing local MLX model :: {status['label']} -> models/{Path(status['local_dir']).name}"
+        )
+        try:
+            status = await asyncio.to_thread(app.runtime.prepare_default_mlx_model)
+        except Exception as exc:
+            self.query_one("#startup_log", RichLog).write(f"[ERROR] MLX prepare failed :: {exc}")
+            return None
+        self.query_one("#startup_log", RichLog).write(
+            f"[INFO] MLX model ready :: models/{Path(status['local_dir']).name} ({status.get('gib_on_disk', 0)} GiB)"
+        )
+        return status
+
+    async def _prepare_mlx_worker(self) -> None:
+        status = await self._ensure_local_mlx_model()
+        if status is not None:
+            self.app.ui_state.model_status = status
+            self._refresh_model_status_panel()
+
+    @on(Button.Pressed, "#prepare_mlx_btn")
+    def handle_prepare_mlx(self) -> None:
+        self.run_worker(self._prepare_mlx_worker(), exclusive=True, group="prepare_mlx")
+
+    @on(Button.Pressed, "#refresh_model_btn")
+    def handle_refresh_model(self) -> None:
+        self._refresh_model_status_panel()
         self._refresh_runtime_path_panel()
 
     async def _startup_export_worker(self) -> None:
@@ -551,6 +627,7 @@ class ChatScreen(Screen):
                         yield Button("Skip", id="skip_btn")
                     yield Static(id="feedback_status")
             with Vertical(id="right_column"):
+                yield Static(id="thinking_panel")
                 yield Static(id="active_set_panel")
                 yield Static(id="trace_panel")
                 yield RichLog(id="forensic_log", wrap=True, auto_scroll=True, highlight=True)
@@ -570,6 +647,7 @@ class ChatScreen(Screen):
         health = app.runtime.graph_health(app.ui_state.experiment_id)
         current_profile = app.ui_state.current_profile or {}
         current_budget = app.ui_state.current_budget or {}
+        model_status = app.runtime.mlx_model_status() if app.runtime.settings.model_backend == "mlx" else None
         control_text = Text.from_markup(
             f"[bold {AMBER}]Surface Menu[/]\n"
             f"enter_adam=focus composer\n"
@@ -580,7 +658,8 @@ class ChatScreen(Screen):
             f"experiment={app.ui_state.experiment_name or app.ui_state.experiment_id}\n"
             f"session={app.ui_state.session_title or app.ui_state.session_id}\n"
             f"runtime={app.runtime.settings.model_backend}\n"
-            f"model_path={safe_excerpt(app.runtime.settings.model_path or 'mock path', limit=42)}\n"
+            f"model={'Qwen 3.5 35B A3B local MLX' if app.runtime.settings.model_backend == 'mlx' else 'Mock fallback'}\n"
+            f"model_cache={model_status.get('stage', 'ready') if model_status else 'n/a'}\n"
             f"observatory={(app.ui_state.observatory_status or {}).get('url', 'offline')}\n"
             f"last_turn={app.ui_state.last_turn_id or 'none'}\n"
             f"requested_mode={current_profile.get('requested_mode', 'pending')}\n"
@@ -603,6 +682,11 @@ class ChatScreen(Screen):
         response_text = app.ui_state.last_response or "No response yet."
         self.query_one("#response_panel", Static).update(
             Panel(Text(response_text, style=TEXT), title="Adam Response", border_style=AMBER)
+        )
+        reasoning_text = safe_excerpt(app.ui_state.last_reasoning, limit=900) if app.ui_state.last_reasoning else "No model-emitted thinking yet."
+        reasoning_style = TEXT if app.ui_state.last_reasoning else MUTED
+        self.query_one("#thinking_panel", Static).update(
+            Panel(Text(reasoning_text, style=reasoning_style), title="Qwen Thinking / Reasoning", border_style=AMBER)
         )
         self.query_one("#feedback_status", Static).update(
             Panel(Text(app.ui_state.last_feedback, style=MUTED), title="Feedback Status", border_style=AMBER)
@@ -719,6 +803,7 @@ class ChatScreen(Screen):
         outcome = await asyncio.to_thread(partial(app.runtime.chat, session_id=app.ui_state.session_id, user_text=text))
         app.ui_state.last_turn_id = outcome.turn["id"]
         app.ui_state.last_response = outcome.turn["membrane_text"]
+        app.ui_state.last_reasoning = outcome.reasoning_text
         app.ui_state.last_active_set = outcome.active_set
         app.ui_state.last_trace = outcome.trace
         app.ui_state.preview_active_set = outcome.active_set
@@ -858,6 +943,7 @@ class ChatScreen(Screen):
                 "session_title": session["title"],
                 "last_turn_id": None,
                 "last_response": "",
+                "last_reasoning": "",
                 "last_active_set": [],
                 "last_trace": [],
                 "current_budget": None,
@@ -971,6 +1057,7 @@ class ChatScreen(Screen):
                 "session_title": session["title"],
                 "last_turn_id": None,
                 "last_response": "",
+                "last_reasoning": "",
                 "last_active_set": [],
                 "last_trace": [],
                 "current_profile": None,
@@ -1069,6 +1156,9 @@ class EdenTuiApp(App):
     #response_panel {{
         height: 14;
     }}
+    #thinking_panel {{
+        height: 12;
+    }}
     #budget_panel {{
         height: 15;
     }}
@@ -1144,6 +1234,7 @@ class EdenTuiApp(App):
         self.ui_state.session_title = snapshot.get("session_title")
         self.ui_state.last_turn_id = snapshot.get("last_turn_id")
         self.ui_state.last_response = snapshot.get("last_response", "")
+        self.ui_state.last_reasoning = snapshot.get("last_reasoning", "")
         self.ui_state.last_active_set = list(snapshot.get("last_active_set") or [])
         self.ui_state.last_trace = list(snapshot.get("last_trace") or [])
         self.ui_state.preview_active_set = list(snapshot.get("last_active_set") or [])

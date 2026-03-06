@@ -13,3 +13,4 @@ data/*.sqlite
 exports/latest/
 exports/context/
 exports/.eden_observatory.json
+models/

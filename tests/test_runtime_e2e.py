@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+from eden.config import DEFAULT_MLX_MODEL_DIR
+
 
 def test_blank_bootstrap_chat_feedback_and_exports(runtime, tmp_path) -> None:
     experiment = runtime.initialize_experiment("blank")
@@ -55,10 +57,13 @@ def test_blank_bootstrap_chat_feedback_and_exports(runtime, tmp_path) -> None:
 
 
 def test_runtime_launch_profile_and_session_snapshot(runtime) -> None:
-    updated = runtime.update_runtime_launch_profile(backend="mlx", model_path="/tmp/qwen-mlx")
+    updated = runtime.update_runtime_launch_profile(backend="mlx", model_path=None)
     assert updated["backend"] == "mlx"
-    assert updated["model_path"] == "/tmp/qwen-mlx"
+    assert updated["model_path"] == str(DEFAULT_MLX_MODEL_DIR)
     assert runtime.runtime_launch_profile()["backend"] == "mlx"
+    model_status = runtime.mlx_model_status()
+    assert model_status["local_dir"] == str(DEFAULT_MLX_MODEL_DIR)
+    assert model_status["repo_id"].endswith("Qwen3.5-35B-A3B-mlx-lm-mxfp4")
     runtime.update_runtime_launch_profile(backend="mock", model_path=None)
 
     experiment = runtime.initialize_experiment("blank")

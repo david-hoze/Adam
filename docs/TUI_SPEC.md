@@ -7,14 +7,17 @@ The TUI remains the primary EDEN runtime surface in v1.2.
 Startup screen:
 
 - startup summary
-- runtime launcher panel
-- backend select
-- MLX model path input
+- runtime surface panel
+- MLX model status panel
+- backend select with `Adam / Local MLX` as the default choice
+- `Prepare Qwen`
+- `Refresh Model`
 - `Blank Eden`, `Seeded Eden`, `Resume Latest`
 - `Open Observatory`, `Export Latest`, `Help`
 - startup log
 - launch-contract panel
-- remembered local runtime path pulled from the repo-local `.venv` workflow
+- remembered local runtime choice pulled from the repo-local `.venv` workflow
+- default MLX model stored under `models/` in the repo root
 
 Session-start modal:
 
@@ -62,6 +65,7 @@ Center column:
 
 Right column:
 
+- dedicated Qwen thinking / reasoning panel for model-emitted reasoning text
 - aperture / active set
 - cogitation / decision trace
 - forensic structured log
@@ -70,10 +74,13 @@ Right column:
 
 - fixed panes, no primary scrolling transcript
 - amber-on-dark operator grammar preserved
-- backend/model-path information removed from prime live-chat real estate
+- backend/model-path entry removed from the launcher and from prime live-chat real estate
 - normal entry path is `.venv/bin/python -m eden` or `.venv/bin/python -m eden app`
 - launcher settings are remembered locally so flags become overrides, not the default control path
+- MLX is the default runtime path; mock remains a fallback path
+- the launcher reports model readiness, shard progress, and repo-local storage instead of asking for a manual MLX path
 - multiline composition is first-class
+- MLX/Qwen model-emitted thinking is surfaced in its own panel instead of leaking into the main Adam response
 - active-set and trace panes can show preview state while the operator types
 - budget changes are visible rather than implicit
 - latest-session resume restores the latest persisted session surface instead of forcing a new session flow

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 from .budget import BudgetEstimate, estimate_budget
-from .config import EXPORT_DIR, RUNTIME_LOG_PATH, RuntimeSettings, SEED_CANON_DIR
+from .config import DEFAULT_MLX_MODEL_DIR, EXPORT_DIR, RUNTIME_LOG_PATH, RuntimeSettings, SEED_CANON_DIR
 from .inference import (
     InferenceProfileRequest,
     default_profile_request,
@@ -19,6 +20,7 @@ from .ingest.pipeline import IngestService
 from .logging import RuntimeLog
 from .models.base import BaseModelAdapter
 from .models.mlx_backend import MLXModelAdapter
+from .models.catalog import DEFAULT_LOCAL_MLX_MODEL, local_mlx_model_status, prepare_local_mlx_model
 from .models.mock import MockModelAdapter
 from .observatory.exporters import ObservatoryExporter
 from .observatory.server import ObservatoryServer
@@ -42,6 +44,7 @@ class ChatOutcome:
     graph_counts: dict[str, int]
     budget: dict[str, Any]
     profile: dict[str, Any]
+    reasoning_text: str
 
 
 @dataclass(slots=True)
@@ -97,9 +100,13 @@ class EdenRuntime:
             if backend != "mlx" or getattr(self._model_adapter, "model_path", None) == self.settings.model_path:
                 return self._model_adapter
         if backend == "mlx":
-            if not self.settings.model_path:
-                raise RuntimeError("MLX backend selected but no model path was provided.")
-            self._model_adapter = MLXModelAdapter(self.settings.model_path)
+            requested_model_path = self.settings.model_path or str(DEFAULT_MLX_MODEL_DIR)
+            if Path(requested_model_path) == DEFAULT_LOCAL_MLX_MODEL.local_dir:
+                status = self.mlx_model_status()
+                if not status["ready"]:
+                    status = self.prepare_default_mlx_model()
+                requested_model_path = status["local_dir"]
+            self._model_adapter = MLXModelAdapter(requested_model_path)
         else:
             self._model_adapter = MockModelAdapter()
         return self._model_adapter
@@ -109,13 +116,16 @@ class EdenRuntime:
 
     def runtime_launch_profile(self) -> dict[str, Any]:
         stored = self.store.read_config(RUNTIME_LAUNCH_PROFILE_KEY) or {}
-        backend = str(stored.get("backend") or self.settings.model_backend or "mock").lower()
-        model_path = str(stored.get("model_path") or self.settings.model_path or "").strip()
+        backend = str(stored.get("backend") or self.settings.model_backend or "mlx").lower()
+        default_model_path = self.settings.model_path or str(DEFAULT_MLX_MODEL_DIR)
+        model_path = str(stored.get("model_path") or default_model_path or "").strip()
         return {"backend": backend, "model_path": model_path}
 
     def update_runtime_launch_profile(self, *, backend: str, model_path: str | None) -> dict[str, Any]:
-        normalized_backend = (backend or "mock").strip().lower() or "mock"
+        normalized_backend = (backend or "mlx").strip().lower() or "mlx"
         normalized_model_path = (model_path or "").strip()
+        if normalized_backend == "mlx" and not normalized_model_path:
+            normalized_model_path = str(DEFAULT_MLX_MODEL_DIR)
         self.settings.model_backend = normalized_backend
         self.settings.model_path = normalized_model_path or None
         payload = {
@@ -124,6 +134,45 @@ class EdenRuntime:
         }
         self.store.upsert_config(RUNTIME_LAUNCH_PROFILE_KEY, payload)
         return {"backend": normalized_backend, "model_path": normalized_model_path}
+
+    def mlx_model_status(self) -> dict[str, Any]:
+        status = local_mlx_model_status(DEFAULT_LOCAL_MLX_MODEL)
+        status["active_backend"] = self.settings.model_backend.lower()
+        status["active_model_path"] = self.settings.model_path or str(DEFAULT_MLX_MODEL_DIR)
+        return status
+
+    def prepare_default_mlx_model(self) -> dict[str, Any]:
+        token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+        self.runtime_log.emit(
+            "INFO",
+            "mlx_prepare_start",
+            "Preparing default local MLX model.",
+            model_label=DEFAULT_LOCAL_MLX_MODEL.label,
+            repo_id=DEFAULT_LOCAL_MLX_MODEL.repo_id,
+            local_dir=str(DEFAULT_LOCAL_MLX_MODEL.local_dir),
+            auth="token" if token else "anonymous",
+        )
+        status = prepare_local_mlx_model(DEFAULT_LOCAL_MLX_MODEL, token=token)
+        self.runtime_log.emit(
+            "INFO",
+            "mlx_prepare_complete",
+            "Prepared default local MLX model.",
+            model_label=status["label"],
+            repo_id=status["repo_id"],
+            local_dir=status["local_dir"],
+            ready=status["ready"],
+            stage=status["stage"],
+            gib_on_disk=status["gib_on_disk"],
+        )
+        self.settings.model_path = status["local_dir"]
+        self.store.upsert_config(
+            RUNTIME_LAUNCH_PROFILE_KEY,
+            {
+                "backend": "mlx",
+                "model_path": status["local_dir"],
+            },
+        )
+        return status
 
     def _session_profile_request(self, session_id: str) -> InferenceProfileRequest:
         session = self.store.get_session(session_id)
@@ -343,6 +392,7 @@ class EdenRuntime:
             "profile_request": self.session_profile_request(session_id),
             "last_turn_id": None,
             "last_response": "",
+            "last_reasoning": "",
             "last_active_set": [],
             "last_trace": [],
             "current_budget": None,
@@ -357,6 +407,7 @@ class EdenRuntime:
             {
                 "last_turn_id": turn["id"],
                 "last_response": turn["membrane_text"],
+                "last_reasoning": metadata.get("model_result", {}).get("reasoning_text", ""),
                 "last_active_set": json.loads(turn["active_set_json"] or "[]"),
                 "last_trace": json.loads(turn["trace_json"] or "[]"),
                 "current_budget": metadata.get("budget"),
@@ -416,7 +467,7 @@ class EdenRuntime:
         system_prompt = (
             f"You are {self.agent_profile['name']}, the first graph-conditioned agent in EDEN.\n"
             "Your persistent identity is externalized into a memetic graph.\n"
-            "Do not mention hidden chain-of-thought. Expose only operator-visible basis.\n"
+            "If the model emits an explicit reasoning block, EDEN may surface it separately as operator-visible model thinking.\n"
             "Respond using the sections: Answer, Basis, Next Step.\n"
             "Treat recent feedback as binding context when relevant.\n"
             f"Inference profile={profile.profile_name} mode={profile.effective_mode} response_char_cap={profile.response_char_cap}."
@@ -561,8 +612,9 @@ class EdenRuntime:
             top_p=profile["top_p"],
             repetition_penalty=profile["repetition_penalty"],
         )
+        answer_text = result.answer_text or result.text
         membrane_text, membrane_events = self._apply_membrane(
-            text=result.text,
+            text=answer_text,
             active_set=active_set["items"],
             response_char_cap=profile["response_char_cap"],
         )
@@ -587,6 +639,7 @@ class EdenRuntime:
                     "profile_name": profile["profile_name"],
                     "prompt_budget_tokens": budget["prompt_budget_tokens"],
                     "count_method": budget["count_method"],
+                    "reasoning_present": bool(result.reasoning_text.strip()),
                 },
                 "provenance": "prompt_assembly",
             }
@@ -603,7 +656,12 @@ class EdenRuntime:
             metadata={
                 "inference_profile": profile,
                 "budget": budget,
-                "model_result": result.metadata,
+                "model_result": {
+                    **result.metadata,
+                    "answer_text": answer_text,
+                    "reasoning_text": result.reasoning_text,
+                    "raw_text": result.raw_text,
+                },
                 "history_context": preview.history_context,
                 "feedback_context": preview.feedback_context,
             },
@@ -667,6 +725,7 @@ class EdenRuntime:
                 "prompt_budget_tokens": budget["prompt_budget_tokens"],
                 "remaining_input_tokens": budget["remaining_input_tokens"],
                 "count_method": budget["count_method"],
+                "reasoning_present": bool(result.reasoning_text.strip()),
             },
         )
         self.runtime_log.emit(
@@ -689,6 +748,7 @@ class EdenRuntime:
             graph_counts=self.store.graph_counts(experiment_id),
             budget=budget,
             profile=profile,
+            reasoning_text=result.reasoning_text.strip(),
         )
 
     def _turn_related_nodes(self, turn_id: str) -> dict[str, list[str]]:

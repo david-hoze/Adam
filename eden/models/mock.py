@@ -46,4 +46,7 @@ class MockModelAdapter(BaseModelAdapter):
                 "top_p": top_p,
                 "repetition_penalty": repetition_penalty,
             },
+            answer_text=answer[:max_tokens * 5],
+            reasoning_text="",
+            raw_text=answer[:max_tokens * 5],
         )

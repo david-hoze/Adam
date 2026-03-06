@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from inspect import signature
 
-from .base import BaseModelAdapter, ModelResult
+from .base import BaseModelAdapter, ModelResult, split_model_output
 
 
 class MLXModelAdapter(BaseModelAdapter):
@@ -42,26 +42,32 @@ class MLXModelAdapter(BaseModelAdapter):
                 return None
         return None
 
-    def _build_prompt(self, system_prompt: str, conversation_prompt: str) -> str:
+    def _build_prompt(self, system_prompt: str, conversation_prompt: str, *, enable_thinking: bool) -> str:
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": conversation_prompt},
         ]
         if hasattr(self.tokenizer, "apply_chat_template"):
-            return self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            try:
+                return self.tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                    enable_thinking=enable_thinking,
+                )
+            except TypeError:
+                return self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         return f"{system_prompt}\n\n{conversation_prompt}\n\nAssistant:"
 
-    def generate(
+    def _generate_text(
         self,
         *,
-        system_prompt: str,
-        conversation_prompt: str,
-        max_tokens: int = 420,
-        temperature: float = 0.0,
-        top_p: float = 0.0,
-        repetition_penalty: float = 0.0,
-    ) -> ModelResult:  # pragma: no cover - depends on local install
-        prompt = self._build_prompt(system_prompt, conversation_prompt)
+        prompt: str,
+        max_tokens: int,
+        temperature: float,
+        top_p: float,
+        repetition_penalty: float,
+    ) -> str:
         if hasattr(self._mlx_lm, "generate"):
             generate_fn = self._mlx_lm.generate
         else:
@@ -80,11 +86,46 @@ class MLXModelAdapter(BaseModelAdapter):
             result = generate_fn(self.model, self.tokenizer, prompt, max_tokens=max_tokens)
 
         if isinstance(result, str):
-            text = result
-        elif hasattr(result, "text"):
-            text = str(result.text)
-        else:
-            text = str(result)
+            return result
+        if hasattr(result, "text"):
+            return str(result.text)
+        return str(result)
+
+    def generate(
+        self,
+        *,
+        system_prompt: str,
+        conversation_prompt: str,
+        max_tokens: int = 420,
+        temperature: float = 0.0,
+        top_p: float = 0.0,
+        repetition_penalty: float = 0.0,
+    ) -> ModelResult:  # pragma: no cover - depends on local install
+        prompt = self._build_prompt(system_prompt, conversation_prompt, enable_thinking=True)
+        text = self._generate_text(
+            prompt=prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            repetition_penalty=repetition_penalty,
+        )
+        reasoning_text, answer_text = split_model_output(text)
+        used_answer_fallback = False
+        if reasoning_text and answer_text.strip() == text.strip():
+            answer_prompt = self._build_prompt(
+                system_prompt
+                + "\nThis is the final answer pass. Do not emit reasoning. Return one clean operator-facing response using the requested sections exactly once.",
+                conversation_prompt,
+                enable_thinking=False,
+            )
+            answer_text = self._generate_text(
+                prompt=answer_prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                repetition_penalty=repetition_penalty,
+            ).strip()
+            used_answer_fallback = True
         return ModelResult(
             backend=self.backend_name,
             text=text.strip(),
@@ -94,5 +135,9 @@ class MLXModelAdapter(BaseModelAdapter):
                 "temperature": temperature,
                 "top_p": top_p,
                 "repetition_penalty": repetition_penalty,
+                "answer_completion_fallback": used_answer_fallback,
             },
+            answer_text=answer_text.strip() or text.strip(),
+            reasoning_text=reasoning_text.strip(),
+            raw_text=text.strip(),
         )

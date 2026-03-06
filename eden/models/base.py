@@ -1,6 +1,28 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
+
+
+THINK_BLOCK_RE = re.compile(r"<think>\s*(.*?)\s*</think>\s*(.*)", re.DOTALL)
+
+
+def split_model_output(text: str) -> tuple[str, str]:
+    stripped = (text or "").strip()
+    if not stripped:
+        return "", ""
+    think_match = THINK_BLOCK_RE.search(stripped)
+    if think_match:
+        reasoning = think_match.group(1).strip()
+        answer = think_match.group(2).strip()
+        return reasoning, answer or stripped
+    if stripped.startswith("Thinking Process:"):
+        for marker in ("\nFinal Answer:", "\nAnswer:"):
+            if marker in stripped:
+                reasoning, answer = stripped.split(marker, 1)
+                return reasoning.strip(), marker.strip() + answer
+        return stripped, stripped
+    return "", stripped
 
 
 @dataclass(slots=True)
@@ -9,6 +31,15 @@ class ModelResult:
     text: str
     tokens_estimate: int
     metadata: dict[str, object]
+    answer_text: str = ""
+    reasoning_text: str = ""
+    raw_text: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.raw_text:
+            self.raw_text = self.text
+        if not self.answer_text:
+            self.answer_text = self.text
 
 
 class BaseModelAdapter:

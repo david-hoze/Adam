@@ -10,9 +10,15 @@ LOG_DIR = REPO_ROOT / "logs"
 EXPORT_DIR = REPO_ROOT / "exports"
 DOCS_DIR = REPO_ROOT / "docs"
 ASSETS_DIR = REPO_ROOT / "assets"
+MODELS_DIR = REPO_ROOT / "models"
 SEED_CANON_DIR = ASSETS_DIR / "seed_canon"
 DB_PATH = DATA_DIR / "eden.db"
 RUNTIME_LOG_PATH = LOG_DIR / "runtime.jsonl"
+DEFAULT_MLX_MODEL_REPO = "RepublicOfKorokke/Qwen3.5-35B-A3B-mlx-lm-mxfp4"
+DEFAULT_MLX_MODEL_LABEL = "Qwen 3.5 35B A3B"
+DEFAULT_MLX_MODEL_BASE = "Qwen/Qwen3.5-35B-A3B"
+DEFAULT_MLX_MODEL_DIRNAME = "qwen3.5-35b-a3b-mlx-mxfp4"
+DEFAULT_MLX_MODEL_DIR = MODELS_DIR / DEFAULT_MLX_MODEL_DIRNAME
 
 
 @dataclass(slots=True)
@@ -39,8 +45,8 @@ class SelectionWeights:
 
 @dataclass(slots=True)
 class RuntimeSettings:
-    model_backend: str = "mock"
-    model_path: str | None = None
+    model_backend: str = "mlx"
+    model_path: str | None = str(DEFAULT_MLX_MODEL_DIR)
     max_context_items: int = 8
     retrieval_depth: int = 12
     low_motion: bool = False
