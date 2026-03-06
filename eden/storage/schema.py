@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS turns (
     membrane_text TEXT NOT NULL,
     active_set_json TEXT NOT NULL DEFAULT '[]',
     trace_json TEXT NOT NULL DEFAULT '[]',
+    metadata_json TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL,
     UNIQUE(session_id, turn_index)
 );

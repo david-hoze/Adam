@@ -1,0 +1,48 @@
+{
+  "generated_at": "2026-03-06T18:53:00+00:00",
+  "experiment_id": "b9159cbc-2f9d-4efe-8520-26c311886530",
+  "session_id": "ec1c5374-aa37-4de0-8fde-3668adc7af87",
+  "turn_count": 1,
+  "session_count": 1,
+  "turns": [
+    {
+      "turn_id": "62fdc0ac-676d-496e-8551-fa5a28f6cefb",
+      "session_id": "ec1c5374-aa37-4de0-8fde-3668adc7af87",
+      "turn_index": 0,
+      "created_at": "2026-03-06T18:52:59+00:00",
+      "knowledge_mass": 0,
+      "behavior_mass": 9.513830825144233,
+      "avg_regard": 1.6061226622694083,
+      "avg_activation": 1.0,
+      "memode_fraction": 0.25,
+      "feedback_balance": 1.0,
+      "dominant_label": "ADAM is the first runtime agent inside EDEN.",
+      "dominant_domain": "behavior",
+      "feedback_verdicts": [
+        "accept"
+      ],
+      "active_set_labels": [
+        "ADAM is the first runtime agent inside EDEN.",
+        "The v1 loop is direct: input -> retrieve/assemble -> Adam response -> membrane -",
+        "Regard is a persistent valuation over semantic and behavioral structures, not to",
+        "ADAM constitutional stack"
+      ],
+      "x": 0.0,
+      "y": 0.0
+    }
+  ],
+  "attractors": [
+    {
+      "label": "ADAM is the first runtime agent inside EDEN.",
+      "count": 1,
+      "x": 0.0,
+      "y": 0.0,
+      "domain": "behavior"
+    }
+  ],
+  "transitions": [],
+  "continuity": {
+    "revisitation_ratio": 0.0,
+    "mean_step_distance": 0.0
+  }
+}

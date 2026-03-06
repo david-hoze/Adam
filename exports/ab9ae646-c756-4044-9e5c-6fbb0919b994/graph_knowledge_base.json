@@ -1,0 +1,1932 @@
+{
+  "generated_at": "2026-03-06T20:10:32+00:00",
+  "experiment_id": "ab9ae646-c756-4044-9e5c-6fbb0919b994",
+  "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+  "health_metrics": {
+    "node_count": 22.0,
+    "edge_count": 51.0,
+    "isolated_count": 0.0,
+    "dyad_ratio": 0.0,
+    "triadic_closure": 1.0,
+    "memode_coverage": 0.8181818181818182
+  },
+  "counts": {
+    "sessions": 1,
+    "turns": 1,
+    "documents": 0,
+    "memes": 22,
+    "memodes": 4,
+    "edges": 79,
+    "feedback": 1
+  },
+  "nodes": [
+    {
+      "id": "4500cb6c-2bde-41b8-bcbe-885ba81a3e6e",
+      "label": "ADAM",
+      "kind": "agent",
+      "domain": "behavior",
+      "source_kind": "agent",
+      "summary": "ADAM",
+      "session_id": "",
+      "cluster_id": 0,
+      "render_coords": {
+        "force": {
+          "x": 0.47021608921524316,
+          "y": 0.698210316477004
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": 0.2720518421682675,
+          "y": -1.2887203240520014e-31
+        },
+        "pca": {
+          "x": 1.1846211361648395,
+          "y": 2.0596567415431093e-14
+        },
+        "circular_candidate": {
+          "x": -0.9781476007338057,
+          "y": -0.20791169081775907
+        },
+        "temporal": {
+          "x": 0.06896551724137931,
+          "y": 0.0
+        },
+        "basin_linked": {
+          "x": 0.2720518421682675,
+          "y": -1.2887203240520014e-31
+        }
+      }
+    },
+    {
+      "id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "label": "Demo session",
+      "kind": "session",
+      "domain": "behavior",
+      "source_kind": "session",
+      "summary": "Demo session",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:31+00:00",
+      "requested_mode": "manual",
+      "verdicts": [],
+      "cluster_id": 0,
+      "render_coords": {
+        "force": {
+          "x": 0.1486955873144996,
+          "y": 0.22161138116691975
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": 0.08524724430571128,
+          "y": -3.9056242922842026e-16
+        },
+        "pca": {
+          "x": 0.8007172802390156,
+          "y": -2.06191315009759e-15
+        },
+        "circular_candidate": {
+          "x": -0.913545457642601,
+          "y": 0.40673664307580004
+        },
+        "temporal": {
+          "x": 0.3448275862068966,
+          "y": 0.25
+        },
+        "basin_linked": {
+          "x": 0.08524724430571128,
+          "y": -3.9056242922842026e-16
+        }
+      }
+    },
+    {
+      "id": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "label": "T0",
+      "kind": "turn",
+      "domain": "behavior",
+      "source_kind": "turn",
+      "summary": "Map the graph-conditioned persistence surfaces and geometry evidence.",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "requested_mode": "manual",
+      "effective_mode": "manual",
+      "profile_name": "manual:balanced",
+      "budget_pressure": "LOW",
+      "verdicts": [
+        "accept"
+      ],
+      "time_order": 0,
+      "cluster_id": 1,
+      "render_coords": {
+        "force": {
+          "x": -0.19417163566662346,
+          "y": -0.29205498703133415
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.10826708795863896,
+          "y": -1.0439911166743287e-16
+        },
+        "pca": {
+          "x": -2.854866618277857,
+          "y": 3.1715742001163444e-15
+        },
+        "circular_candidate": {
+          "x": 1.0,
+          "y": 0.0
+        },
+        "temporal": {
+          "x": 0.0,
+          "y": 0.5
+        },
+        "basin_linked": {
+          "x": 0.0,
+          "y": 0.0
+        }
+      }
+    },
+    {
+      "id": "f12bf79d-75bb-4419-9a06-b929d0352b6d",
+      "label": "ACCEPT",
+      "kind": "feedback",
+      "domain": "behavior",
+      "source_kind": "feedback",
+      "summary": "Useful for observatory validation.",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 1,
+      "render_coords": {
+        "force": {
+          "x": -0.5270897882959609,
+          "y": -0.3935833618226827
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587574,
+          "y": 0.5749933699310311
+        },
+        "pca": {
+          "x": 0.5168835864221635,
+          "y": 1.0823508398463586e-16
+        },
+        "circular_candidate": {
+          "x": -0.10452846326765423,
+          "y": -0.9945218953682733
+        },
+        "temporal": {
+          "x": 0.034482758620689655,
+          "y": 0.75
+        },
+        "basin_linked": {
+          "x": -0.11751672428587574,
+          "y": 0.5749933699310311
+        }
+      }
+    },
+    {
+      "id": "c5117778-1a06-45e8-b916-e799066fa95f",
+      "label": "behavior meme",
+      "kind": "meme",
+      "domain": "behavior",
+      "source_kind": "turn_adam",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Answer: I am responding through the current aperture rather than pretending to speak from fixed weights. Your latest request was: Map the graph-conditioned per\u2026",
+      "evidence": 6.75,
+      "reward": 0.27999999999999997,
+      "risk": -0.028000000000000004,
+      "provenance": "adam",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 3,
+      "render_coords": {
+        "force": {
+          "x": -0.39562288504596643,
+          "y": -0.034876288709794666
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587522,
+          "y": 0.19013964270630945
+        },
+        "pca": {
+          "x": -0.8445641674238842,
+          "y": -1.5747901728760523
+        },
+        "circular_candidate": {
+          "x": 0.10452846326765299,
+          "y": -0.9945218953682734
+        },
+        "temporal": {
+          "x": 0.5517241379310345,
+          "y": 1.0
+        },
+        "basin_linked": {
+          "x": -0.11751672428587522,
+          "y": 0.19013964270630945
+        }
+      }
+    },
+    {
+      "id": "c6463495-fdd6-4eeb-a0e7-f53db2900905",
+      "label": "behavior meme behavior",
+      "kind": "meme",
+      "domain": "behavior",
+      "source_kind": "turn_adam",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Answer: I am responding through the current aperture rather than pretending to speak from fixed weights. Your latest request was: Map the graph-conditioned per\u2026",
+      "evidence": 5.5,
+      "reward": 0.27999999999999997,
+      "risk": -0.028000000000000004,
+      "provenance": "adam",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 3,
+      "render_coords": {
+        "force": {
+          "x": -0.38800907092713693,
+          "y": -0.1819490103614892
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587544,
+          "y": 0.19013964270630948
+        },
+        "pca": {
+          "x": -0.844564167423884,
+          "y": -1.5747901728760523
+        },
+        "circular_candidate": {
+          "x": 0.9781476007338057,
+          "y": -0.20791169081775898
+        },
+        "temporal": {
+          "x": 0.6206896551724138,
+          "y": 0.0
+        },
+        "basin_linked": {
+          "x": -0.11751672428587544,
+          "y": 0.19013964270630948
+        }
+      }
+    },
+    {
+      "id": "2a207171-c202-4845-b9bf-b6a586353d71",
+      "label": "meme behavior meme",
+      "kind": "meme",
+      "domain": "behavior",
+      "source_kind": "turn_adam",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Answer: I am responding through the current aperture rather than pretending to speak from fixed weights. Your latest request was: Map the graph-conditioned per\u2026",
+      "evidence": 5.5,
+      "reward": 0.27999999999999997,
+      "risk": -0.028000000000000004,
+      "provenance": "adam",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 3,
+      "render_coords": {
+        "force": {
+          "x": -0.3597164772574943,
+          "y": -0.09925438902251675
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587524,
+          "y": 0.19013964270630954
+        },
+        "pca": {
+          "x": -0.8445641674238842,
+          "y": -1.5747901728760523
+        },
+        "circular_candidate": {
+          "x": 0.30901699437494723,
+          "y": -0.9510565162951536
+        },
+        "temporal": {
+          "x": 0.8620689655172413,
+          "y": 0.25
+        },
+        "basin_linked": {
+          "x": -0.11751672428587524,
+          "y": 0.19013964270630954
+        }
+      }
+    },
+    {
+      "id": "e201c241-e8ef-4f49-a480-c5cd0add04b1",
+      "label": "active set were",
+      "kind": "meme",
+      "domain": "behavior",
+      "source_kind": "turn_adam",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Answer: I am responding through the current aperture rather than pretending to speak from fixed weights. Your latest request was: Map the graph-conditioned per\u2026",
+      "evidence": 3.25,
+      "reward": 0.27999999999999997,
+      "risk": -0.028000000000000004,
+      "provenance": "adam",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 3,
+      "render_coords": {
+        "force": {
+          "x": -0.4383811439919202,
+          "y": -0.1019172409835065
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587524,
+          "y": 0.1901396427063093
+        },
+        "pca": {
+          "x": -0.844564167423884,
+          "y": -1.5747901728760514
+        },
+        "circular_candidate": {
+          "x": 0.8090169943749473,
+          "y": -0.5877852522924734
+        },
+        "temporal": {
+          "x": 0.4482758620689655,
+          "y": 0.5
+        },
+        "basin_linked": {
+          "x": -0.11751672428587524,
+          "y": 0.1901396427063093
+        }
+      }
+    },
+    {
+      "id": "b189f1c0-3dcf-4032-a3c5-31ba7e9c1c35",
+      "label": "answer merely disappearing",
+      "kind": "meme",
+      "domain": "behavior",
+      "source_kind": "turn_adam",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Answer: I am responding through the current aperture rather than pretending to speak from fixed weights. Your latest request was: Map the graph-conditioned per\u2026",
+      "evidence": 3.25,
+      "reward": 0.27999999999999997,
+      "risk": -0.028000000000000004,
+      "provenance": "adam",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 3,
+      "render_coords": {
+        "force": {
+          "x": -0.2846674462344831,
+          "y": -0.13090049359669556
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.1175167242858753,
+          "y": 0.19013964270630956
+        },
+        "pca": {
+          "x": -0.6463609562433602,
+          "y": -1.398785337921254
+        },
+        "circular_candidate": {
+          "x": 0.5000000000000001,
+          "y": -0.8660254037844386
+        },
+        "temporal": {
+          "x": 0.4827586206896552,
+          "y": 0.75
+        },
+        "basin_linked": {
+          "x": -0.1175167242858753,
+          "y": 0.19013964270630956
+        }
+      }
+    },
+    {
+      "id": "bee8a5aa-1604-468b-8e39-f496351ad1d7",
+      "label": "answer responding through",
+      "kind": "meme",
+      "domain": "behavior",
+      "source_kind": "turn_adam",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Answer: I am responding through the current aperture rather than pretending to speak from fixed weights. Your latest request was: Map the graph-conditioned per\u2026",
+      "evidence": 3.25,
+      "reward": 0.27999999999999997,
+      "risk": -0.028000000000000004,
+      "provenance": "adam",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 3,
+      "render_coords": {
+        "force": {
+          "x": -0.2815793212276074,
+          "y": -0.03732360838966241
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587528,
+          "y": 0.1901396427063094
+        },
+        "pca": {
+          "x": -0.6463609562433601,
+          "y": -1.3987853379212527
+        },
+        "circular_candidate": {
+          "x": 0.9135454576426009,
+          "y": -0.40673664307580015
+        },
+        "temporal": {
+          "x": 0.5172413793103449,
+          "y": 1.0
+        },
+        "basin_linked": {
+          "x": -0.11751672428587528,
+          "y": 0.1901396427063094
+        }
+      }
+    },
+    {
+      "id": "6b430278-0e60-492e-8ac4-613e8ab8d994",
+      "label": "accept explanation useful",
+      "kind": "meme",
+      "domain": "behavior",
+      "source_kind": "feedback",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Feedback verdict=accept. Explanation: Useful for observatory validation. Corrected text: n/a",
+      "evidence": 3.25,
+      "reward": 0.0,
+      "risk": 0.0,
+      "provenance": "feedback",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 2,
+      "render_coords": {
+        "force": {
+          "x": -0.28487385105271623,
+          "y": -0.5121542139434372
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587523,
+          "y": -0.24105590158405793
+        },
+        "pca": {
+          "x": -0.8445641674238841,
+          "y": 1.5747901728760567
+        },
+        "circular_candidate": {
+          "x": 0.30901699437494745,
+          "y": 0.9510565162951535
+        },
+        "temporal": {
+          "x": 0.3793103448275862,
+          "y": 0.0
+        },
+        "basin_linked": {
+          "x": -0.11751672428587523,
+          "y": -0.24105590158405793
+        }
+      }
+    },
+    {
+      "id": "eb22f264-edfa-4c80-acb3-33b9ac0d60b4",
+      "label": "corrected text n/a",
+      "kind": "meme",
+      "domain": "behavior",
+      "source_kind": "feedback",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Feedback verdict=accept. Explanation: Useful for observatory validation. Corrected text: n/a",
+      "evidence": 3.25,
+      "reward": 0.0,
+      "risk": 0.0,
+      "provenance": "feedback",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 2,
+      "render_coords": {
+        "force": {
+          "x": -0.22013838629761082,
+          "y": -0.5386837704852101
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587524,
+          "y": -0.24105590158405793
+        },
+        "pca": {
+          "x": -0.8445641674238837,
+          "y": 1.5747901728760565
+        },
+        "circular_candidate": {
+          "x": 0.10452846326765346,
+          "y": 0.9945218953682733
+        },
+        "temporal": {
+          "x": 0.6551724137931034,
+          "y": 0.25
+        },
+        "basin_linked": {
+          "x": -0.11751672428587524,
+          "y": -0.24105590158405793
+        }
+      }
+    },
+    {
+      "id": "15a1b3d2-5f64-4757-b3bc-527e7def22b1",
+      "label": "explanation useful observatory",
+      "kind": "meme",
+      "domain": "behavior",
+      "source_kind": "feedback",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Feedback verdict=accept. Explanation: Useful for observatory validation. Corrected text: n/a",
+      "evidence": 3.25,
+      "reward": 0.0,
+      "risk": 0.0,
+      "provenance": "feedback",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 2,
+      "render_coords": {
+        "force": {
+          "x": -0.30978067039684015,
+          "y": -0.5937117624517637
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587524,
+          "y": -0.24105590158405799
+        },
+        "pca": {
+          "x": -0.844564167423884,
+          "y": 1.5747901728760565
+        },
+        "circular_candidate": {
+          "x": -0.10452846326765333,
+          "y": 0.9945218953682734
+        },
+        "temporal": {
+          "x": 0.6896551724137931,
+          "y": 0.5
+        },
+        "basin_linked": {
+          "x": -0.11751672428587524,
+          "y": -0.24105590158405799
+        }
+      }
+    },
+    {
+      "id": "4c9c6ff7-caf8-4ba6-bcb9-16941df37c56",
+      "label": "feedback verdict accept",
+      "kind": "meme",
+      "domain": "behavior",
+      "source_kind": "feedback",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Feedback verdict=accept. Explanation: Useful for observatory validation. Corrected text: n/a",
+      "evidence": 3.25,
+      "reward": 0.0,
+      "risk": 0.0,
+      "provenance": "feedback",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 2,
+      "render_coords": {
+        "force": {
+          "x": -0.2601145709230967,
+          "y": -0.6354361696498629
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587526,
+          "y": -0.2410559015840581
+        },
+        "pca": {
+          "x": -0.844564167423884,
+          "y": 1.5747901728760574
+        },
+        "circular_candidate": {
+          "x": -0.30901699437494734,
+          "y": 0.9510565162951536
+        },
+        "temporal": {
+          "x": 0.7241379310344828,
+          "y": 0.75
+        },
+        "basin_linked": {
+          "x": -0.11751672428587526,
+          "y": -0.2410559015840581
+        }
+      }
+    },
+    {
+      "id": "622ca33d-bdaf-4a22-b5a2-f6cd234bb99a",
+      "label": "observatory validation corrected",
+      "kind": "meme",
+      "domain": "behavior",
+      "source_kind": "feedback",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Feedback verdict=accept. Explanation: Useful for observatory validation. Corrected text: n/a",
+      "evidence": 3.25,
+      "reward": 0.0,
+      "risk": 0.0,
+      "provenance": "feedback",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 2,
+      "render_coords": {
+        "force": {
+          "x": -0.13787943329244368,
+          "y": -0.5637050430801673
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587526,
+          "y": -0.2410559015840581
+        },
+        "pca": {
+          "x": -0.6463609562433603,
+          "y": 1.3987853379212456
+        },
+        "circular_candidate": {
+          "x": -0.49999999999999983,
+          "y": 0.8660254037844387
+        },
+        "temporal": {
+          "x": 0.896551724137931,
+          "y": 1.0
+        },
+        "basin_linked": {
+          "x": -0.11751672428587526,
+          "y": -0.2410559015840581
+        }
+      }
+    },
+    {
+      "id": "64733943-62af-41a7-b94f-d8bf5ae80642",
+      "label": "useful observatory validation",
+      "kind": "meme",
+      "domain": "behavior",
+      "source_kind": "feedback",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Feedback verdict=accept. Explanation: Useful for observatory validation. Corrected text: n/a",
+      "evidence": 3.25,
+      "reward": 0.0,
+      "risk": 0.0,
+      "provenance": "feedback",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 2,
+      "render_coords": {
+        "force": {
+          "x": -0.17209398288134603,
+          "y": -0.6337050141707838
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587524,
+          "y": -0.24105590158405787
+        },
+        "pca": {
+          "x": -0.6463609562433602,
+          "y": 1.3987853379212456
+        },
+        "circular_candidate": {
+          "x": -0.6691306063588579,
+          "y": 0.7431448254773945
+        },
+        "temporal": {
+          "x": 1.0,
+          "y": 0.0
+        },
+        "basin_linked": {
+          "x": -0.11751672428587524,
+          "y": -0.24105590158405787
+        }
+      }
+    },
+    {
+      "id": "4ab9a579-f259-476b-9dde-085af6323cac",
+      "label": "graph-conditioned persistence surfaces",
+      "kind": "meme",
+      "domain": "knowledge",
+      "source_kind": "turn_user",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Map the graph-conditioned persistence surfaces and geometry evidence.",
+      "evidence": 3.25,
+      "reward": 0.27999999999999997,
+      "risk": -0.028000000000000004,
+      "provenance": "user",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 1,
+      "render_coords": {
+        "force": {
+          "x": 0.06023425652559081,
+          "y": -0.23145901848240813
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587528,
+          "y": -0.04371591155735859
+        },
+        "pca": {
+          "x": 0.29713296133378025,
+          "y": -1.1754402079986303e-15
+        },
+        "circular_candidate": {
+          "x": 0.9135454576426009,
+          "y": 0.40673664307580015
+        },
+        "temporal": {
+          "x": 0.7586206896551724,
+          "y": 0.25
+        },
+        "basin_linked": {
+          "x": -0.11751672428587528,
+          "y": -0.04371591155735859
+        }
+      }
+    },
+    {
+      "id": "5b7baafa-7e33-4dd0-afc4-f6df737eff0d",
+      "label": "map graph-conditioned persistence",
+      "kind": "meme",
+      "domain": "knowledge",
+      "source_kind": "turn_user",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Map the graph-conditioned persistence surfaces and geometry evidence.",
+      "evidence": 3.25,
+      "reward": 0.27999999999999997,
+      "risk": -0.028000000000000004,
+      "provenance": "user",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 1,
+      "render_coords": {
+        "force": {
+          "x": 0.1274134354988024,
+          "y": -0.28456601737902065
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587531,
+          "y": -0.04371591155735859
+        },
+        "pca": {
+          "x": 0.29713296133378025,
+          "y": -1.0795863315510592e-15
+        },
+        "circular_candidate": {
+          "x": 0.8090169943749475,
+          "y": 0.5877852522924731
+        },
+        "temporal": {
+          "x": 0.8275862068965517,
+          "y": 0.5
+        },
+        "basin_linked": {
+          "x": -0.11751672428587531,
+          "y": -0.04371591155735859
+        }
+      }
+    },
+    {
+      "id": "c5b7a572-aa70-464a-bee2-be3c1260f7fe",
+      "label": "persistence surfaces geometry",
+      "kind": "meme",
+      "domain": "knowledge",
+      "source_kind": "turn_user",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Map the graph-conditioned persistence surfaces and geometry evidence.",
+      "evidence": 3.25,
+      "reward": 0.27999999999999997,
+      "risk": -0.028000000000000004,
+      "provenance": "user",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 1,
+      "render_coords": {
+        "force": {
+          "x": 0.1247813696925315,
+          "y": -0.3745308332964338
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587531,
+          "y": -0.04371591155735866
+        },
+        "pca": {
+          "x": 0.29713296133378025,
+          "y": -1.1520640389753857e-15
+        },
+        "circular_candidate": {
+          "x": 0.5000000000000001,
+          "y": 0.8660254037844386
+        },
+        "temporal": {
+          "x": 0.9310344827586207,
+          "y": 0.75
+        },
+        "basin_linked": {
+          "x": -0.11751672428587531,
+          "y": -0.04371591155735866
+        }
+      }
+    },
+    {
+      "id": "008d104d-4e2d-4ce7-ac09-402fdabe842b",
+      "label": "surfaces geometry evidence",
+      "kind": "meme",
+      "domain": "knowledge",
+      "source_kind": "turn_user",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Map the graph-conditioned persistence surfaces and geometry evidence.",
+      "evidence": 3.25,
+      "reward": 0.27999999999999997,
+      "risk": -0.028000000000000004,
+      "provenance": "user",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 1,
+      "render_coords": {
+        "force": {
+          "x": 0.02251080923219608,
+          "y": -0.3113782279244859
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587531,
+          "y": -0.04371591155735861
+        },
+        "pca": {
+          "x": 0.29713296133378025,
+          "y": -1.0795863315510592e-15
+        },
+        "circular_candidate": {
+          "x": 0.6691306063588582,
+          "y": 0.7431448254773942
+        },
+        "temporal": {
+          "x": 0.9655172413793104,
+          "y": 1.0
+        },
+        "basin_linked": {
+          "x": -0.11751672428587531,
+          "y": -0.04371591155735861
+        }
+      }
+    },
+    {
+      "id": "984ea480-d3db-4aef-ba2e-eb51bad03c96",
+      "label": "EDEN is a local-first memetic persona laboratory.",
+      "kind": "meme",
+      "domain": "behavior",
+      "source_kind": "constitution",
+      "scope": "global",
+      "summary": "EDEN is a local-first memetic persona laboratory.",
+      "evidence": 1.0,
+      "reward": 0.27999999999999997,
+      "risk": -0.028000000000000004,
+      "provenance": "ADAM constitutional seed",
+      "session_id": "",
+      "created_at": "2026-03-06T20:10:31+00:00",
+      "verdicts": [],
+      "cluster_id": 0,
+      "render_coords": {
+        "force": {
+          "x": 0.42221226595569616,
+          "y": 0.8711707551966373
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": 0.2996171155910461,
+          "y": -3.2811024968333967e-16
+        },
+        "pca": {
+          "x": 1.3013915898361894,
+          "y": -4.4025719816040655e-15
+        },
+        "circular_candidate": {
+          "x": -0.9781476007338057,
+          "y": 0.20791169081775931
+        },
+        "temporal": {
+          "x": 0.1724137931034483,
+          "y": 0.0
+        },
+        "basin_linked": {
+          "x": 0.2996171155910461,
+          "y": -3.2811024968333967e-16
+        }
+      }
+    },
+    {
+      "id": "f2e6d4c6-0cf6-463c-aa1e-6dc35972070d",
+      "label": "ADAM is the first runtime agent inside EDEN.",
+      "kind": "meme",
+      "domain": "behavior",
+      "source_kind": "constitution",
+      "scope": "global",
+      "summary": "ADAM is the first runtime agent inside EDEN.",
+      "evidence": 1.0,
+      "reward": 0.27999999999999997,
+      "risk": -0.028000000000000004,
+      "provenance": "ADAM constitutional seed",
+      "session_id": "",
+      "created_at": "2026-03-06T20:10:31+00:00",
+      "verdicts": [],
+      "cluster_id": 0,
+      "render_coords": {
+        "force": {
+          "x": 0.45001020733533187,
+          "y": 0.9724096727201835
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": 0.2996171155910461,
+          "y": 4.768014431698988e-16
+        },
+        "pca": {
+          "x": 1.3013915898361894,
+          "y": -4.4025719816040655e-15
+        },
+        "circular_candidate": {
+          "x": -0.30901699437494756,
+          "y": -0.9510565162951535
+        },
+        "temporal": {
+          "x": 0.13793103448275862,
+          "y": 0.25
+        },
+        "basin_linked": {
+          "x": 0.2996171155910461,
+          "y": 4.768014431698988e-16
+        }
+      }
+    },
+    {
+      "id": "4c8703e0-1145-453d-b6ce-c71df12f6919",
+      "label": "Memes are first-class graph nodes.",
+      "kind": "meme",
+      "domain": "behavior",
+      "source_kind": "constitution",
+      "scope": "global",
+      "summary": "Memes are first-class graph nodes.",
+      "evidence": 1.0,
+      "reward": 0.27999999999999997,
+      "risk": -0.028000000000000004,
+      "provenance": "ADAM constitutional seed",
+      "session_id": "",
+      "created_at": "2026-03-06T20:10:31+00:00",
+      "verdicts": [],
+      "cluster_id": 0,
+      "render_coords": {
+        "force": {
+          "x": 0.5643618101833482,
+          "y": 1.0
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": 0.29961711559104603,
+          "y": -1.7545458379738065e-16
+        },
+        "pca": {
+          "x": 1.3013915898361894,
+          "y": -4.4025719816040655e-15
+        },
+        "circular_candidate": {
+          "x": -1.0,
+          "y": 5.66553889764798e-16
+        },
+        "temporal": {
+          "x": 0.20689655172413793,
+          "y": 0.5
+        },
+        "basin_linked": {
+          "x": 0.29961711559104603,
+          "y": -1.7545458379738065e-16
+        }
+      }
+    },
+    {
+      "id": "d000f712-9503-49a0-96f8-4665101bc2f0",
+      "label": "Memodes are derived structures composed from multiple memes and relations.",
+      "kind": "meme",
+      "domain": "behavior",
+      "source_kind": "constitution",
+      "scope": "global",
+      "summary": "Memodes are derived structures composed from multiple memes and relations.",
+      "evidence": 1.0,
+      "reward": 0.27999999999999997,
+      "risk": -0.028000000000000004,
+      "provenance": "ADAM constitutional seed",
+      "session_id": "",
+      "created_at": "2026-03-06T20:10:31+00:00",
+      "verdicts": [],
+      "cluster_id": 0,
+      "render_coords": {
+        "force": {
+          "x": 0.7331958112821806,
+          "y": 0.7743590397221017
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": 0.2996171155910461,
+          "y": 4.956657704207302e-18
+        },
+        "pca": {
+          "x": 1.3013915898361894,
+          "y": -4.4025719816040655e-15
+        },
+        "circular_candidate": {
+          "x": -0.9135454576426009,
+          "y": -0.4067366430758002
+        },
+        "temporal": {
+          "x": 0.2413793103448276,
+          "y": 0.75
+        },
+        "basin_linked": {
+          "x": 0.2996171155910461,
+          "y": 4.956657704207302e-18
+        }
+      }
+    },
+    {
+      "id": "57fd3332-b456-4fc0-b9e8-ea6cab20df36",
+      "label": "Regard is a persistent valuation over semantic and behavioral structures, not to",
+      "kind": "meme",
+      "domain": "behavior",
+      "source_kind": "constitution",
+      "scope": "global",
+      "summary": "Regard is a persistent valuation over semantic and behavioral structures, not token attention.",
+      "evidence": 1.0,
+      "reward": 0.27999999999999997,
+      "risk": -0.028000000000000004,
+      "provenance": "ADAM constitutional seed",
+      "session_id": "",
+      "created_at": "2026-03-06T20:10:31+00:00",
+      "verdicts": [],
+      "cluster_id": 0,
+      "render_coords": {
+        "force": {
+          "x": 0.6392640450725622,
+          "y": 0.7258191164055571
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": 0.2996171155910461,
+          "y": 2.270012626292386e-16
+        },
+        "pca": {
+          "x": 1.3013915898361894,
+          "y": -4.4025719816040655e-15
+        },
+        "circular_candidate": {
+          "x": -0.5000000000000004,
+          "y": -0.8660254037844384
+        },
+        "temporal": {
+          "x": 0.27586206896551724,
+          "y": 1.0
+        },
+        "basin_linked": {
+          "x": 0.2996171155910461,
+          "y": 2.270012626292386e-16
+        }
+      }
+    },
+    {
+      "id": "e082d6b4-d0fe-419e-8e05-40bddfafe3c4",
+      "label": "The v1 loop is direct: input -> retrieve/assemble -> Adam response -> membrane -",
+      "kind": "meme",
+      "domain": "behavior",
+      "source_kind": "constitution",
+      "scope": "global",
+      "summary": "The v1 loop is direct: input -> retrieve/assemble -> Adam response -> membrane -> feedback -> graph update.",
+      "evidence": 1.0,
+      "reward": 0.27999999999999997,
+      "risk": -0.028000000000000004,
+      "provenance": "ADAM constitutional seed",
+      "session_id": "",
+      "created_at": "2026-03-06T20:10:31+00:00",
+      "verdicts": [],
+      "cluster_id": 0,
+      "render_coords": {
+        "force": {
+          "x": 0.7176209673528126,
+          "y": 0.8932440052504818
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": 0.29961711559104603,
+          "y": 1.8536789920579523e-16
+        },
+        "pca": {
+          "x": 1.3013915898361894,
+          "y": -4.4025719816040655e-15
+        },
+        "circular_candidate": {
+          "x": -0.6691306063588585,
+          "y": -0.743144825477394
+        },
+        "temporal": {
+          "x": 0.3103448275862069,
+          "y": 0.0
+        },
+        "basin_linked": {
+          "x": 0.29961711559104603,
+          "y": 1.8536789920579523e-16
+        }
+      }
+    },
+    {
+      "id": "0b3b5443-dbf3-4dd0-9a28-b4d8fcf2bd70",
+      "label": "ADAM constitutional stack",
+      "kind": "memode",
+      "domain": "behavior",
+      "source_kind": "memode",
+      "scope": "global",
+      "summary": "The constitutional scaffold that defines EDEN v1, ADAM, membrane visibility, and regard.",
+      "evidence": 1.0,
+      "reward": 0.35,
+      "risk": -0.034999999999999996,
+      "provenance": "seed_constitution",
+      "session_id": "",
+      "created_at": "2026-03-06T20:10:31+00:00",
+      "verdicts": [],
+      "cluster_id": 0,
+      "render_coords": {
+        "force": {
+          "x": 0.6082304187132466,
+          "y": 0.9024048157162757
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": 0.30359979365581374,
+          "y": 1.7399851944572326e-17
+        },
+        "pca": {
+          "x": 1.2396877252298333,
+          "y": 1.8870371182111606e-14
+        },
+        "circular_candidate": {
+          "x": -0.8090169943749475,
+          "y": -0.587785252292473
+        },
+        "temporal": {
+          "x": 0.10344827586206896,
+          "y": 0.25
+        },
+        "basin_linked": {
+          "x": 0.30359979365581374,
+          "y": 1.7399851944572326e-17
+        }
+      }
+    },
+    {
+      "id": "f9b3b84a-3a9b-43ef-9cb0-1018ddd1cdc2",
+      "label": "behavior meme / behavior meme behavior / meme behavior meme",
+      "kind": "memode",
+      "domain": "behavior",
+      "source_kind": "memode",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Answer: I am responding through the current aperture rather than pretending to speak from fixed weights. Your latest request was: Map the graph-conditioned per\u2026",
+      "evidence": 1.0,
+      "reward": 0.35,
+      "risk": -0.034999999999999996,
+      "provenance": "adam",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 3,
+      "render_coords": {
+        "force": {
+          "x": -0.4966832141911267,
+          "y": -0.17207229249854297
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587526,
+          "y": 0.19013964270630954
+        },
+        "pca": {
+          "x": -0.41955014554975945,
+          "y": -1.144613586897754
+        },
+        "circular_candidate": {
+          "x": 0.6691306063588585,
+          "y": -0.743144825477394
+        },
+        "temporal": {
+          "x": 0.5862068965517241,
+          "y": 0.5
+        },
+        "basin_linked": {
+          "x": -0.11751672428587526,
+          "y": 0.19013964270630954
+        }
+      }
+    },
+    {
+      "id": "9356782f-481d-4679-a71f-8b7eb17563ec",
+      "label": "accept explanation useful / corrected text n/a / explanation useful observatory",
+      "kind": "memode",
+      "domain": "behavior",
+      "source_kind": "memode",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Feedback verdict=accept. Explanation: Useful for observatory validation. Corrected text: n/a",
+      "evidence": 1.0,
+      "reward": 0.0,
+      "risk": 0.0,
+      "provenance": "feedback",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 2,
+      "render_coords": {
+        "force": {
+          "x": -0.3876577593207224,
+          "y": -0.5365115854584206
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587528,
+          "y": -0.2410559015840581
+        },
+        "pca": {
+          "x": -0.4195501455497594,
+          "y": 1.1446135868977427
+        },
+        "circular_candidate": {
+          "x": -0.8090169943749473,
+          "y": 0.5877852522924732
+        },
+        "temporal": {
+          "x": 0.41379310344827586,
+          "y": 0.75
+        },
+        "basin_linked": {
+          "x": -0.11751672428587528,
+          "y": -0.2410559015840581
+        }
+      }
+    },
+    {
+      "id": "af6357ea-6156-4395-ac01-d16128c49cc3",
+      "label": "graph-conditioned persistence surfaces / map graph-conditioned persistence / persistence surfaces geometry",
+      "kind": "memode",
+      "domain": "knowledge",
+      "source_kind": "memode",
+      "scope": "session:777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "summary": "Map the graph-conditioned persistence surfaces and geometry evidence.",
+      "evidence": 1.0,
+      "reward": 0.35,
+      "risk": -0.034999999999999996,
+      "provenance": "user",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "verdicts": [
+        "accept"
+      ],
+      "cluster_id": 1,
+      "render_coords": {
+        "force": {
+          "x": 0.04971256362905332,
+          "y": -0.39945577391694503
+        }
+      },
+      "derived_coords": {
+        "spectral": {
+          "x": -0.11751672428587528,
+          "y": -0.04371591155735854
+        },
+        "pca": {
+          "x": 0.29713296133378025,
+          "y": -1.148168010804844e-15
+        },
+        "circular_candidate": {
+          "x": 0.9781476007338057,
+          "y": 0.20791169081775931
+        },
+        "temporal": {
+          "x": 0.7931034482758621,
+          "y": 1.0
+        },
+        "basin_linked": {
+          "x": -0.11751672428587528,
+          "y": -0.04371591155735854
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "4500cb6c-2bde-41b8-bcbe-885ba81a3e6e",
+      "target": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "type": "BELONGS_TO_AGENT",
+      "weight": 1.0
+    },
+    {
+      "source": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "target": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "type": "BELONGS_TO_SESSION",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "f12bf79d-75bb-4419-9a06-b929d0352b6d",
+      "type": "FED_BACK_BY",
+      "weight": 1.0
+    },
+    {
+      "source": "4ab9a579-f259-476b-9dde-085af6323cac",
+      "target": "5b7baafa-7e33-4dd0-afc4-f6df737eff0d",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "4ab9a579-f259-476b-9dde-085af6323cac",
+      "target": "c5b7a572-aa70-464a-bee2-be3c1260f7fe",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "4ab9a579-f259-476b-9dde-085af6323cac",
+      "target": "008d104d-4e2d-4ce7-ac09-402fdabe842b",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "5b7baafa-7e33-4dd0-afc4-f6df737eff0d",
+      "target": "c5b7a572-aa70-464a-bee2-be3c1260f7fe",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "5b7baafa-7e33-4dd0-afc4-f6df737eff0d",
+      "target": "008d104d-4e2d-4ce7-ac09-402fdabe842b",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "c5b7a572-aa70-464a-bee2-be3c1260f7fe",
+      "target": "008d104d-4e2d-4ce7-ac09-402fdabe842b",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "c5117778-1a06-45e8-b916-e799066fa95f",
+      "target": "c6463495-fdd6-4eeb-a0e7-f53db2900905",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "c5117778-1a06-45e8-b916-e799066fa95f",
+      "target": "2a207171-c202-4845-b9bf-b6a586353d71",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "c5117778-1a06-45e8-b916-e799066fa95f",
+      "target": "e201c241-e8ef-4f49-a480-c5cd0add04b1",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "c5117778-1a06-45e8-b916-e799066fa95f",
+      "target": "b189f1c0-3dcf-4032-a3c5-31ba7e9c1c35",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "c5117778-1a06-45e8-b916-e799066fa95f",
+      "target": "bee8a5aa-1604-468b-8e39-f496351ad1d7",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "c6463495-fdd6-4eeb-a0e7-f53db2900905",
+      "target": "2a207171-c202-4845-b9bf-b6a586353d71",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "c6463495-fdd6-4eeb-a0e7-f53db2900905",
+      "target": "e201c241-e8ef-4f49-a480-c5cd0add04b1",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "c6463495-fdd6-4eeb-a0e7-f53db2900905",
+      "target": "b189f1c0-3dcf-4032-a3c5-31ba7e9c1c35",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "c6463495-fdd6-4eeb-a0e7-f53db2900905",
+      "target": "bee8a5aa-1604-468b-8e39-f496351ad1d7",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "2a207171-c202-4845-b9bf-b6a586353d71",
+      "target": "e201c241-e8ef-4f49-a480-c5cd0add04b1",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "2a207171-c202-4845-b9bf-b6a586353d71",
+      "target": "b189f1c0-3dcf-4032-a3c5-31ba7e9c1c35",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "2a207171-c202-4845-b9bf-b6a586353d71",
+      "target": "bee8a5aa-1604-468b-8e39-f496351ad1d7",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "e201c241-e8ef-4f49-a480-c5cd0add04b1",
+      "target": "b189f1c0-3dcf-4032-a3c5-31ba7e9c1c35",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "e201c241-e8ef-4f49-a480-c5cd0add04b1",
+      "target": "bee8a5aa-1604-468b-8e39-f496351ad1d7",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "b189f1c0-3dcf-4032-a3c5-31ba7e9c1c35",
+      "target": "bee8a5aa-1604-468b-8e39-f496351ad1d7",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "6b430278-0e60-492e-8ac4-613e8ab8d994",
+      "target": "eb22f264-edfa-4c80-acb3-33b9ac0d60b4",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "6b430278-0e60-492e-8ac4-613e8ab8d994",
+      "target": "15a1b3d2-5f64-4757-b3bc-527e7def22b1",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "6b430278-0e60-492e-8ac4-613e8ab8d994",
+      "target": "4c9c6ff7-caf8-4ba6-bcb9-16941df37c56",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "6b430278-0e60-492e-8ac4-613e8ab8d994",
+      "target": "622ca33d-bdaf-4a22-b5a2-f6cd234bb99a",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "6b430278-0e60-492e-8ac4-613e8ab8d994",
+      "target": "64733943-62af-41a7-b94f-d8bf5ae80642",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "eb22f264-edfa-4c80-acb3-33b9ac0d60b4",
+      "target": "15a1b3d2-5f64-4757-b3bc-527e7def22b1",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "eb22f264-edfa-4c80-acb3-33b9ac0d60b4",
+      "target": "4c9c6ff7-caf8-4ba6-bcb9-16941df37c56",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "eb22f264-edfa-4c80-acb3-33b9ac0d60b4",
+      "target": "622ca33d-bdaf-4a22-b5a2-f6cd234bb99a",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "eb22f264-edfa-4c80-acb3-33b9ac0d60b4",
+      "target": "64733943-62af-41a7-b94f-d8bf5ae80642",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "15a1b3d2-5f64-4757-b3bc-527e7def22b1",
+      "target": "4c9c6ff7-caf8-4ba6-bcb9-16941df37c56",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "15a1b3d2-5f64-4757-b3bc-527e7def22b1",
+      "target": "622ca33d-bdaf-4a22-b5a2-f6cd234bb99a",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "15a1b3d2-5f64-4757-b3bc-527e7def22b1",
+      "target": "64733943-62af-41a7-b94f-d8bf5ae80642",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "4c9c6ff7-caf8-4ba6-bcb9-16941df37c56",
+      "target": "622ca33d-bdaf-4a22-b5a2-f6cd234bb99a",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "4c9c6ff7-caf8-4ba6-bcb9-16941df37c56",
+      "target": "64733943-62af-41a7-b94f-d8bf5ae80642",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "622ca33d-bdaf-4a22-b5a2-f6cd234bb99a",
+      "target": "64733943-62af-41a7-b94f-d8bf5ae80642",
+      "type": "CO_OCCURS_WITH",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "af6357ea-6156-4395-ac01-d16128c49cc3",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "af6357ea-6156-4395-ac01-d16128c49cc3",
+      "target": "4ab9a579-f259-476b-9dde-085af6323cac",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "af6357ea-6156-4395-ac01-d16128c49cc3",
+      "target": "5b7baafa-7e33-4dd0-afc4-f6df737eff0d",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "af6357ea-6156-4395-ac01-d16128c49cc3",
+      "target": "c5b7a572-aa70-464a-bee2-be3c1260f7fe",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "af6357ea-6156-4395-ac01-d16128c49cc3",
+      "target": "008d104d-4e2d-4ce7-ac09-402fdabe842b",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "f9b3b84a-3a9b-43ef-9cb0-1018ddd1cdc2",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "f9b3b84a-3a9b-43ef-9cb0-1018ddd1cdc2",
+      "target": "c5117778-1a06-45e8-b916-e799066fa95f",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "f9b3b84a-3a9b-43ef-9cb0-1018ddd1cdc2",
+      "target": "c6463495-fdd6-4eeb-a0e7-f53db2900905",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "f9b3b84a-3a9b-43ef-9cb0-1018ddd1cdc2",
+      "target": "2a207171-c202-4845-b9bf-b6a586353d71",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "f9b3b84a-3a9b-43ef-9cb0-1018ddd1cdc2",
+      "target": "e201c241-e8ef-4f49-a480-c5cd0add04b1",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "9356782f-481d-4679-a71f-8b7eb17563ec",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "9356782f-481d-4679-a71f-8b7eb17563ec",
+      "target": "6b430278-0e60-492e-8ac4-613e8ab8d994",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "9356782f-481d-4679-a71f-8b7eb17563ec",
+      "target": "eb22f264-edfa-4c80-acb3-33b9ac0d60b4",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "9356782f-481d-4679-a71f-8b7eb17563ec",
+      "target": "15a1b3d2-5f64-4757-b3bc-527e7def22b1",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "9356782f-481d-4679-a71f-8b7eb17563ec",
+      "target": "4c9c6ff7-caf8-4ba6-bcb9-16941df37c56",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "4ab9a579-f259-476b-9dde-085af6323cac",
+      "type": "OCCURS_IN",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "5b7baafa-7e33-4dd0-afc4-f6df737eff0d",
+      "type": "OCCURS_IN",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "c5b7a572-aa70-464a-bee2-be3c1260f7fe",
+      "type": "OCCURS_IN",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "008d104d-4e2d-4ce7-ac09-402fdabe842b",
+      "type": "OCCURS_IN",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "c5117778-1a06-45e8-b916-e799066fa95f",
+      "type": "OCCURS_IN",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "c6463495-fdd6-4eeb-a0e7-f53db2900905",
+      "type": "OCCURS_IN",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "2a207171-c202-4845-b9bf-b6a586353d71",
+      "type": "OCCURS_IN",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "e201c241-e8ef-4f49-a480-c5cd0add04b1",
+      "type": "OCCURS_IN",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "b189f1c0-3dcf-4032-a3c5-31ba7e9c1c35",
+      "type": "OCCURS_IN",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "bee8a5aa-1604-468b-8e39-f496351ad1d7",
+      "type": "OCCURS_IN",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "6b430278-0e60-492e-8ac4-613e8ab8d994",
+      "type": "OCCURS_IN",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "eb22f264-edfa-4c80-acb3-33b9ac0d60b4",
+      "type": "OCCURS_IN",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "15a1b3d2-5f64-4757-b3bc-527e7def22b1",
+      "type": "OCCURS_IN",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "4c9c6ff7-caf8-4ba6-bcb9-16941df37c56",
+      "type": "OCCURS_IN",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "622ca33d-bdaf-4a22-b5a2-f6cd234bb99a",
+      "type": "OCCURS_IN",
+      "weight": 1.0
+    },
+    {
+      "source": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "target": "64733943-62af-41a7-b94f-d8bf5ae80642",
+      "type": "OCCURS_IN",
+      "weight": 1.0
+    },
+    {
+      "source": "4500cb6c-2bde-41b8-bcbe-885ba81a3e6e",
+      "target": "984ea480-d3db-4aef-ba2e-eb51bad03c96",
+      "type": "BELONGS_TO_AGENT",
+      "weight": 1.0
+    },
+    {
+      "source": "4500cb6c-2bde-41b8-bcbe-885ba81a3e6e",
+      "target": "f2e6d4c6-0cf6-463c-aa1e-6dc35972070d",
+      "type": "BELONGS_TO_AGENT",
+      "weight": 1.0
+    },
+    {
+      "source": "4500cb6c-2bde-41b8-bcbe-885ba81a3e6e",
+      "target": "4c8703e0-1145-453d-b6ce-c71df12f6919",
+      "type": "BELONGS_TO_AGENT",
+      "weight": 1.0
+    },
+    {
+      "source": "4500cb6c-2bde-41b8-bcbe-885ba81a3e6e",
+      "target": "d000f712-9503-49a0-96f8-4665101bc2f0",
+      "type": "BELONGS_TO_AGENT",
+      "weight": 1.0
+    },
+    {
+      "source": "4500cb6c-2bde-41b8-bcbe-885ba81a3e6e",
+      "target": "57fd3332-b456-4fc0-b9e8-ea6cab20df36",
+      "type": "BELONGS_TO_AGENT",
+      "weight": 1.0
+    },
+    {
+      "source": "4500cb6c-2bde-41b8-bcbe-885ba81a3e6e",
+      "target": "e082d6b4-d0fe-419e-8e05-40bddfafe3c4",
+      "type": "BELONGS_TO_AGENT",
+      "weight": 1.0
+    },
+    {
+      "source": "0b3b5443-dbf3-4dd0-9a28-b4d8fcf2bd70",
+      "target": "984ea480-d3db-4aef-ba2e-eb51bad03c96",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "0b3b5443-dbf3-4dd0-9a28-b4d8fcf2bd70",
+      "target": "f2e6d4c6-0cf6-463c-aa1e-6dc35972070d",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "0b3b5443-dbf3-4dd0-9a28-b4d8fcf2bd70",
+      "target": "4c8703e0-1145-453d-b6ce-c71df12f6919",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "0b3b5443-dbf3-4dd0-9a28-b4d8fcf2bd70",
+      "target": "d000f712-9503-49a0-96f8-4665101bc2f0",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "0b3b5443-dbf3-4dd0-9a28-b4d8fcf2bd70",
+      "target": "57fd3332-b456-4fc0-b9e8-ea6cab20df36",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    },
+    {
+      "source": "0b3b5443-dbf3-4dd0-9a28-b4d8fcf2bd70",
+      "target": "e082d6b4-d0fe-419e-8e05-40bddfafe3c4",
+      "type": "MATERIALIZES_AS_MEMODE",
+      "weight": 1.0
+    }
+  ],
+  "view_modes": {
+    "force": "render_coords.force",
+    "spectral": "derived_coords.spectral",
+    "circular_candidate": "derived_coords.circular_candidate",
+    "temporal": "derived_coords.temporal",
+    "symmetry": "derived_coords.pca",
+    "basin_linked": "derived_coords.basin_linked"
+  },
+  "filters": {
+    "sessions": [
+      "777d71ea-1684-4c1a-98dd-aef9059b9dfc"
+    ],
+    "kinds": [
+      "agent",
+      "feedback",
+      "meme",
+      "memode",
+      "session",
+      "turn"
+    ],
+    "domains": [
+      "behavior",
+      "knowledge"
+    ],
+    "sources": [
+      "agent",
+      "constitution",
+      "feedback",
+      "memode",
+      "session",
+      "turn",
+      "turn_adam",
+      "turn_user"
+    ],
+    "verdicts": [
+      "accept"
+    ]
+  }
+}

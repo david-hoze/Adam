@@ -6,7 +6,15 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from .budget import BudgetEstimate, estimate_budget
 from .config import EXPORT_DIR, RUNTIME_LOG_PATH, RuntimeSettings, SEED_CANON_DIR
+from .inference import (
+    InferenceProfileRequest,
+    default_profile_request,
+    request_from_dict,
+    resolve_profile,
+    runtime_settings_for_profile,
+)
 from .ingest.pipeline import IngestService
 from .logging import RuntimeLog
 from .models.base import BaseModelAdapter
@@ -30,6 +38,20 @@ class ChatOutcome:
     trace: list[dict[str, Any]]
     membrane_events: list[dict[str, Any]]
     graph_counts: dict[str, int]
+    budget: dict[str, Any]
+    profile: dict[str, Any]
+
+
+@dataclass(slots=True)
+class PreviewOutcome:
+    profile: dict[str, Any]
+    budget: dict[str, Any]
+    active_set: list[dict[str, Any]]
+    trace: list[dict[str, Any]]
+    system_prompt: str
+    conversation_prompt: str
+    history_context: str
+    feedback_context: str
 
 
 class EdenRuntime:
@@ -46,7 +68,12 @@ class EdenRuntime:
         self.ingest_service = IngestService(self.store, self.runtime_log)
         self.retrieval_service = RetrievalService(self.store)
         self.exporter = ObservatoryExporter(self.store, self.retrieval_service, self.runtime_log)
-        self.observatory_server = ObservatoryServer(EXPORT_DIR, self.settings.observatory_port)
+        self.observatory_server = ObservatoryServer(
+            EXPORT_DIR,
+            self.settings.observatory_port,
+            host=self.settings.observatory_host,
+            port_span=self.settings.observatory_port_span,
+        )
         self.agent_profile = json.loads((Path(__file__).resolve().parent / "agents" / "adam" / "profile.json").read_text())
         self.agent_id = self.store.upsert_agent(
             slug=self.agent_profile["slug"],
@@ -58,7 +85,8 @@ class EdenRuntime:
     def _get_model_adapter(self) -> BaseModelAdapter:
         backend = self.settings.model_backend.lower()
         if self._model_adapter and self._model_adapter.backend_name == backend:
-            return self._model_adapter
+            if backend != "mlx" or getattr(self._model_adapter, "model_path", None) == self.settings.model_path:
+                return self._model_adapter
         if backend == "mlx":
             if not self.settings.model_path:
                 raise RuntimeError("MLX backend selected but no model path was provided.")
@@ -66,6 +94,98 @@ class EdenRuntime:
         else:
             self._model_adapter = MockModelAdapter()
         return self._model_adapter
+
+    def default_session_profile_request(self) -> InferenceProfileRequest:
+        return default_profile_request(self.settings)
+
+    def _session_profile_request(self, session_id: str) -> InferenceProfileRequest:
+        session = self.store.get_session(session_id)
+        metadata = json.loads(session["metadata_json"] or "{}")
+        return request_from_dict(metadata.get("requested_inference_profile"), self.settings)
+
+    def _recent_feedback_balance(self, session_id: str, *, limit: int = 6) -> float:
+        entries = self.store.recent_feedback(session_id, limit=limit)
+        if not entries:
+            return 0.0
+        score_map = {"accept": 1.0, "edit": 0.35, "reject": -1.0, "skip": 0.0}
+        return sum(score_map.get(str(item["verdict"]).lower(), 0.0) for item in entries) / len(entries)
+
+    def _recent_membrane_event_count(self, experiment_id: str, session_id: str, *, limit: int = 6) -> int:
+        return len(self.store.list_membrane_events(experiment_id, limit=limit, session_id=session_id))
+
+    def _budget_token_counter(self):
+        if self.settings.model_backend.lower() == "mock":
+            return self._get_model_adapter().count_tokens
+        if self._model_adapter is not None:
+            return self._model_adapter.count_tokens
+        return None
+
+    def _resolved_profile(self, *, session_id: str, query: str) -> dict[str, Any]:
+        session = self.store.get_session(session_id)
+        experiment_id = session["experiment_id"]
+        request = self._session_profile_request(session_id)
+        graph_health = self.graph_health(experiment_id)
+        profile = resolve_profile(
+            request,
+            query=query,
+            graph_health=graph_health,
+            feedback_balance=self._recent_feedback_balance(session_id),
+            recent_membrane_events=self._recent_membrane_event_count(experiment_id, session_id),
+            backend=self.settings.model_backend.lower(),
+        )
+        return {"request": request, "profile": profile}
+
+    def preview_turn(self, *, session_id: str, user_text: str, previous_budget: dict[str, Any] | None = None) -> PreviewOutcome:
+        session = self.store.get_session(session_id)
+        experiment_id = session["experiment_id"]
+        resolved = self._resolved_profile(session_id=session_id, query=user_text)
+        request: InferenceProfileRequest = resolved["request"]
+        profile = resolved["profile"]
+        history_context = self._recent_history_context(session_id)
+        feedback_context = self._recent_feedback_context(session_id)
+        retrieval_settings = runtime_settings_for_profile(self.settings, profile)
+        active_set = self.retrieval_service.retrieve(
+            experiment_id=experiment_id,
+            session_id=session_id,
+            query=user_text,
+            settings=retrieval_settings,
+        )
+        system_prompt, conversation_prompt = self._build_prompts(
+            user_text=user_text,
+            active_set=active_set,
+            session_id=session_id,
+            history_context=history_context,
+            feedback_context=feedback_context,
+            profile=profile,
+        )
+        token_counter = self._budget_token_counter()
+        previous = BudgetEstimate(**previous_budget) if previous_budget else None
+        budget = estimate_budget(
+            prompt_budget_tokens=profile.prompt_budget_tokens,
+            reserved_output_tokens=profile.max_output_tokens,
+            system_prompt=system_prompt,
+            active_set_context=active_set["prompt_context"],
+            history_context=history_context,
+            feedback_context=feedback_context,
+            user_text=user_text,
+            response_char_cap=profile.response_char_cap,
+            active_set_items=len(active_set["items"]),
+            history_turns=min(3, len(self.store.list_turns(session_id, limit=3))),
+            token_counter=token_counter,
+            previous=previous,
+        )
+        profile_dict = profile.to_dict()
+        profile_dict["request"] = request.to_dict()
+        return PreviewOutcome(
+            profile=profile_dict,
+            budget=budget.to_dict(),
+            active_set=active_set["items"],
+            trace=active_set["trace"],
+            system_prompt=system_prompt,
+            conversation_prompt=conversation_prompt,
+            history_context=history_context,
+            feedback_context=feedback_context,
+        )
 
     def _constitution_statements(self) -> list[str]:
         seed_path = Path(__file__).resolve().parent / "agents" / "adam" / "seed_constitution.md"
@@ -146,16 +266,60 @@ class EdenRuntime:
             self.ingest_service.ingest_path(experiment_id=experiment_id, path=path, source_kind="canon")
         self.runtime_log.emit("INFO", "canon_seeded", "Seeded canonical sources.", experiment_id=experiment_id, file_count=len(seed_paths))
 
-    def start_session(self, experiment_id: str, *, title: str | None = None) -> dict[str, Any]:
+    def start_session(
+        self,
+        experiment_id: str,
+        *,
+        title: str | None = None,
+        profile_request: dict[str, Any] | InferenceProfileRequest | None = None,
+    ) -> dict[str, Any]:
         experiment = self.store.get_experiment(experiment_id)
+        if isinstance(profile_request, InferenceProfileRequest):
+            request = profile_request
+        else:
+            request = request_from_dict(profile_request, self.settings)
+        request = request_from_dict(request.to_dict(), self.settings)
+        self.settings.low_motion = request.low_motion
+        self.settings.debug = request.debug
         session = self.store.create_session(
             experiment_id=experiment_id,
             agent_id=self.agent_id,
-            title=title or f"{experiment['name']} session",
-            metadata={"started_with_backend": self.settings.model_backend},
+            title=title or request.title or f"{experiment['name']} session",
+            metadata={
+                "started_with_backend": self.settings.model_backend,
+                "requested_mode": request.mode,
+                "requested_inference_profile": request.to_dict(),
+            },
         )
-        self.runtime_log.emit("INFO", "session_start", "Started session.", experiment_id=experiment_id, session_id=session["id"])
+        self.runtime_log.emit(
+            "INFO",
+            "session_start",
+            "Started session.",
+            experiment_id=experiment_id,
+            session_id=session["id"],
+            requested_mode=request.mode,
+            budget_mode=request.budget_mode,
+        )
         return session
+
+    def session_profile_request(self, session_id: str) -> dict[str, Any]:
+        return self._session_profile_request(session_id).to_dict()
+
+    def update_session_profile_request(self, session_id: str, **updates: Any) -> dict[str, Any]:
+        request = self._session_profile_request(session_id)
+        merged = request.to_dict()
+        merged.update(updates)
+        updated = request_from_dict(merged, self.settings)
+        self.store.update_session_metadata(
+            session_id,
+            {
+                "requested_mode": updated.mode,
+                "requested_inference_profile": updated.to_dict(),
+            },
+        )
+        self.settings.low_motion = updated.low_motion
+        self.settings.debug = updated.debug
+        return updated.to_dict()
 
     def _recent_history_context(self, session_id: str) -> str:
         turns = list(reversed(self.store.list_turns(session_id, limit=3)))
@@ -179,32 +343,48 @@ class EdenRuntime:
                 parts.append(f"CORRECTED: {safe_excerpt(corrected, limit=180)}")
         return "\n".join(parts)
 
-    def _build_prompts(self, *, user_text: str, active_set: dict[str, Any], session_id: str) -> tuple[str, str]:
+    def _build_prompts(
+        self,
+        *,
+        user_text: str,
+        active_set: dict[str, Any],
+        session_id: str,
+        history_context: str,
+        feedback_context: str,
+        profile,
+    ) -> tuple[str, str]:
         system_prompt = (
             f"You are {self.agent_profile['name']}, the first graph-conditioned agent in EDEN.\n"
             "Your persistent identity is externalized into a memetic graph.\n"
             "Do not mention hidden chain-of-thought. Expose only operator-visible basis.\n"
             "Respond using the sections: Answer, Basis, Next Step.\n"
-            "Treat recent feedback as binding context when relevant."
+            "Treat recent feedback as binding context when relevant.\n"
+            f"Inference profile={profile.profile_name} mode={profile.effective_mode} response_char_cap={profile.response_char_cap}."
         )
         conversation_prompt = (
             "ACTIVE SET\n"
             f"{active_set['prompt_context']}\n\n"
             "RECENT FEEDBACK\n"
-            f"{self._recent_feedback_context(session_id)}\n\n"
+            f"{feedback_context}\n\n"
             "RECENT HISTORY\n"
-            f"{self._recent_history_context(session_id)}\n\n"
+            f"{history_context}\n\n"
             f"USER: {user_text}"
         )
         return system_prompt, conversation_prompt
 
-    def _apply_membrane(self, *, text: str, active_set: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
+    def _apply_membrane(
+        self,
+        *,
+        text: str,
+        active_set: list[dict[str, Any]],
+        response_char_cap: int,
+    ) -> tuple[str, list[dict[str, Any]]]:
         original = text or ""
         events: list[dict[str, Any]] = []
         cleaned = CONTROL_CHAR_RE.sub("", original).strip()
         if cleaned != original:
             events.append({"event_type": "CONTROL_CHAR_STRIPPED", "detail": "Removed non-printing control characters."})
-        max_chars = int(self.agent_profile.get("prompt_contract", {}).get("max_response_chars", 1800))
+        max_chars = max(400, response_char_cap)
         if len(cleaned) > max_chars:
             cleaned = cleaned[: max_chars - 1].rstrip() + "…"
             events.append({"event_type": "TRIMMED", "detail": f"Clamped response to {max_chars} characters."})
@@ -295,13 +475,12 @@ class EdenRuntime:
     def chat(self, *, session_id: str, user_text: str) -> ChatOutcome:
         session = self.store.get_session(session_id)
         experiment_id = session["experiment_id"]
-        active_set = self.retrieval_service.retrieve(
-            experiment_id=experiment_id,
-            session_id=session_id,
-            query=user_text,
-            settings=self.settings,
-        )
-        system_prompt, conversation_prompt = self._build_prompts(user_text=user_text, active_set=active_set, session_id=session_id)
+        preview = self.preview_turn(session_id=session_id, user_text=user_text)
+        active_set = {"items": preview.active_set, "trace": preview.trace}
+        profile = preview.profile
+        budget = preview.budget
+        system_prompt = preview.system_prompt
+        conversation_prompt = preview.conversation_prompt
         model = self._get_model_adapter()
         self.runtime_log.emit(
             "INFO",
@@ -310,11 +489,22 @@ class EdenRuntime:
             experiment_id=experiment_id,
             session_id=session_id,
             backend=model.backend_name,
+            requested_mode=profile["requested_mode"],
+            effective_mode=profile["effective_mode"],
+            profile_name=profile["profile_name"],
         )
-        result = model.generate(system_prompt=system_prompt, conversation_prompt=conversation_prompt)
+        result = model.generate(
+            system_prompt=system_prompt,
+            conversation_prompt=conversation_prompt,
+            max_tokens=profile["max_output_tokens"],
+            temperature=profile["temperature"],
+            top_p=profile["top_p"],
+            repetition_penalty=profile["repetition_penalty"],
+        )
         membrane_text, membrane_events = self._apply_membrane(
             text=result.text,
             active_set=active_set["items"],
+            response_char_cap=profile["response_char_cap"],
         )
         trace = list(active_set["trace"])
         trace.append(
@@ -333,7 +523,10 @@ class EdenRuntime:
                 "breakdown": {
                     "active_set_size": len(active_set["items"]),
                     "backend": result.backend,
-                    "history_lines": len(self._recent_history_context(session_id).splitlines()),
+                    "history_lines": len(preview.history_context.splitlines()),
+                    "profile_name": profile["profile_name"],
+                    "prompt_budget_tokens": budget["prompt_budget_tokens"],
+                    "count_method": budget["count_method"],
                 },
                 "provenance": "prompt_assembly",
             }
@@ -347,6 +540,13 @@ class EdenRuntime:
             membrane_text=membrane_text,
             active_set=active_set["items"],
             trace=trace,
+            metadata={
+                "inference_profile": profile,
+                "budget": budget,
+                "model_result": result.metadata,
+                "history_context": preview.history_context,
+                "feedback_context": preview.feedback_context,
+            },
         )
         self.store.store_active_set(
             experiment_id=experiment_id,
@@ -362,7 +562,11 @@ class EdenRuntime:
                 turn_id=turn["id"],
                 event_type=event["event_type"],
                 detail=event["detail"],
-                payload={"active_set_size": len(active_set["items"])},
+                payload={
+                    "active_set_size": len(active_set["items"]),
+                    "profile_name": profile["profile_name"],
+                    "budget_pressure": budget["pressure_level"],
+                },
             )
         indexed_user = self._index_text_into_graph(
             experiment_id=experiment_id,
@@ -397,6 +601,12 @@ class EdenRuntime:
                 "backend": result.backend,
                 "active_set_size": len(active_set["items"]),
                 "membrane_events": [event["event_type"] for event in membrane_events],
+                "profile_name": profile["profile_name"],
+                "requested_mode": profile["requested_mode"],
+                "effective_mode": profile["effective_mode"],
+                "prompt_budget_tokens": budget["prompt_budget_tokens"],
+                "remaining_input_tokens": budget["remaining_input_tokens"],
+                "count_method": budget["count_method"],
             },
         )
         self.runtime_log.emit(
@@ -408,6 +618,8 @@ class EdenRuntime:
             turn_id=turn["id"],
             backend=result.backend,
             active_set_size=len(active_set["items"]),
+            profile_name=profile["profile_name"],
+            budget_pressure=budget["pressure_level"],
         )
         return ChatOutcome(
             turn=turn,
@@ -415,6 +627,8 @@ class EdenRuntime:
             trace=trace,
             membrane_events=membrane_events,
             graph_counts=self.store.graph_counts(experiment_id),
+            budget=budget,
+            profile=profile,
         )
 
     def _turn_related_nodes(self, turn_id: str) -> dict[str, list[str]]:
@@ -541,11 +755,54 @@ class EdenRuntime:
         out_dir = self.export_dir_for_experiment(experiment_id)
         return self.exporter.export_all(experiment_id=experiment_id, session_id=session_id, out_dir=out_dir)
 
-    def start_observatory(self) -> str:
-        url = self.observatory_server.start()
-        self.runtime_log.emit("INFO", "observatory_start", "Started local observatory server.", url=url)
-        return url
+    def start_observatory(
+        self,
+        *,
+        host: str | None = None,
+        port: int | None = None,
+        reuse_existing: bool = True,
+    ) -> dict[str, Any]:
+        status = self.observatory_server.start(host=host, port=port, reuse_existing=reuse_existing)
+        self.runtime_log.emit(
+            "INFO",
+            "observatory_start",
+            "Observatory server ready.",
+            url=status.url,
+            host=status.host,
+            port=status.port,
+            reused_existing=status.reused_existing,
+            owned_by_process=status.owned_by_process,
+        )
+        return {
+            "url": status.url,
+            "host": status.host,
+            "port": status.port,
+            "reused_existing": status.reused_existing,
+            "owned_by_process": status.owned_by_process,
+            "root": status.root,
+            "info_url": status.info_url,
+        }
 
-    def stop_observatory(self) -> None:
-        self.observatory_server.stop()
-        self.runtime_log.emit("INFO", "observatory_stop", "Stopped local observatory server.")
+    def observatory_status(self) -> dict[str, Any] | None:
+        status = self.observatory_server.status()
+        if status is None:
+            return None
+        return {
+            "url": status.url,
+            "host": status.host,
+            "port": status.port,
+            "reused_existing": status.reused_existing,
+            "owned_by_process": status.owned_by_process,
+            "root": status.root,
+            "info_url": status.info_url,
+        }
+
+    def stop_observatory(self) -> dict[str, Any]:
+        owned = self.observatory_server.stop()
+        self.runtime_log.emit(
+            "INFO",
+            "observatory_stop",
+            "Stopped observatory server." if owned else "Observatory server not owned by this process; nothing was shut down.",
+            owned_by_process=owned,
+        )
+        return {"owned_by_process": owned}

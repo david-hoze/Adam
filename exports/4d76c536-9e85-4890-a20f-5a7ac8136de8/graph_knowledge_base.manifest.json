@@ -1,0 +1,23 @@
+{
+  "artifact_type": "graph_knowledge_base",
+  "generated_at": "2026-03-06T18:46:41+00:00",
+  "json_path": "/Users/brianray/Adam/exports/4d76c536-9e85-4890-a20f-5a7ac8136de8/graph_knowledge_base.json",
+  "html_path": "/Users/brianray/Adam/exports/4d76c536-9e85-4890-a20f-5a7ac8136de8/graph_knowledge_base.html",
+  "counts": {
+    "sessions": 1,
+    "turns": 1,
+    "documents": 11,
+    "memes": 27606,
+    "memodes": 6218,
+    "edges": 150385,
+    "feedback": 1
+  },
+  "health_metrics": {
+    "node_count": 27606.0,
+    "edge_count": 89963.0,
+    "isolated_count": 22.0,
+    "dyad_ratio": 0.0004346881112801565,
+    "triadic_closure": 0.06382333191936984,
+    "memode_coverage": 0.609070491922046
+  }
+}

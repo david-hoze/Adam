@@ -1,0 +1,31 @@
+{
+  "artifact_type": "graph_knowledge_base",
+  "generated_at": "2026-03-06T20:10:32+00:00",
+  "json_path": "/Users/brianray/Adam/exports/ab9ae646-c756-4044-9e5c-6fbb0919b994/graph_knowledge_base.json",
+  "html_path": "/Users/brianray/Adam/exports/ab9ae646-c756-4044-9e5c-6fbb0919b994/graph_knowledge_base.html",
+  "counts": {
+    "sessions": 1,
+    "turns": 1,
+    "documents": 0,
+    "memes": 22,
+    "memodes": 4,
+    "edges": 79,
+    "feedback": 1
+  },
+  "health_metrics": {
+    "node_count": 22.0,
+    "edge_count": 51.0,
+    "isolated_count": 0.0,
+    "dyad_ratio": 0.0,
+    "triadic_closure": 1.0,
+    "memode_coverage": 0.8181818181818182
+  },
+  "view_modes": [
+    "force",
+    "spectral",
+    "circular_candidate",
+    "temporal",
+    "symmetry",
+    "basin_linked"
+  ]
+}

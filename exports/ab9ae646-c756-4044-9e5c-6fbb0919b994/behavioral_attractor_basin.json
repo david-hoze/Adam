@@ -1,0 +1,66 @@
+{
+  "generated_at": "2026-03-06T20:10:32+00:00",
+  "experiment_id": "ab9ae646-c756-4044-9e5c-6fbb0919b994",
+  "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+  "turn_count": 1,
+  "session_count": 1,
+  "projection": {
+    "method": "svd_on_turn_features",
+    "explained_variance_top2": 0.0
+  },
+  "turns": [
+    {
+      "turn_id": "4b92f94c-32e2-40ba-8e42-d5d3ca7a7563",
+      "session_id": "777d71ea-1684-4c1a-98dd-aef9059b9dfc",
+      "turn_index": 0,
+      "created_at": "2026-03-06T20:10:32+00:00",
+      "knowledge_mass": 0,
+      "behavior_mass": 11.46851230166303,
+      "avg_regard": 1.6775892125888632,
+      "avg_activation": 0.9999895833902658,
+      "memode_fraction": 0.2,
+      "feedback_balance": 1.0,
+      "dominant_label": "Regard is a persistent valuation over semantic and behavioral structures, not to",
+      "dominant_domain": "behavior",
+      "feedback_verdicts": [
+        "accept"
+      ],
+      "active_set_labels": [
+        "ADAM constitutional stack",
+        "ADAM is the first runtime agent inside EDEN.",
+        "Memodes are derived structures composed from multiple memes and relations.",
+        "Regard is a persistent valuation over semantic and behavioral structures, not to",
+        "The v1 loop is direct: input -> retrieve/assemble -> Adam response -> membrane -"
+      ],
+      "active_set_overlap": 0.0,
+      "profile_name": "manual:balanced",
+      "requested_mode": "manual",
+      "effective_mode": "manual",
+      "budget_pressure": "LOW",
+      "remaining_input_tokens": 4917,
+      "reserved_output_tokens": 480,
+      "response_char_cap": 1600,
+      "count_method": "exact_tokenizer",
+      "membrane_event_count": 1,
+      "phase_transition": false,
+      "x": 0.0,
+      "y": 0.0
+    }
+  ],
+  "attractors": [
+    {
+      "label": "Regard is a persistent valuation over semantic and behavioral structures, not to",
+      "count": 1,
+      "x": 0.0,
+      "y": 0.0,
+      "domain": "behavior",
+      "session_count": 1
+    }
+  ],
+  "transitions": [],
+  "continuity": {
+    "revisitation_ratio": 0.0,
+    "mean_step_distance": 0.0,
+    "phase_transition_count": 0
+  }
+}

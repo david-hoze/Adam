@@ -45,7 +45,9 @@ class RuntimeSettings:
     retrieval_depth: int = 12
     low_motion: bool = False
     debug: bool = True
+    observatory_host: str = "127.0.0.1"
     observatory_port: int = 8741
+    observatory_port_span: int = 24
     regard_weights: RegardWeights = field(default_factory=RegardWeights)
     selection_weights: SelectionWeights = field(default_factory=SelectionWeights)
 

@@ -17,8 +17,142 @@ Requires-Dist: pytest-asyncio>=0.25; extra == "dev"
 Provides-Extra: mlx
 Requires-Dist: mlx-lm>=0.20.0; extra == "mlx"
 
-# Adam
+# EDEN / ADAM v1
 
-Small README update to exercise GitHub commit status checks.
+EDEN is a local-first experimental memetic persona runtime. ADAM is the first agent/persona instance inside it. This repository builds the first runnable iteration around a persistent SQLite-backed memgraph, a panelized Textual TUI, explicit turn feedback, heuristic retrieval with real regard scoring, document ingest, and browser-viewable observability exports.
 
-This change is only here to verify the repo can push cleanly under the correct GitHub account.
+## What is implemented
+
+- Fixed-pane amber TUI with startup menu and chat instrument surfaces
+- Blank Eden bootstrap and Seeded Eden bootstrap code paths
+- Persistent memgraph in SQLite with memes, memodes, turns, feedback, documents, trace events, membrane events, and export artifacts
+- Regard math and selection scoring in code
+- PDF, CSV, TXT, and Markdown ingest
+- Mock backend for smoke/demo paths
+- MLX backend adapter for real local model execution
+- Static HTML/JSON exports for graph knowledge base and behavioral attractor basin
+- Lightweight local observatory server
+- Smoke tests and a headless TUI smoke test
+
+## Environment
+
+This build was validated with local Python 3.12 in `/Users/brianray/Adam/.venv`.
+
+Create the environment:
+
+```bash
+python3.12 -m venv .venv
+.venv/bin/pip install --upgrade pip setuptools wheel
+.venv/bin/pip install -e '.[dev]'
+```
+
+Install MLX support for the real backend:
+
+```bash
+.venv/bin/pip install -e '.[mlx]'
+```
+
+`mlx-lm` import was validated in this repo venv. No local Qwen/Qwen3.5-35B-A3B MLX model path was present on this machine during the build, so the adapter is wired and import-validated, but a full model-load run still requires you to supply the actual local model path.
+
+## Run
+
+Launch the TUI:
+
+```bash
+.venv/bin/python -m eden app --backend mock
+```
+
+Launch the TUI with MLX enabled:
+
+```bash
+.venv/bin/python -m eden app --backend mlx --model-path /absolute/path/to/Qwen3.5-35B-A3B-4bit-MLX
+```
+
+Fast demo path:
+
+```bash
+.venv/bin/python -m eden demo --backend mock --mode blank --prompt 'What persists about Adam across sessions?' --feedback accept --feedback-explanation 'This captures the graph-conditioned identity thesis.'
+```
+
+Ingest a document into an existing experiment:
+
+```bash
+.venv/bin/python -m eden ingest <experiment_id> /absolute/path/to/file.pdf
+```
+
+Generate observability exports for an experiment:
+
+```bash
+.venv/bin/python -m eden export <experiment_id> --session-id <session_id>
+```
+
+Serve the exports directory locally:
+
+```bash
+.venv/bin/python -m eden observatory
+```
+
+Compile a shareable codebase-context bundle for external review/tools:
+
+```bash
+./scripts/utility/context_compilation.sh
+```
+
+Optional flags:
+
+```bash
+./scripts/utility/context_compilation.sh --include-diff --full
+```
+
+The bundle is written to `exports/context/` as a timestamped Markdown file and
+excludes heavyweight runtime state such as `.venv`, `.git`, `data/`, `assets/`,
+`exports/`, and `tmp/` by default.
+
+## Tests
+
+```bash
+.venv/bin/pytest -q
+```
+
+Validated in this build:
+
+- `5 passed` on the smoke/unit suite
+- mock blank demo completed end to end
+- PDF ingest succeeded on `assets/seed_canon/eden_whitepaper_v14.pdf`
+- graph and basin HTML exports were opened in a real browser via Playwright
+- TUI launched successfully to the startup screen in a live PTY
+
+## First Run Walkthrough
+
+1. Start the TUI with `.venv/bin/python -m eden app --backend mock`.
+2. On the startup screen choose `Blank Eden` for the fastest path, or `Seeded Eden` for canon ingest.
+3. Type a prompt into the `composer` panel and send it.
+4. Inspect the `Aperture / Active Set` and `Decision Trace` panes to see the retrieved material and scoring surfaces.
+5. Apply `Accept`, `Edit`, `Reject`, or `Skip` feedback with the required payloads.
+6. Use `Export` to generate `graph_knowledge_base.html` and `behavioral_attractor_basin.html`.
+7. Use `Observatory` to serve `exports/` locally and open the current graph export in a browser.
+
+## Example Evidence
+
+The fast validated blank run in this build wrote artifacts under:
+
+- `exports/64e1acd5-3428-4362-859e-499577c5620a/graph_knowledge_base.html`
+- `exports/64e1acd5-3428-4362-859e-499577c5620a/behavioral_attractor_basin.html`
+
+The runtime log lives at:
+
+- `logs/runtime.jsonl`
+
+The current persistent database lives at:
+
+- `data/eden.db`
+
+## Repo Map
+
+- `eden/`: runtime, TUI, storage, retrieval, ingest, exporters, model adapters
+- `docs/`: specs, schema, truth table, source manifest, limitations
+- `scripts/`: helper commands including codebase context export
+- `assets/seed_canon/`: vendored whitepaper and canonical secondary source PDFs
+- `tests/`: smoke and integration tests
+- `exports/`: generated browser artifacts
+- `logs/`: runtime JSONL log

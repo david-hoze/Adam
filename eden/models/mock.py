@@ -6,12 +6,18 @@ from .base import BaseModelAdapter, ModelResult
 class MockModelAdapter(BaseModelAdapter):
     backend_name = "mock"
 
+    def count_tokens(self, text: str) -> int | None:
+        return max(0, len(text.split()))
+
     def generate(
         self,
         *,
         system_prompt: str,
         conversation_prompt: str,
         max_tokens: int = 420,
+        temperature: float = 0.0,
+        top_p: float = 0.0,
+        repetition_penalty: float = 0.0,
     ) -> ModelResult:
         lines = [line.strip() for line in conversation_prompt.splitlines() if line.strip()]
         user_line = next((line for line in reversed(lines) if line.startswith("USER:")), "USER: request unavailable")
@@ -34,5 +40,10 @@ class MockModelAdapter(BaseModelAdapter):
             backend=self.backend_name,
             text=answer[:max_tokens * 5],
             tokens_estimate=min(max_tokens, max(64, len(answer.split()))),
-            metadata={"mode": "deterministic_mock"},
+            metadata={
+                "mode": "deterministic_mock",
+                "temperature": temperature,
+                "top_p": top_p,
+                "repetition_penalty": repetition_penalty,
+            },
         )

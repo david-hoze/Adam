@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import time
+import webbrowser
 from pathlib import Path
 
 from .config import DB_PATH, RUNTIME_LOG_PATH, RuntimeSettings
@@ -16,6 +17,8 @@ def build_runtime(args) -> EdenRuntime:
     settings = RuntimeSettings(
         model_backend=getattr(args, "backend", "mock"),
         model_path=getattr(args, "model_path", None),
+        observatory_host=getattr(args, "host", "127.0.0.1"),
+        observatory_port=getattr(args, "port", 8741),
     )
     store = GraphStore(DB_PATH)
     runtime_log = RuntimeLog(RUNTIME_LOG_PATH)
@@ -75,8 +78,10 @@ def cmd_export(args) -> int:
 
 def cmd_observatory(args) -> int:
     runtime = build_runtime(args)
-    url = runtime.start_observatory()
-    print(url)
+    status = runtime.start_observatory(host=args.host, port=args.port, reuse_existing=args.reuse_existing)
+    print(json.dumps(status, indent=2))
+    if args.open:
+        webbrowser.open(status["url"])
     try:
         while True:
             time.sleep(1)
@@ -121,6 +126,10 @@ def main(argv: list[str] | None = None) -> int:
     observatory_parser = subparsers.add_parser("observatory", help="Serve the exports directory over HTTP.")
     observatory_parser.add_argument("--backend", default="mock", choices=["mock", "mlx"])
     observatory_parser.add_argument("--model-path", default=None)
+    observatory_parser.add_argument("--host", default="127.0.0.1")
+    observatory_parser.add_argument("--port", type=int, default=8741)
+    observatory_parser.add_argument("--open", dest="open", action=argparse.BooleanOptionalAction, default=False)
+    observatory_parser.add_argument("--reuse-existing", dest="reuse_existing", action=argparse.BooleanOptionalAction, default=True)
     observatory_parser.set_defaults(func=cmd_observatory)
 
     args = parser.parse_args(argv)

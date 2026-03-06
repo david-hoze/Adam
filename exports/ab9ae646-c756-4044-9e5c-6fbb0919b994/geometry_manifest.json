@@ -1,0 +1,19 @@
+{
+  "artifact_type": "geometry_lab",
+  "generated_at": "2026-03-06T20:10:32+00:00",
+  "json_path": "/Users/brianray/Adam/exports/ab9ae646-c756-4044-9e5c-6fbb0919b994/geometry_diagnostics.json",
+  "html_path": "/Users/brianray/Adam/exports/ab9ae646-c756-4044-9e5c-6fbb0919b994/geometry_lab.html",
+  "slice_names": [
+    "full_graph",
+    "current_session",
+    "current_active_set",
+    "verdict_accept"
+  ],
+  "coordinate_methods": [
+    "force",
+    "spectral",
+    "pca",
+    "circular_candidate",
+    "temporal"
+  ]
+}

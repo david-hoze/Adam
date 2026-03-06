@@ -16,7 +16,13 @@ class MLXModelAdapter(BaseModelAdapter):
             raise RuntimeError(
                 "mlx-lm is not installed. Install the project with the mlx extra: `uv pip install -e .[mlx]`."
             ) from exc
+        try:
+            from mlx_lm.sample_utils import make_logits_processors, make_sampler  # type: ignore
+        except ImportError as exc:  # pragma: no cover - depends on local install
+            raise RuntimeError("mlx-lm sample utilities are unavailable in this installation.") from exc
         self._mlx_lm = mlx_lm
+        self._make_sampler = make_sampler
+        self._make_logits_processors = make_logits_processors
         self.model, self.tokenizer = self._load_model()
 
     def _load_model(self):  # pragma: no cover - depends on local install
@@ -25,6 +31,16 @@ class MLXModelAdapter(BaseModelAdapter):
         from mlx_lm import load  # type: ignore
 
         return load(self.model_path)
+
+    def count_tokens(self, text: str) -> int | None:
+        if not text.strip():
+            return 0
+        if hasattr(self.tokenizer, "encode"):
+            try:
+                return int(len(self.tokenizer.encode(text)))
+            except Exception:  # pragma: no cover - tokenizer-specific failures
+                return None
+        return None
 
     def _build_prompt(self, system_prompt: str, conversation_prompt: str) -> str:
         messages = [
@@ -41,6 +57,9 @@ class MLXModelAdapter(BaseModelAdapter):
         system_prompt: str,
         conversation_prompt: str,
         max_tokens: int = 420,
+        temperature: float = 0.0,
+        top_p: float = 0.0,
+        repetition_penalty: float = 0.0,
     ) -> ModelResult:  # pragma: no cover - depends on local install
         prompt = self._build_prompt(system_prompt, conversation_prompt)
         if hasattr(self._mlx_lm, "generate"):
@@ -49,6 +68,8 @@ class MLXModelAdapter(BaseModelAdapter):
             from mlx_lm import generate as generate_fn  # type: ignore
 
         kwargs = {"max_tokens": max_tokens, "verbose": False}
+        kwargs["sampler"] = self._make_sampler(temp=temperature, top_p=top_p)
+        kwargs["logits_processors"] = self._make_logits_processors(repetition_penalty=repetition_penalty)
         try:
             sig = signature(generate_fn)
             if "prompt" in sig.parameters:
@@ -68,5 +89,10 @@ class MLXModelAdapter(BaseModelAdapter):
             backend=self.backend_name,
             text=text.strip(),
             tokens_estimate=min(max_tokens, max(64, len(text.split()))),
-            metadata={"model_path": self.model_path},
+            metadata={
+                "model_path": self.model_path,
+                "temperature": temperature,
+                "top_p": top_p,
+                "repetition_penalty": repetition_penalty,
+            },
         )

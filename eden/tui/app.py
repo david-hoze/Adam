@@ -13,7 +13,7 @@ from textual import on
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen, Screen
-from textual.widgets import Button, Footer, Header, Input, RichLog, Static
+from textual.widgets import Button, Footer, Header, Input, RichLog, Select, Static, TextArea
 
 from ..runtime import EdenRuntime
 from ..utils import safe_excerpt
@@ -23,6 +23,7 @@ AMBER = "#ffbf66"
 TEXT = "#ffe2af"
 MUTED = "#b88646"
 BG = "#090603"
+PANEL = "#140d05"
 
 
 @dataclass(slots=True)
@@ -33,8 +34,12 @@ class UiState:
     last_response: str = ""
     last_active_set: list[dict[str, Any]] | None = None
     last_trace: list[dict[str, Any]] | None = None
+    preview_active_set: list[dict[str, Any]] | None = None
+    preview_trace: list[dict[str, Any]] | None = None
     last_feedback: str = "No feedback applied yet."
-    observatory_url: str | None = None
+    observatory_status: dict[str, Any] | None = None
+    current_budget: dict[str, Any] | None = None
+    current_profile: dict[str, Any] | None = None
 
 
 class HelpModal(ModalScreen[None]):
@@ -43,11 +48,15 @@ class HelpModal(ModalScreen[None]):
             "[bold #ffbf66]EDEN Controls[/]\n\n"
             "[bold]F1[/] help overlay\n"
             "[bold]Ctrl+S[/] send current input\n"
-            "[bold]F2[/] export graph + basin\n"
-            "[bold]F3[/] toggle observatory server\n"
-            "[bold]F4[/] toggle low motion\n"
-            "[bold]F5[/] reset with a new session\n"
+            "[bold]F2[/] export graph, basin, and geometry artifacts\n"
+            "[bold]F3[/] ensure observatory is running and open the current export surface\n"
+            "[bold]F4[/] toggle low motion for the current session request\n"
+            "[bold]F5[/] open the new-session inference-profile flow\n"
             "[bold]Esc[/] close this overlay\n\n"
+            "Inference modes:\n"
+            "- MANUAL: operator-specified bounded parameters\n"
+            "- RUNTIME_AUTO: deterministic transparent runtime policy\n"
+            "- ADAM_AUTO: bounded preset choice; MLX currently falls back to runtime_auto and logs that fact\n\n"
             "Feedback rules:\n"
             "- Accept requires explanation\n"
             "- Reject requires explanation\n"
@@ -59,6 +68,133 @@ class HelpModal(ModalScreen[None]):
     def on_key(self, event) -> None:
         if event.key in {"escape", "f1"}:
             self.dismiss(None)
+
+
+class SessionConfigModal(ModalScreen[dict[str, Any] | None]):
+    def __init__(self, defaults: dict[str, Any], *, title_text: str, action_label: str) -> None:
+        super().__init__()
+        self.defaults = defaults
+        self.title_text = title_text
+        self.action_label = action_label
+
+    def compose(self) -> ComposeResult:
+        summary = Text.from_markup(
+            f"[bold {AMBER}]{self.title_text}[/]\n"
+            "Choose the inference-profile mode for this session. EDEN will persist the request at session creation and surface the resolved circumstances on later turns."
+        )
+        yield Static(Panel(summary, title="Session Start", border_style=AMBER), id="session_config_header")
+        with Horizontal(id="session_config_shell"):
+            with Vertical(classes="session_config_column"):
+                yield Input(value=self.defaults.get("title", "Operator Session"), id="session_title_input", placeholder="session title")
+                yield Select(
+                    [("MANUAL", "manual"), ("RUNTIME_AUTO", "runtime_auto"), ("ADAM_AUTO", "adam_auto")],
+                    value=self.defaults.get("mode", "manual"),
+                    allow_blank=False,
+                    id="mode_select",
+                    prompt="Inference mode",
+                )
+                yield Select(
+                    [("Tight", "tight"), ("Balanced", "balanced"), ("Wide", "wide")],
+                    value=self.defaults.get("budget_mode", "balanced"),
+                    allow_blank=False,
+                    id="budget_mode_select",
+                    prompt="Budget mode",
+                )
+                yield Select(
+                    [("Off", "false"), ("On", "true")],
+                    value="true" if self.defaults.get("low_motion") else "false",
+                    allow_blank=False,
+                    id="low_motion_select",
+                    prompt="Low motion",
+                )
+                yield Select(
+                    [("Off", "false"), ("On", "true")],
+                    value="true" if self.defaults.get("debug", True) else "false",
+                    allow_blank=False,
+                    id="debug_select",
+                    prompt="Debug verbosity",
+                )
+                yield Static(id="session_config_summary")
+            with Vertical(classes="session_config_column"):
+                yield Input(value=str(self.defaults.get("temperature", 0.4)), id="temperature_input", placeholder="temperature")
+                yield Input(value=str(self.defaults.get("max_output_tokens", 480)), id="max_tokens_input", placeholder="max output tokens")
+                yield Input(value=str(self.defaults.get("top_p", 0.9)), id="top_p_input", placeholder="top_p")
+                yield Input(value=str(self.defaults.get("repetition_penalty", 1.05)), id="repetition_penalty_input", placeholder="repetition penalty")
+                yield Input(value=str(self.defaults.get("retrieval_depth", 12)), id="retrieval_depth_input", placeholder="retrieval depth")
+                yield Input(value=str(self.defaults.get("max_context_items", 8)), id="max_context_items_input", placeholder="max context items")
+                yield Input(value=str(self.defaults.get("response_char_cap", 1600)), id="response_char_cap_input", placeholder="response char cap")
+                with Horizontal():
+                    yield Button(self.action_label, id="session_confirm_btn", variant="primary")
+                    yield Button("Cancel", id="session_cancel_btn")
+
+    def on_mount(self) -> None:
+        self._refresh_summary()
+
+    @on(Button.Pressed, "#session_confirm_btn")
+    def handle_confirm(self) -> None:
+        self.dismiss(self._payload())
+
+    @on(Button.Pressed, "#session_cancel_btn")
+    def handle_cancel(self) -> None:
+        self.dismiss(None)
+
+    @on(Select.Changed)
+    @on(Input.Changed)
+    def handle_field_change(self, _event) -> None:
+        self._refresh_summary()
+
+    def on_key(self, event) -> None:
+        if event.key == "escape":
+            self.dismiss(None)
+
+    def _payload(self) -> dict[str, Any]:
+        return {
+            "title": self.query_one("#session_title_input", Input).value.strip() or "Operator Session",
+            "mode": str(self.query_one("#mode_select", Select).value),
+            "budget_mode": str(self.query_one("#budget_mode_select", Select).value),
+            "low_motion": str(self.query_one("#low_motion_select", Select).value) == "true",
+            "debug": str(self.query_one("#debug_select", Select).value) == "true",
+            "temperature": self._float_value("#temperature_input", 0.4),
+            "max_output_tokens": self._int_value("#max_tokens_input", 480),
+            "top_p": self._float_value("#top_p_input", 0.9),
+            "repetition_penalty": self._float_value("#repetition_penalty_input", 1.05),
+            "retrieval_depth": self._int_value("#retrieval_depth_input", 12),
+            "max_context_items": self._int_value("#max_context_items_input", 8),
+            "response_char_cap": self._int_value("#response_char_cap_input", 1600),
+        }
+
+    def _refresh_summary(self) -> None:
+        payload = self._payload()
+        mode = payload["mode"]
+        if mode == "manual":
+            mode_summary = "Operator-specified values will be clamped and used directly."
+        elif mode == "runtime_auto":
+            mode_summary = "EDEN will choose a bounded preset each turn from transparent heuristics."
+        else:
+            mode_summary = "Mock sessions use a bounded Adam-guided preset picker; MLX sessions fall back to runtime_auto and log that."
+        text = Text.from_markup(
+            f"[bold {AMBER}]Mode[/] {mode.upper()}\n"
+            f"{mode_summary}\n\n"
+            f"[bold {AMBER}]Budget preset[/] {payload['budget_mode']}\n"
+            f"retrieval_depth={payload['retrieval_depth']} max_context_items={payload['max_context_items']}\n"
+            f"max_output_tokens={payload['max_output_tokens']} response_char_cap={payload['response_char_cap']}\n"
+            f"temperature={payload['temperature']:.2f} top_p={payload['top_p']:.2f} repetition_penalty={payload['repetition_penalty']:.2f}"
+        )
+        self.query_one("#session_config_summary", Static).update(Panel(text, title="Profile Summary", border_style=AMBER))
+
+    def _float_value(self, selector: str, default: float) -> float:
+        raw = self.query_one(selector, Input).value.strip()
+        try:
+            return float(raw)
+        except ValueError:
+            return default
+
+    def _int_value(self, selector: str, default: int) -> int:
+        raw = self.query_one(selector, Input).value.strip()
+        try:
+            return int(raw)
+        except ValueError:
+            return default
 
 
 class AdamSigil(Static):
@@ -107,12 +243,14 @@ class AdamSigil(Static):
         else:
             self._frame = (self._frame + 1) % len(self.FRAMES)
         frame = self.FRAMES[self._frame]
-        active = len(app.ui_state.last_active_set or [])
+        active = len((app.ui_state.preview_active_set or app.ui_state.last_active_set or []))
+        profile_name = (app.ui_state.current_profile or {}).get("profile_name", "awaiting-session")
+        pressure = (app.ui_state.current_budget or {}).get("pressure_level", "LOW")
         response = safe_excerpt(app.ui_state.last_response or "Awaiting first turn.", limit=88)
         lines = "\n".join(frame)
         text = Text.from_markup(
             f"[bold {AMBER}]{lines}[/]\n\n"
-            f"[{MUTED}]active-set={active} backend={app.runtime.settings.model_backend}[/]\n"
+            f"[{MUTED}]active-set={active} profile={profile_name} pressure={pressure}[/]\n"
             f"[{TEXT}]{response}[/]"
         )
         self.update(Panel(text, border_style=AMBER))
@@ -144,13 +282,13 @@ class StartupScreen(Screen):
         self.query_one("#startup_hint", Static).update(
             Panel(
                 Text.from_markup(
-                    f"[bold {AMBER}]Startup Contract[/]\n"
+                    f"[bold {AMBER}]Launch Contract[/]\n"
                     "- choose Blank Eden or Seeded Eden\n"
-                    "- MLX uses the supplied model path\n"
-                    "- seeded mode ingests the local canonical source bundle\n"
-                    "- resume opens the latest experiment and starts a new session"
+                    "- configure backend/model path here, not in the live chat pane\n"
+                    "- every new session opens an inference-profile flow before Adam starts responding\n"
+                    "- observability stays local-first and reuses existing exports when possible"
                 ),
-                title="Launch Surface",
+                title="Startup Surface",
                 border_style=AMBER,
             )
         )
@@ -159,7 +297,7 @@ class StartupScreen(Screen):
     def _summary_text(self) -> Panel:
         app = self.app
         assert isinstance(app, EdenTuiApp)
-        controls = ["model_backend", "model_path", "retrieval_depth", "low_motion", "debug"]
+        controls = ["profile_mode", "budget_mode", "retrieval_depth", "max_context_items", "response_char_cap"]
         content = Text.from_markup(
             f"[bold {AMBER}]EDEN / ADAM[/]\n"
             f"repo={app.repo_root}\n"
@@ -179,45 +317,67 @@ class StartupScreen(Screen):
             widget.write(f"[{event.level}] {event.event} :: {event.message} {event.payload}")
         self._seen_log_count = len(events)
 
-    async def _bootstrap(self, mode: str) -> None:
+    async def _launch_session_worker(self, action: str) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
         backend = self.query_one("#backend_input", Input).value.strip().lower() or "mock"
         model_path = self.query_one("#model_path_input", Input).value.strip() or None
         app.runtime.settings.model_backend = backend
         app.runtime.settings.model_path = model_path
-        experiment = await asyncio.to_thread(partial(app.runtime.initialize_experiment, mode))
-        session = await asyncio.to_thread(partial(app.runtime.start_session, experiment["id"]))
+        defaults = app.runtime.default_session_profile_request().to_dict()
+        payload = await app.push_screen_wait(
+            SessionConfigModal(
+                defaults,
+                title_text="Session Inference Profile",
+                action_label="Start Session",
+            )
+        )
+        if payload is None:
+            return
+        if action == "resume":
+            latest = app.runtime.store.get_latest_experiment()
+            if latest is None:
+                self.query_one("#startup_log", RichLog).write("[WARN] No existing experiment. Create one first.")
+                return
+            experiment = latest
+        else:
+            experiment = await asyncio.to_thread(partial(app.runtime.initialize_experiment, action))
+        session = await asyncio.to_thread(
+            partial(
+                app.runtime.start_session,
+                experiment["id"],
+                title=payload["title"],
+                profile_request=payload,
+            )
+        )
         app.ui_state.experiment_id = experiment["id"]
         app.ui_state.session_id = session["id"]
+        app.ui_state.current_profile = None
+        app.ui_state.current_budget = None
         await app.push_screen(ChatScreen())
+
+    def begin_launch_session(self, action: str) -> None:
+        self.run_worker(self._launch_session_worker(action), exclusive=True, group="launch")
 
     @on(Button.Pressed, "#blank_btn")
-    async def handle_blank(self) -> None:
-        await self._bootstrap("blank")
+    def handle_blank(self) -> None:
+        self.begin_launch_session("blank")
 
     @on(Button.Pressed, "#seeded_btn")
-    async def handle_seeded(self) -> None:
-        await self._bootstrap("seeded")
+    def handle_seeded(self) -> None:
+        self.begin_launch_session("seeded")
 
     @on(Button.Pressed, "#resume_btn")
-    async def handle_resume(self) -> None:
-        app = self.app
-        assert isinstance(app, EdenTuiApp)
-        latest = app.runtime.store.get_latest_experiment()
-        if latest is None:
-            self.query_one("#startup_log", RichLog).write("[WARN] No existing experiment. Create one first.")
-            return
-        session = await asyncio.to_thread(partial(app.runtime.start_session, latest["id"], title="Resumed session"))
-        app.ui_state.experiment_id = latest["id"]
-        app.ui_state.session_id = session["id"]
-        await app.push_screen(ChatScreen())
+    def handle_resume(self) -> None:
+        self.begin_launch_session("resume")
 
 
 class ChatScreen(Screen):
     def __init__(self) -> None:
         super().__init__()
         self._seen_log_count = 0
+        self._preview_task: asyncio.Task[None] | None = None
+        self._preview_generation = 0
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -232,7 +392,6 @@ class ChatScreen(Screen):
                     yield Button("Low Motion", id="motion_btn")
                     yield Button("Debug", id="debug_btn")
                     yield Button("Help", id="help_btn")
-                yield Input(value="12", id="retrieval_depth_input", placeholder="retrieval depth")
                 yield Input(id="ingest_path_input", placeholder="document path (.pdf/.csv/.txt/.md)")
                 yield Button("Ingest Document", id="ingest_btn")
                 yield Static(id="telemetry_panel")
@@ -240,12 +399,13 @@ class ChatScreen(Screen):
             with Vertical(id="center_column"):
                 yield AdamSigil(id="sigil_panel")
                 yield Static(id="response_panel")
+                yield Static(id="budget_panel")
                 with Vertical(id="input_panel"):
-                    yield Input(id="composer_input", placeholder="Type to Adam and press Ctrl+S or Send")
+                    yield TextArea(id="composer_input", soft_wrap=True, show_line_numbers=False, placeholder="Compose a turn to Adam. Ctrl+S sends.")
                     yield Button("Send", id="send_btn", variant="success")
                 with Vertical(id="feedback_panel"):
-                    yield Input(id="feedback_explanation", placeholder="feedback explanation (required for accept/reject/edit)")
-                    yield Input(id="feedback_corrected", placeholder="corrected answer (required for edit)")
+                    yield TextArea(id="feedback_explanation", soft_wrap=True, show_line_numbers=False, placeholder="feedback explanation (required for accept / reject / edit)")
+                    yield TextArea(id="feedback_corrected", soft_wrap=True, show_line_numbers=False, placeholder="corrected answer (required for edit)")
                     with Horizontal():
                         yield Button("Accept", id="accept_btn")
                         yield Button("Edit", id="edit_btn")
@@ -261,6 +421,7 @@ class ChatScreen(Screen):
     def on_mount(self) -> None:
         self.set_interval(0.6, self._poll_logs)
         self.set_interval(1.0, self.refresh_panels)
+        self._schedule_preview_refresh()
         self.refresh_panels()
 
     def refresh_panels(self) -> None:
@@ -269,15 +430,18 @@ class ChatScreen(Screen):
         if not app.ui_state.experiment_id or not app.ui_state.session_id:
             return
         health = app.runtime.graph_health(app.ui_state.experiment_id)
+        current_profile = app.ui_state.current_profile or {}
+        current_budget = app.ui_state.current_budget or {}
         control_text = Text.from_markup(
-            f"[bold {AMBER}]Control Surface[/]\n"
+            f"[bold {AMBER}]Command Surface[/]\n"
             f"experiment={app.ui_state.experiment_id}\n"
             f"session={app.ui_state.session_id}\n"
-            f"backend={app.runtime.settings.model_backend}\n"
-            f"observatory={app.ui_state.observatory_url or 'offline'}\n"
-            f"last_turn={app.ui_state.last_turn_id or 'none'}"
+            f"observatory={(app.ui_state.observatory_status or {}).get('url', 'offline')}\n"
+            f"last_turn={app.ui_state.last_turn_id or 'none'}\n"
+            f"requested_mode={current_profile.get('requested_mode', 'pending')}\n"
+            f"effective_mode={current_profile.get('effective_mode', 'pending')}"
         )
-        self.query_one("#control_panel", Static).update(Panel(control_text, title="Command Surface", border_style=AMBER))
+        self.query_one("#control_panel", Static).update(Panel(control_text, title="Control Surface", border_style=AMBER))
         telemetry_text = Text.from_markup(
             f"[bold {AMBER}]Graph Health[/]\n"
             f"memes={health['memes']} memodes={health['memodes']} edges={health['edges']}\n"
@@ -295,28 +459,53 @@ class ChatScreen(Screen):
         self.query_one("#response_panel", Static).update(
             Panel(Text(response_text, style=TEXT), title="Adam Response", border_style=AMBER)
         )
-        feedback_text = app.ui_state.last_feedback
         self.query_one("#feedback_status", Static).update(
-            Panel(Text(feedback_text, style=MUTED), title="Feedback Status", border_style=AMBER)
+            Panel(Text(app.ui_state.last_feedback, style=MUTED), title="Feedback Status", border_style=AMBER)
         )
+        self.query_one("#budget_panel", Static).update(Panel(self._budget_text(current_profile, current_budget), title="Inference Circumstances / Budget", border_style=AMBER))
+        active_items = app.ui_state.preview_active_set if self._composer_text().strip() else app.ui_state.last_active_set
+        trace_items = app.ui_state.preview_trace if self._composer_text().strip() else app.ui_state.last_trace
         active_lines = []
-        for item in (app.ui_state.last_active_set or [])[:8]:
+        for item in (active_items or [])[:8]:
             active_lines.append(
                 f"{item['label']} [{item['domain']}] sel={item['selection']:.2f} reg={item['regard']:.2f}"
             )
+        active_label = "Aperture / Active Set (Preview)" if self._composer_text().strip() else "Aperture / Active Set"
         active_text = Text.from_markup(f"[bold {AMBER}]Active Set[/]\n" + ("\n".join(active_lines) if active_lines else "No active set yet."))
-        self.query_one("#active_set_panel", Static).update(Panel(active_text, title="Aperture / Active Set", border_style=AMBER))
+        self.query_one("#active_set_panel", Static).update(Panel(active_text, title=active_label, border_style=AMBER))
         trace_lines = []
-        for item in (app.ui_state.last_trace or [])[:10]:
+        for item in (trace_items or [])[:10]:
             trace_lines.append(
                 f"{item['label']} :: sel={item['selection']:.2f} sim={item['semantic_similarity']:.2f} act={item['activation']:.2f}"
             )
         trace_text = Text.from_markup(
             f"[bold {AMBER}]Decision Trace[/]\n"
-            "Operator-visible retrieval and membrane surfaces only.\n\n"
+            "Operator-visible retrieval, regard, budget, and membrane surfaces only.\n\n"
             + ("\n".join(trace_lines) if trace_lines else "No trace yet.")
         )
         self.query_one("#trace_panel", Static).update(Panel(trace_text, title="Cogitation / Decision Trace", border_style=AMBER))
+
+    def _budget_text(self, profile: dict[str, Any], budget: dict[str, Any]) -> Text:
+        if not profile or not budget:
+            return Text.from_markup(
+                f"[bold {AMBER}]Awaiting budget preview[/]\n"
+                "Type in the composer or start a turn preview to see live prompt-budget conditions."
+            )
+        reasons = budget.get("change_reasons", [])[:4]
+        reason_text = "\n".join(f"- {item}" for item in reasons) if reasons else "- No recent change."
+        return Text.from_markup(
+            f"[bold {AMBER}]profile[/] {profile.get('profile_name', 'n/a')}\n"
+            f"mode={profile.get('requested_mode', 'n/a')} -> {profile.get('effective_mode', 'n/a')}\n"
+            f"retrieval_depth={profile.get('retrieval_depth', 'n/a')} max_context_items={profile.get('max_context_items', 'n/a')}\n"
+            f"reserved_output={budget.get('reserved_output_tokens', 'n/a')} tok response_char_cap={profile.get('response_char_cap', 'n/a')}\n"
+            f"prompt_budget={budget.get('prompt_budget_tokens', 'n/a')} tok context_window={budget.get('context_window_tokens', 'n/a')} tok\n"
+            f"user={budget.get('user_tokens', 'n/a')} tok / {budget.get('user_chars', 'n/a')} chars\n"
+            f"remaining_input={budget.get('remaining_input_tokens', 'n/a')} tok / {budget.get('remaining_input_chars', 'n/a')} chars\n"
+            f"count_method={budget.get('count_method', 'n/a')}\n"
+            f"active_set={budget.get('active_set_tokens', 'n/a')} tok history={budget.get('history_tokens', 'n/a')} tok feedback={budget.get('feedback_tokens', 'n/a')} tok\n"
+            f"pressure={budget.get('pressure_level', 'n/a')} ratio={budget.get('pressure_ratio', 'n/a')}\n\n"
+            f"[bold {AMBER}]Allowance changes[/]\n{reason_text}"
+        )
 
     def _poll_logs(self) -> None:
         app = self.app
@@ -327,20 +516,59 @@ class ChatScreen(Screen):
             widget.write(f"[{event.level}] {event.event} :: {event.message} {event.payload}")
         self._seen_log_count = len(events)
 
-    def _sync_settings(self) -> None:
+    def _composer_text(self) -> str:
+        return self.query_one("#composer_input", TextArea).text
+
+    def _feedback_text(self, selector: str) -> str:
+        return self.query_one(selector, TextArea).text
+
+    def _set_text_area(self, selector: str, value: str) -> None:
+        self.query_one(selector, TextArea).load_text(value)
+
+    def _schedule_preview_refresh(self) -> None:
+        if not self.app.ui_state.session_id:
+            return
+        self._preview_generation += 1
+        generation = self._preview_generation
+        if self._preview_task is not None and not self._preview_task.done():
+            self._preview_task.cancel()
+        self._preview_task = asyncio.create_task(self._refresh_preview(generation))
+
+    async def _refresh_preview(self, generation: int) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
-        raw_depth = self.query_one("#retrieval_depth_input", Input).value.strip()
-        if raw_depth.isdigit():
-            app.runtime.settings.retrieval_depth = max(4, min(40, int(raw_depth)))
-            app.runtime.settings.max_context_items = max(4, min(12, int(raw_depth) // 2))
+        await asyncio.sleep(0.22)
+        if generation != self._preview_generation or not app.ui_state.session_id:
+            return
+        user_text = self._composer_text().strip()
+        preview = await asyncio.to_thread(
+            partial(
+                app.runtime.preview_turn,
+                session_id=app.ui_state.session_id,
+                user_text=user_text,
+                previous_budget=app.ui_state.current_budget,
+            )
+        )
+        if generation != self._preview_generation:
+            return
+        app.ui_state.current_profile = preview.profile
+        app.ui_state.current_budget = preview.budget
+        if user_text:
+            app.ui_state.preview_active_set = preview.active_set
+            app.ui_state.preview_trace = preview.trace
+        else:
+            app.ui_state.preview_active_set = app.ui_state.last_active_set
+            app.ui_state.preview_trace = app.ui_state.last_trace
+        self.refresh_panels()
+
+    @on(TextArea.Changed, "#composer_input")
+    def handle_composer_changed(self, _event) -> None:
+        self._schedule_preview_refresh()
 
     async def _send_turn(self) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
-        self._sync_settings()
-        composer = self.query_one("#composer_input", Input)
-        text = composer.value.strip()
+        text = self._composer_text().strip()
         if not text or not app.ui_state.session_id:
             return
         outcome = await asyncio.to_thread(partial(app.runtime.chat, session_id=app.ui_state.session_id, user_text=text))
@@ -348,8 +576,13 @@ class ChatScreen(Screen):
         app.ui_state.last_response = outcome.turn["membrane_text"]
         app.ui_state.last_active_set = outcome.active_set
         app.ui_state.last_trace = outcome.trace
-        composer.value = ""
+        app.ui_state.preview_active_set = outcome.active_set
+        app.ui_state.preview_trace = outcome.trace
+        app.ui_state.current_budget = outcome.budget
+        app.ui_state.current_profile = outcome.profile
+        self._set_text_area("#composer_input", "")
         self.refresh_panels()
+        self._schedule_preview_refresh()
 
     async def _apply_feedback(self, verdict: str) -> None:
         app = self.app
@@ -358,8 +591,8 @@ class ChatScreen(Screen):
             app.ui_state.last_feedback = "No turn available for feedback."
             self.refresh_panels()
             return
-        explanation = self.query_one("#feedback_explanation", Input).value
-        corrected = self.query_one("#feedback_corrected", Input).value
+        explanation = self._feedback_text("#feedback_explanation")
+        corrected = self._feedback_text("#feedback_corrected")
         try:
             feedback = await asyncio.to_thread(
                 partial(
@@ -375,8 +608,9 @@ class ChatScreen(Screen):
             app.ui_state.last_feedback = f"{verdict.upper()} failed: {exc}"
         else:
             app.ui_state.last_feedback = f"{feedback['verdict'].upper()} recorded at {feedback['created_at']}."
-            self.query_one("#feedback_explanation", Input).value = ""
-            self.query_one("#feedback_corrected", Input).value = ""
+            self._set_text_area("#feedback_explanation", "")
+            self._set_text_area("#feedback_corrected", "")
+            self._schedule_preview_refresh()
         self.refresh_panels()
 
     @on(Button.Pressed, "#send_btn")
@@ -411,6 +645,7 @@ class ChatScreen(Screen):
         await asyncio.to_thread(partial(app.runtime.ingest_document, experiment_id=app.ui_state.experiment_id, path=path))
         self.query_one("#ingest_path_input", Input).value = ""
         self.refresh_panels()
+        self._schedule_preview_refresh()
 
     @on(Button.Pressed, "#export_btn")
     async def handle_export(self) -> None:
@@ -421,56 +656,101 @@ class ChatScreen(Screen):
         paths = await asyncio.to_thread(
             partial(app.runtime.export_observability, experiment_id=app.ui_state.experiment_id, session_id=app.ui_state.session_id)
         )
-        app.ui_state.last_feedback = f"Exports generated: {Path(paths['graph_html']).name}, {Path(paths['basin_html']).name}"
+        names = [Path(paths[key]).name for key in ("graph_html", "basin_html", "geometry_html") if key in paths]
+        app.ui_state.last_feedback = f"Exports generated: {', '.join(names)}"
         self.refresh_panels()
 
     @on(Button.Pressed, "#observatory_btn")
     async def handle_observatory(self) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
-        if app.runtime.observatory_server.running:
-            await asyncio.to_thread(app.runtime.stop_observatory)
-            app.ui_state.observatory_url = None
-        else:
-            url = await asyncio.to_thread(app.runtime.start_observatory)
-            app.ui_state.observatory_url = url
-            if app.ui_state.experiment_id:
-                paths = await asyncio.to_thread(
-                    partial(app.runtime.export_observability, experiment_id=app.ui_state.experiment_id, session_id=app.ui_state.session_id)
-                )
-                webbrowser.open(url + f"{app.ui_state.experiment_id}/{Path(paths['graph_html']).name}")
+        status = await asyncio.to_thread(partial(app.runtime.start_observatory, reuse_existing=True))
+        app.ui_state.observatory_status = status
+        target_url = status["url"]
+        if app.ui_state.experiment_id:
+            paths = await asyncio.to_thread(
+                partial(app.runtime.export_observability, experiment_id=app.ui_state.experiment_id, session_id=app.ui_state.session_id)
+            )
+            target = Path(paths.get("observatory_index_html") or paths.get("geometry_html") or paths.get("graph_html", ""))
+            if target.name:
+                target_url = status["url"] + f"{app.ui_state.experiment_id}/{target.name}"
+                webbrowser.open(target_url)
+        app.ui_state.last_feedback = (
+            f"Observatory {'reused' if status['reused_existing'] else 'started'} at {target_url}"
+        )
         self.refresh_panels()
 
-    @on(Button.Pressed, "#new_session_btn")
-    async def handle_new_session(self) -> None:
+    async def _new_session_worker(self) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
         if not app.ui_state.experiment_id:
             return
-        session = await asyncio.to_thread(partial(app.runtime.start_session, app.ui_state.experiment_id, title="New operator session"))
+        defaults = app.runtime.default_session_profile_request().to_dict()
+        if app.ui_state.session_id:
+            defaults.update(await asyncio.to_thread(partial(app.runtime.session_profile_request, app.ui_state.session_id)))
+        payload = await app.push_screen_wait(
+            SessionConfigModal(
+                defaults,
+                title_text="New Session Inference Profile",
+                action_label="Open Session",
+            )
+        )
+        if payload is None:
+            return
+        session = await asyncio.to_thread(
+            partial(
+                app.runtime.start_session,
+                app.ui_state.experiment_id,
+                title=payload["title"],
+                profile_request=payload,
+            )
+        )
         app.ui_state.session_id = session["id"]
         app.ui_state.last_turn_id = None
         app.ui_state.last_response = ""
         app.ui_state.last_active_set = []
         app.ui_state.last_trace = []
+        app.ui_state.preview_active_set = []
+        app.ui_state.preview_trace = []
+        app.ui_state.current_budget = None
+        app.ui_state.current_profile = None
         app.ui_state.last_feedback = "Opened a new session."
+        self._set_text_area("#composer_input", "")
         self.refresh_panels()
+        self._schedule_preview_refresh()
+
+    def begin_new_session_flow(self) -> None:
+        self.run_worker(self._new_session_worker(), exclusive=True, group="session")
+
+    @on(Button.Pressed, "#new_session_btn")
+    def handle_new_session(self) -> None:
+        self.begin_new_session_flow()
 
     @on(Button.Pressed, "#motion_btn")
-    def handle_motion(self) -> None:
+    async def handle_motion(self) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
-        app.runtime.settings.low_motion = not app.runtime.settings.low_motion
-        app.ui_state.last_feedback = f"low_motion={app.runtime.settings.low_motion}"
-        self.refresh_panels()
+        if not app.ui_state.session_id:
+            return
+        current = await asyncio.to_thread(partial(app.runtime.session_profile_request, app.ui_state.session_id))
+        updated = await asyncio.to_thread(
+            partial(app.runtime.update_session_profile_request, app.ui_state.session_id, low_motion=not current.get("low_motion", False))
+        )
+        app.ui_state.last_feedback = f"low_motion={updated['low_motion']}"
+        self._schedule_preview_refresh()
 
     @on(Button.Pressed, "#debug_btn")
-    def handle_debug(self) -> None:
+    async def handle_debug(self) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
-        app.runtime.settings.debug = not app.runtime.settings.debug
-        app.ui_state.last_feedback = f"debug={app.runtime.settings.debug}"
-        self.refresh_panels()
+        if not app.ui_state.session_id:
+            return
+        current = await asyncio.to_thread(partial(app.runtime.session_profile_request, app.ui_state.session_id))
+        updated = await asyncio.to_thread(
+            partial(app.runtime.update_session_profile_request, app.ui_state.session_id, debug=not current.get("debug", True))
+        )
+        app.ui_state.last_feedback = f"debug={updated['debug']}"
+        self._schedule_preview_refresh()
 
     @on(Button.Pressed, "#help_btn")
     async def handle_help(self) -> None:
@@ -495,22 +775,52 @@ class EdenTuiApp(App):
         margin: 0 1;
     }}
     #left_column {{
-        width: 34%;
+        width: 27%;
         padding: 0 1;
     }}
     #center_column {{
-        width: 33%;
+        width: 43%;
         padding: 0 1;
     }}
     #right_column {{
-        width: 33%;
+        width: 30%;
         padding: 0 1;
     }}
-    Static, Input, RichLog {{
+    #sigil_panel {{
+        height: 12;
+    }}
+    #response_panel {{
+        height: 14;
+    }}
+    #budget_panel {{
+        height: 15;
+    }}
+    #input_panel {{
+        height: 18;
+    }}
+    #composer_input {{
+        height: 13;
+        background: #060403;
+        border: tall {AMBER};
+        color: {TEXT};
+    }}
+    #feedback_explanation, #feedback_corrected {{
+        height: 4;
+        background: #060403;
+        border: tall {AMBER};
+        color: {TEXT};
+    }}
+    #feedback_panel {{
+        height: 15;
+    }}
+    #forensic_log {{
+        height: 1fr;
+    }}
+    Static, Input, RichLog, Select, TextArea {{
         margin-bottom: 1;
     }}
-    Input {{
-        background: #140d05;
+    Input, Select {{
+        background: {PANEL};
         border: tall {AMBER};
         color: {TEXT};
     }}
@@ -523,6 +833,16 @@ class EdenTuiApp(App):
         background: #060403;
         border: tall {AMBER};
         color: {TEXT};
+    }}
+    #session_config_shell {{
+        padding: 1 1;
+    }}
+    .session_config_column {{
+        width: 1fr;
+        padding: 0 1;
+    }}
+    #session_config_header, #session_config_summary {{
+        margin: 1 2;
     }}
     """
     BINDINGS = [
@@ -558,13 +878,13 @@ class EdenTuiApp(App):
         if isinstance(self.screen, ChatScreen):
             await self.screen.handle_observatory()
 
-    def action_toggle_motion(self) -> None:
+    async def action_toggle_motion(self) -> None:
         if isinstance(self.screen, ChatScreen):
-            self.screen.handle_motion()
+            await self.screen.handle_motion()
 
     async def action_new_session(self) -> None:
         if isinstance(self.screen, ChatScreen):
-            await self.screen.handle_new_session()
+            self.screen.begin_new_session_flow()
 
 
 def run_tui(runtime: EdenRuntime) -> None:

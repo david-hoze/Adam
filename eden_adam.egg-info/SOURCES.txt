@@ -3,7 +3,9 @@ pyproject.toml
 eden/__init__.py
 eden/__main__.py
 eden/app.py
+eden/budget.py
 eden/config.py
+eden/inference.py
 eden/logging.py
 eden/regard.py
 eden/retrieval.py
@@ -14,7 +16,7 @@ eden/ingest/pipeline.py
 eden/models/base.py
 eden/models/mlx_backend.py
 eden/models/mock.py
-eden/observatory/exporters.py
+eden/observatory/geometry.py
 eden/observatory/server.py
 eden/storage/graph_store.py
 eden/storage/schema.py
@@ -25,3 +27,7 @@ eden_adam.egg-info/dependency_links.txt
 eden_adam.egg-info/entry_points.txt
 eden_adam.egg-info/requires.txt
 eden_adam.egg-info/top_level.txt
+tests/test_ingest.py
+tests/test_regard.py
+tests/test_runtime_e2e.py
+tests/test_tui_smoke.py

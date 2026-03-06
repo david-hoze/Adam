@@ -30,7 +30,18 @@ class GraphStore:
     def initialize(self) -> None:
         with self._lock:
             self._conn.executescript(SCHEMA_SQL)
+            self._apply_additive_migrations()
             self._conn.commit()
+
+    def _apply_additive_migrations(self) -> None:
+        self._ensure_column("turns", "metadata_json", "TEXT NOT NULL DEFAULT '{}'")
+
+    def _ensure_column(self, table: str, column: str, definition: str) -> None:
+        row = self._conn.execute(f"PRAGMA table_info({table})").fetchall()
+        existing = {item["name"] for item in row}
+        if column in existing:
+            return
+        self._conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
     @contextmanager
     def transaction(self) -> Iterable[sqlite3.Connection]:
@@ -141,6 +152,17 @@ class GraphStore:
             )
         return self.get_session(session_id)
 
+    def update_session_metadata(self, session_id: str, metadata: dict[str, Any]) -> dict[str, Any]:
+        session = self.get_session(session_id)
+        merged = json.loads(session["metadata_json"] or "{}")
+        merged.update(metadata)
+        with self.transaction() as conn:
+            conn.execute(
+                "UPDATE sessions SET metadata_json = ?, updated_at = ? WHERE id = ?",
+                (compact_json(merged), now_utc(), session_id),
+            )
+        return self.get_session(session_id)
+
     def get_session(self, session_id: str) -> dict[str, Any]:
         row = self._conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
         if row is None:
@@ -172,6 +194,7 @@ class GraphStore:
         membrane_text: str,
         active_set: list[dict[str, Any]],
         trace: list[dict[str, Any]],
+        metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         turn_id = str(uuid4())
         turn_index = self.get_next_turn_index(session_id)
@@ -181,9 +204,9 @@ class GraphStore:
                 """
                 INSERT INTO turns(
                     id, experiment_id, session_id, turn_index, user_text, prompt_context,
-                    response_text, membrane_text, active_set_json, trace_json, created_at
+                    response_text, membrane_text, active_set_json, trace_json, metadata_json, created_at
                 )
-                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     turn_id,
@@ -196,6 +219,7 @@ class GraphStore:
                     membrane_text,
                     compact_json(active_set),
                     compact_json(trace),
+                    compact_json(metadata or {}),
                     created_at,
                 ),
             )
@@ -820,6 +844,30 @@ class GraphStore:
                 "SELECT * FROM feedback_events WHERE experiment_id = ? ORDER BY created_at ASC",
                 (experiment_id,),
             ).fetchall()
+                if row is not None
+            ],
+            "trace_events": [
+                _row_to_dict(row)
+                for row in self._conn.execute(
+                    "SELECT * FROM trace_events WHERE experiment_id = ? ORDER BY created_at ASC",
+                    (experiment_id,),
+                ).fetchall()
+                if row is not None
+            ],
+            "membrane_events": [
+                _row_to_dict(row)
+                for row in self._conn.execute(
+                    "SELECT * FROM membrane_events WHERE experiment_id = ? ORDER BY created_at ASC",
+                    (experiment_id,),
+                ).fetchall()
+                if row is not None
+            ],
+            "export_artifacts": [
+                _row_to_dict(row)
+                for row in self._conn.execute(
+                    "SELECT * FROM export_artifacts WHERE experiment_id = ? ORDER BY created_at ASC",
+                    (experiment_id,),
+                ).fetchall()
                 if row is not None
             ],
         }

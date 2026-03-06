@@ -1,25 +1,21 @@
-# EDEN / ADAM v1
+# EDEN / ADAM v1.1
 
-EDEN is a local-first experimental memetic persona runtime. ADAM is the first agent/persona instance inside it. This repository builds the first runnable iteration around a persistent SQLite-backed memgraph, a panelized Textual TUI, explicit turn feedback, heuristic retrieval with real regard scoring, document ingest, and browser-viewable observability exports.
+EDEN is a local-first experimental memetic persona runtime. ADAM is the first agent/persona instance inside it. v1.1 preserves the working amber fixed-pane TUI and graph-conditioned chat loop, then adds robust observatory lifecycle handling, session-start inference profiles, live prompt-budget visibility, per-turn inference-circumstance persistence, and a geometry-aware browser observatory.
 
-## What is implemented
+## v1.1 additions
 
-- Fixed-pane amber TUI with startup menu and chat instrument surfaces
-- Blank Eden bootstrap and Seeded Eden bootstrap code paths
-- Persistent memgraph in SQLite with memes, memodes, turns, feedback, documents, trace events, membrane events, and export artifacts
-- Regard math and selection scoring in code
-- PDF, CSV, TXT, and Markdown ingest
-- Mock backend for smoke/demo paths
-- MLX backend adapter for real local model execution
-- Static HTML/JSON exports for graph knowledge base and behavioral attractor basin
-- Lightweight local observatory server
-- Smoke tests and a headless TUI smoke test
+- Robust observatory server lifecycle with host/port flags, free-port fallback, same-root reuse, and actual URL reporting
+- Session-start inference profile flow for `manual`, `runtime_auto`, and `adam_auto`
+- Multiline `TextArea` composer with materially larger input surface
+- Live `Inference Circumstances / Budget` panel in the TUI
+- Per-turn stored inference profile and budget metadata
+- New `geometry_diagnostics.json`, `geometry_lab.html`, and `observatory_index.html`
+- Geometry metrics with evidence labels: `OBSERVED`, `DERIVED`, `SPECULATIVE`
+- Synthetic geometry tests and observatory server robustness tests
 
 ## Environment
 
-This build was validated with local Python 3.12 in `/Users/brianray/Adam/.venv`.
-
-Create the environment:
+Validated with repo-local Python 3.12 in `/Users/brianray/Adam/.venv`.
 
 ```bash
 python3.12 -m venv .venv
@@ -33,26 +29,26 @@ Install MLX support for the real backend:
 .venv/bin/pip install -e '.[mlx]'
 ```
 
-`mlx-lm` import was validated in this repo venv. No local Qwen/Qwen3.5-35B-A3B MLX model path was present on this machine during the build, so the adapter is wired and import-validated, but a full model-load run still requires you to supply the actual local model path.
+`mlx-lm` is installed and import-validated in the repo venv. A full run with the selected local Qwen/Qwen3.5-35B-A3B 4-bit MLX model still requires you to provide the actual model path on disk.
 
 ## Run
 
-Launch the TUI:
+Launch the TUI with the fast mock path:
 
 ```bash
 .venv/bin/python -m eden app --backend mock
 ```
 
-Launch the TUI with MLX enabled:
+Launch the TUI with MLX:
 
 ```bash
 .venv/bin/python -m eden app --backend mlx --model-path /absolute/path/to/Qwen3.5-35B-A3B-4bit-MLX
 ```
 
-Fast demo path:
+Run a one-turn demo and emit graph, basin, geometry, and index exports:
 
 ```bash
-.venv/bin/python -m eden demo --backend mock --mode blank --prompt 'What persists about Adam across sessions?' --feedback accept --feedback-explanation 'This captures the graph-conditioned identity thesis.'
+.venv/bin/python -m eden demo --backend mock --mode blank --prompt 'Map the graph-conditioned persistence surfaces and geometry evidence.' --feedback accept --feedback-explanation 'Useful for observatory validation.'
 ```
 
 Ingest a document into an existing experiment:
@@ -61,17 +57,58 @@ Ingest a document into an existing experiment:
 .venv/bin/python -m eden ingest <experiment_id> /absolute/path/to/file.pdf
 ```
 
-Generate observability exports for an experiment:
+Export observability artifacts for an experiment:
 
 ```bash
 .venv/bin/python -m eden export <experiment_id> --session-id <session_id>
 ```
 
-Serve the exports directory locally:
+Serve the exports directory with robust port handling:
 
 ```bash
-.venv/bin/python -m eden observatory
+.venv/bin/python -m eden observatory --host 127.0.0.1 --port 8741 --open
 ```
+
+Useful flags:
+
+```bash
+.venv/bin/python -m eden observatory --no-open
+.venv/bin/python -m eden observatory --reuse-existing
+.venv/bin/python -m eden observatory --no-reuse-existing
+```
+
+## First Run
+
+1. Start the TUI with `.venv/bin/python -m eden app --backend mock`.
+2. Choose `Blank Eden`, `Seeded Eden`, or `Resume Latest`.
+3. In the session-start modal choose the inference profile mode and bounded parameters for that session.
+4. Use the multiline composer to write a turn and send it with `Ctrl+S`.
+5. Watch the `Inference Circumstances / Budget` panel update as you type and after retrieval preview refreshes.
+6. Inspect the `Aperture / Active Set` and `Cogitation / Decision Trace` panes.
+7. Apply `Accept`, `Edit`, `Reject`, or `Skip` feedback.
+8. Use `Export` to write graph, basin, geometry, and index artifacts.
+9. Use `Observatory` to ensure the local server is running and open the current experiment’s index page.
+
+## Inference notes
+
+- `manual`: uses the operator-supplied bounded values after clamping.
+- `runtime_auto`: chooses a bounded preset per turn from transparent heuristics.
+- `adam_auto`: mock mode uses a bounded preset picker; MLX currently falls back to `runtime_auto` and logs that fact.
+- `temperature`, `top_p`, and `repetition_penalty` are passed through on the MLX path using local `mlx-lm` sampler/logits controls.
+- Prompt budget is an EDEN-side working budget estimate, not a claim about the model’s absolute maximum context window.
+- Token counts are exact when a tokenizer-backed counter is available; otherwise EDEN uses an explicit heuristic and labels it that way.
+
+## Observatory artifacts
+
+Per experiment under `exports/<experiment_id>/`:
+
+- `graph_knowledge_base.html`
+- `behavioral_attractor_basin.html`
+- `geometry_lab.html`
+- `observatory_index.html`
+- matching `.json` and manifest files
+
+The graph surface separates `render_coords` from `derived_coords`. The geometry lab reports topology, symmetry proxies, projection diagnostics, and ablation persistence without claiming that layout aesthetics are evidence.
 
 ## Tests
 
@@ -79,44 +116,35 @@ Serve the exports directory locally:
 .venv/bin/pytest -q
 ```
 
-Validated in this build:
+Validated in this patch:
 
-- `5 passed` on the smoke/unit suite
-- mock blank demo completed end to end
-- PDF ingest succeeded on `assets/seed_canon/eden_whitepaper_v14.pdf`
-- graph and basin HTML exports were opened in a real browser via Playwright
-- TUI launched successfully to the startup screen in a live PTY
+- `19 passed`
+- observatory CLI fallback from an occupied requested port to the next free port with actual URL reporting
+- mock demo export generated graph, basin, geometry, and index artifacts
+- observatory index and geometry lab opened in a real browser session via Playwright
+- TUI smoke path exercised the new session-start modal and multiline composer
 
-## First Run Walkthrough
+## Evidence
 
-1. Start the TUI with `.venv/bin/python -m eden app --backend mock`.
-2. On the startup screen choose `Blank Eden` for the fastest path, or `Seeded Eden` for canon ingest.
-3. Type a prompt into the `composer` panel and send it.
-4. Inspect the `Aperture / Active Set` and `Decision Trace` panes to see the retrieved material and scoring surfaces.
-5. Apply `Accept`, `Edit`, `Reject`, or `Skip` feedback with the required payloads.
-6. Use `Export` to generate `graph_knowledge_base.html` and `behavioral_attractor_basin.html`.
-7. Use `Observatory` to serve `exports/` locally and open the current graph export in a browser.
+Fresh v1.1 demo artifacts from this patch cycle:
 
-## Example Evidence
+- `exports/ab9ae646-c756-4044-9e5c-6fbb0919b994/observatory_index.html`
+- `exports/ab9ae646-c756-4044-9e5c-6fbb0919b994/graph_knowledge_base.html`
+- `exports/ab9ae646-c756-4044-9e5c-6fbb0919b994/behavioral_attractor_basin.html`
+- `exports/ab9ae646-c756-4044-9e5c-6fbb0919b994/geometry_lab.html`
 
-The fast validated blank run in this build wrote artifacts under:
-
-- `exports/64e1acd5-3428-4362-859e-499577c5620a/graph_knowledge_base.html`
-- `exports/64e1acd5-3428-4362-859e-499577c5620a/behavioral_attractor_basin.html`
-
-The runtime log lives at:
+Runtime artifacts:
 
 - `logs/runtime.jsonl`
-
-The current persistent database lives at:
-
 - `data/eden.db`
 
-## Repo Map
+## Docs
 
-- `eden/`: runtime, TUI, storage, retrieval, ingest, exporters, model adapters
-- `docs/`: specs, schema, truth table, source manifest, limitations
-- `assets/seed_canon/`: vendored whitepaper and canonical secondary source PDFs
-- `tests/`: smoke and integration tests
-- `exports/`: generated browser artifacts
-- `logs/`: runtime JSONL log
+- `docs/INFERENCE_PROFILES.md`
+- `docs/TUI_SPEC.md`
+- `docs/OBSERVATORY_SPEC.md`
+- `docs/OBSERVATORY_GEOMETRY_SPEC.md`
+- `docs/GEOMETRY_EVIDENCE_POLICY.md`
+- `docs/PATCH_MANIFEST_V1_1.md`
+- `docs/IMPLEMENTATION_TRUTH_TABLE.md`
+- `docs/KNOWN_LIMITATIONS.md`
