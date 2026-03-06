@@ -1,0 +1,24 @@
+Metadata-Version: 2.4
+Name: eden-adam
+Version: 0.1.0
+Summary: EDEN local-first memetic persona runtime with ADAM as the first agent.
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: markdown>=3.6
+Requires-Dist: networkx>=3.4
+Requires-Dist: numpy>=2.0
+Requires-Dist: pdfplumber>=0.11
+Requires-Dist: pypdf>=5.3
+Requires-Dist: rich>=13.9
+Requires-Dist: textual>=0.58
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.25; extra == "dev"
+Provides-Extra: mlx
+Requires-Dist: mlx-lm>=0.20.0; extra == "mlx"
+
+# Adam
+
+Small README update to exercise GitHub commit status checks.
+
+This change is only here to verify the repo can push cleanly under the correct GitHub account.

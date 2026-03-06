@@ -1,0 +1,27 @@
+# Source Manifest
+
+The build was grounded in the attached artifacts below. `Used in build` means the artifact materially influenced code, docs, or validation; it does not mean the artifact was copied verbatim into the implementation.
+
+| Artifact | Type | Authority | Surface informed | Read successfully | Limitations / junk | Used in build |
+| --- | --- | --- | --- | --- | --- | --- |
+| `eden_whitepaper_v14.pdf` | PDF | Authoritative | ontology, control loop, regard vocabulary, constitutional seed, ingest validation | Yes. Inspected via `pdfinfo` and `pdftotext`; first sections were read directly. | Whitepaper claims exceed runtime in places; prompt overrides applied where required. | Yes |
+| `cannonical_secondary_sources.zip` | ZIP of PDFs | Authoritative | Seeded Eden canon ingest, provenance, early meme/memode population | Yes. Listed via `zipinfo`; extracted into `assets/seed_canon/`; seeded ingest path executed partially on real files. | Contains `__MACOSX` junk; filename is misspelled `cannonical`; heavy ingest path. | Yes |
+| `Images.zip` | ZIP of PNGs | Inspirational | TUI palette, framed panel grammar, browser observability styling | Yes. Listed via `zipinfo`; selected images were visually inspected after extraction. | Contains `__MACOSX` junk and duplicate visual themes. | Yes |
+| `Behavioral attractor HTML & JSON.zip` | ZIP of HTML + JSON manifests | Inspirational | basin export controls, report structure, slider/playback affordances, manifest shape | Yes. Extracted and inspected; HTML/JSON members read directly. | One HTML file is huge because Plotly is inlined; not reused directly. | Yes |
+| `GUI React inspiration.zip` | ZIP of code + assets | Inspirational | observability visual language, data export discipline, README/truth-table tone | Yes. README, Makefile, and selected files were extracted and read. | Bundle contains many unrelated media-generation scripts and old project structure not reused. | Yes |
+| `TUI amber pane inspiration.zip` | ZIP of Python source | Inspirational | Textual panel grammar, telemetry framing, sigil treatment | Yes. Extracted `hyperstition_sigils.py` and inspected it. | Contains Finder junk and compiled cache artifacts. | Yes |
+| `adam_eden_tui.py` | Python prototype | Inspirational | amber/cybernetic animation cues, ASCII visual core, startup liveliness | Yes. Read directly. | Prototype was curses-based and visually strong but not aligned to the new fixed-pane runtime requirements. | Yes |
+| In-thread `Terminal 2026...` startup telemetry screenshot | Screenshot | Inspirational | startup screen instrumentation, status lines, pane borders | Yes. Visually inspected in-thread. | Screenshot only; no underlying code. | Yes |
+| In-thread `Terminal 2026...` divine visage screenshot A | Screenshot | Inspirational | Adam core/sigil panel, amber-on-dark tone, central visual emphasis | Yes. Visually inspected in-thread. | Duplicate of screenshot B; image-only. | Yes |
+| In-thread `Terminal 2026...` divine visage screenshot B | Screenshot | Inspirational | same as above; used as duplicate visual confirmation | Yes. Visually inspected in-thread. | Duplicate image. | Yes |
+| `amber TUI.png` from `Images.zip` | PNG | Inspirational | amber panel borders and telemetry block layout | Yes. Viewed locally. | Static screenshot only. | Yes |
+| `startup telemetry 1.png` from `Images.zip` | PNG | Inspirational | startup surface and menu/status composition | Yes. Viewed locally. | Static screenshot only. | Yes |
+| `data graph observatory export gui 1.png` from `Images.zip` | PNG | Inspirational | graph inspector layout and graph stat card placement | Yes. Viewed locally. | Static screenshot only. | Yes |
+| `basin attractor data observatory export gui 1.png` from `Images.zip` | PNG | Inspirational | basin control row, slider/playback affordances, visual contrast | Yes. Viewed locally. | Static screenshot only. | Yes |
+
+## Concrete usage notes
+
+- The whitepaper and canonical PDF bundle were copied into `assets/seed_canon/` so `Seeded Eden` does not depend on the original desktop attachment locations.
+- The attractor HTML/JSON examples directly informed the shipped basin export controls: play/pause, turn slider, attractor detail, and transition table.
+- The GUI/TUI inspiration bundles informed the amber palette, framed boxes, structured logs, and the decision to keep the browser layer as export/inspection rather than the primary interaction loop.
+- No `__MACOSX` or Finder metadata files were used.

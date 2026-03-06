@@ -1,0 +1,63 @@
+# Graph Schema
+
+EDEN v1 uses SQLite for local reliability, with graph semantics implemented in domain tables plus a generalized `edges` table.
+
+## Persistence choice
+
+- Storage engine: SQLite with WAL mode
+- Search layer: SQLite FTS5 for memes, memodes, and document chunks
+- Graph analytics: NetworkX over persisted rows at query/export time
+
+## Core tables
+
+- `experiments`
+- `agents`
+- `sessions`
+- `turns`
+- `feedback_events`
+- `documents`
+- `document_chunks`
+- `memes`
+- `memodes`
+- `edges`
+- `active_sets`
+- `trace_events`
+- `membrane_events`
+- `export_artifacts`
+- `config_store`
+
+## Key row fields
+
+### `memes`
+
+- `label`, `canonical_label`, `text`, `domain`, `source_kind`, `scope`
+- `evidence_n`, `usage_count`, `reward_ema`, `risk_ema`, `edit_ema`
+- `feedback_count`, `skip_count`, `contradiction_count`, `membrane_conflicts`
+- `activation_tau`, `last_active_at`
+
+### `memodes`
+
+- `label`, `member_hash`, `summary`, `domain`, `scope`
+- `metadata_json.member_ids`
+- `evidence_n`, `usage_count`, `reward_ema`, `risk_ema`, `edit_ema`
+- `feedback_count`, `activation_tau`, `last_active_at`
+
+### `edges`
+
+- `src_kind`, `src_id`, `dst_kind`, `dst_id`
+- `edge_type`, `weight`
+- `provenance_json`
+
+## Health metrics derived on demand
+
+- isolated meme count
+- dyad ratio
+- triadic closure / transitivity
+- memode coverage
+- per-meme degree, clustering, triangle count, component size, memode participation
+
+## Why this shape
+
+- Graph semantics remain explicit and inspectable.
+- Local bootstrap stays reliable on Apple Silicon without adding an external graph server.
+- Retrieval and exports can still operate over a real, persistent graph abstraction.
