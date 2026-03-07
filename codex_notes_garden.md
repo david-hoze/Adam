@@ -97,3 +97,25 @@ Docs updated:
 `README.md` and the operational log.
 Remaining uncertainties or follow-ups:
 This was a docs-only correction; the app already launched correctly from the repo root, so no behavior tests were required.
+## [2026-03-07 10:15:36 EST] PRE-FLIGHT
+Task summary:
+Rework the EDEN TUI into a denser amber cockpit: fewer left panels, a split right bay, promoted active-set visibility, animated instrumentation, and a fixed local-MLX launcher.
+Scope of work:
+Update the Textual startup/chat layouts, remove startup backend selection, add animated cockpit widgets and transcript boxes, refresh the TUI spec, and verify with tests.
+Likely files/modules:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/docs/TUI_SPEC.md`, and `/Users/brianray/Adam/codex_notes_garden.md`.
+Relevant invariants:
+Keep the TUI as the primary runtime surface, preserve memes as first-class and memodes as derived, preserve the v1 loop and explicit feedback semantics, and keep the core runtime on MLX.
+Proof path (how success will be verified):
+Exercise the startup-to-chat flow in tests, verify the new widget ids and fixed-MLX launcher behavior, and run `./.venv/bin/pytest -q`.
+## [2026-03-07 10:26:48 EST] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/eden/runtime.py`, `/Users/brianray/Adam/tests/test_tui_smoke.py`, `/Users/brianray/Adam/README.md`, `/Users/brianray/Adam/docs/TUI_SPEC.md`, `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`, `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`, and `/Users/brianray/Adam/codex_notes_garden.md`.
+Behavior implemented or modified:
+Rebuilt the startup and chat TUI into a denser amber cockpit with three left-side panels, a split right-side bay, animated telemetry, visible aperture/active-set surfaces, shaded Brian/Adam transcript boxes, and a startup launcher fixed to local MLX while preserving CLI mock overrides for explicit shell use.
+Evidence (tests / commands run):
+`./.venv/bin/python -m py_compile eden/tui/app.py eden/runtime.py tests/test_tui_smoke.py`, `./.venv/bin/pytest -q tests/test_tui_smoke.py`, and `./.venv/bin/pytest -q` with `31 passed in 6.48s`.
+Docs updated:
+`README.md`, `docs/TUI_SPEC.md`, `docs/IMPLEMENTATION_TRUTH_TABLE.md`, `docs/KNOWN_LIMITATIONS.md`, and the operational log.
+Remaining uncertainties or follow-ups:
+Layout proportions and animation cadence were validated by structure and tests; the next pass should be visual tuning against live terminal screenshots now that the cockpit architecture is in place.

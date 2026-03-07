@@ -392,6 +392,7 @@ class EdenRuntime:
             "session_title": session["title"],
             "profile_request": self.session_profile_request(session_id),
             "last_turn_id": None,
+            "last_user_text": "",
             "last_response": "",
             "last_reasoning": "",
             "last_active_set": [],
@@ -407,6 +408,7 @@ class EdenRuntime:
         snapshot.update(
             {
                 "last_turn_id": turn["id"],
+                "last_user_text": turn["user_text"],
                 "last_response": turn["membrane_text"],
                 "last_reasoning": metadata.get("model_result", {}).get("reasoning_text", ""),
                 "last_active_set": json.loads(turn["active_set_json"] or "[]"),
