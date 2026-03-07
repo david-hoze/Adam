@@ -595,6 +595,90 @@ class EdenRuntime:
                 )
         return {"meme_ids": member_ids, "memode_ids": memode_ids}
 
+    def _index_document_brief(
+        self,
+        *,
+        experiment_id: str,
+        document_id: str,
+        source_path: str,
+        briefing: str,
+        session_id: str | None,
+    ) -> dict[str, list[str]]:
+        briefing_text = briefing.strip()
+        if not briefing_text:
+            return {"meme_ids": [], "memode_ids": []}
+        member_ids: list[str] = []
+        memode_ids: list[str] = []
+        metadata = {
+            "document_id": document_id,
+            "source_path": source_path,
+            "origin": "operator_ingest_brief",
+            "session_id": session_id,
+        }
+        for phrase, score in top_phrases(briefing_text, limit=6):
+            meme = self.store.upsert_meme(
+                experiment_id=experiment_id,
+                label=phrase,
+                text=briefing_text,
+                domain="behavior",
+                source_kind="document_brief",
+                scope="global",
+                evidence_inc=score,
+                metadata=metadata,
+            )
+            member_ids.append(meme["id"])
+            self.store.add_edge(
+                experiment_id=experiment_id,
+                src_kind="document",
+                src_id=document_id,
+                dst_kind="meme",
+                dst_id=meme["id"],
+                edge_type="CONTEXTUALIZES_DOCUMENT",
+                provenance={"source_path": source_path, "session_id": session_id},
+            )
+        for idx, left in enumerate(member_ids):
+            for right in member_ids[idx + 1 :]:
+                self.store.add_edge(
+                    experiment_id=experiment_id,
+                    src_kind="meme",
+                    src_id=left,
+                    dst_kind="meme",
+                    dst_id=right,
+                    edge_type="CO_OCCURS_WITH",
+                    provenance={"document_id": document_id, "source_path": source_path},
+                )
+        if len(member_ids) >= 2:
+            memode = self.store.upsert_memode(
+                experiment_id=experiment_id,
+                label=f"ingest lens / {' / '.join(self.store.get_meme(member_id)['label'] for member_id in member_ids[:3])}",
+                member_ids=member_ids[: min(4, len(member_ids))],
+                summary=safe_excerpt(briefing_text, limit=320),
+                domain="behavior",
+                scope="global",
+                metadata={**metadata, "briefing_excerpt": safe_excerpt(briefing_text, limit=220)},
+            )
+            memode_ids.append(memode["id"])
+            self.store.add_edge(
+                experiment_id=experiment_id,
+                src_kind="document",
+                src_id=document_id,
+                dst_kind="memode",
+                dst_id=memode["id"],
+                edge_type="CONTEXTUALIZES_DOCUMENT",
+                provenance={"source_path": source_path, "session_id": session_id},
+            )
+            for member_id in member_ids[: min(4, len(member_ids))]:
+                self.store.add_edge(
+                    experiment_id=experiment_id,
+                    src_kind="memode",
+                    src_id=memode["id"],
+                    dst_kind="meme",
+                    dst_id=member_id,
+                    edge_type="MATERIALIZES_AS_MEMODE",
+                    provenance={"document_id": document_id},
+                )
+        return {"meme_ids": member_ids, "memode_ids": memode_ids}
+
     def chat(self, *, session_id: str, user_text: str) -> ChatOutcome:
         session = self.store.get_session(session_id)
         experiment_id = session["experiment_id"]
@@ -871,9 +955,66 @@ class EdenRuntime:
         )
         return feedback
 
-    def ingest_document(self, *, experiment_id: str, path: str) -> dict[str, Any]:
-        result = self.ingest_service.ingest_path(experiment_id=experiment_id, path=Path(path))
-        return asdict(result)
+    def ingest_document(
+        self,
+        *,
+        experiment_id: str,
+        path: str,
+        briefing: str = "",
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        resolved_path = Path(path).expanduser().resolve()
+        briefing_text = briefing.strip()
+        result = self.ingest_service.ingest_path(
+            experiment_id=experiment_id,
+            path=resolved_path,
+            briefing=briefing_text,
+        )
+        brief_nodes = self._index_document_brief(
+            experiment_id=experiment_id,
+            document_id=result.document_id,
+            source_path=str(resolved_path),
+            briefing=briefing_text,
+            session_id=session_id,
+        )
+        if briefing_text:
+            self.store.record_trace_event(
+                experiment_id=experiment_id,
+                session_id=session_id,
+                turn_id=None,
+                event_type="INGEST_BRIEF",
+                level="INFO",
+                message=f"Applied ingest brief for {resolved_path.name}",
+                payload={
+                    "document_id": result.document_id,
+                    "briefing_excerpt": safe_excerpt(briefing_text, limit=200),
+                    "brief_meme_count": len(brief_nodes["meme_ids"]),
+                    "brief_memode_count": len(brief_nodes["memode_ids"]),
+                },
+            )
+            self.runtime_log.emit(
+                "INFO",
+                "ingest_brief_applied",
+                "Applied operator ingest brief.",
+                experiment_id=experiment_id,
+                session_id=session_id,
+                document_id=result.document_id,
+                document_title=resolved_path.name,
+                brief_meme_count=len(brief_nodes["meme_ids"]),
+                brief_memode_count=len(brief_nodes["memode_ids"]),
+            )
+        payload = asdict(result)
+        payload.update(
+            {
+                "path": str(resolved_path),
+                "title": resolved_path.name,
+                "briefing": briefing_text,
+                "briefing_indexed": bool(brief_nodes["meme_ids"] or brief_nodes["memode_ids"]),
+                "brief_meme_count": len(brief_nodes["meme_ids"]),
+                "brief_memode_count": len(brief_nodes["memode_ids"]),
+            }
+        )
+        return payload
 
     def graph_health(self, experiment_id: str) -> dict[str, Any]:
         _, metrics = self.retrieval_service.build_graph_metrics(experiment_id)

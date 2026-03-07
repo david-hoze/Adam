@@ -13,6 +13,8 @@
 | Repo-local Qwen 3.5 MLX backend | Implemented | repo-local 4-shard model completed and real MLX generation succeeded |
 | Multiline composer | Implemented | `TextArea`-based; covered by TUI smoke test |
 | Cockpit chat layout | Implemented | aperture / thinking / feedback on the left, full-width explanatory signal field plus cockpit/trace upper-right, live transcript + feedback loop + composer lower-right |
+| Aperture pull-down drawer | Implemented | `F8` opens a full-width readable active-set scan above the cockpit |
+| Conversation lifecycle surface | Implemented | lower-right deck now shows explicit start / review / continue / end guidance |
 | Fixed local-MLX runtime contract | Implemented | the live TUI no longer exposes backend selection on the primary surface; local MLX is the normal runtime contract |
 | Deck + Review secondary surfaces | Implemented | detailed budget / thinking / history remain in `Deck`; explicit feedback remains in `Review` |
 | Dedicated model thinking panel | Implemented | MLX/Qwen reasoning is kept on and surfaced separately from the final answer via Deck |
@@ -29,6 +31,8 @@
 | Regard math in code | Implemented | `eden/regard.py` |
 | PDF ingest | Implemented | validated on `eden_whitepaper_v14.pdf` |
 | CSV/TXT/Markdown ingest | Implemented | validated in tests |
+| Ingest framing prompt | Implemented | document ingest modal indexes operator framing text into the memgraph as persistent document-conditioning material |
+| Live memgraph bus visualization | Implemented | signal field now renders an orthographic glyph slice using active nodes, recall anchors, recent trace events, and ingest roots |
 | Graph knowledge-base export | Implemented | generated and browser-opened |
 | Behavioral attractor basin export | Implemented | upgraded with inference-circumstance overlays |
 | Geometry lab export | Implemented | `geometry_lab.html` + `geometry_diagnostics.json` |

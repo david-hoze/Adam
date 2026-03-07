@@ -31,18 +31,31 @@ class IngestService:
             return "behavior"
         return "knowledge"
 
-    def ingest_path(self, *, experiment_id: str, path: Path, source_kind: str = "document") -> IngestResult:
+    def ingest_path(
+        self,
+        *,
+        experiment_id: str,
+        path: Path,
+        source_kind: str = "document",
+        briefing: str | None = None,
+    ) -> IngestResult:
         path = path.expanduser().resolve()
         if not path.exists():
             raise FileNotFoundError(path)
         domain = self._domain_for_source(source_kind, path)
+        briefing_text = (briefing or "").strip()
         doc = self.store.upsert_document(
             experiment_id=experiment_id,
             path=path,
             kind=path.suffix.lower().lstrip("."),
             title=path.name,
             status="processing",
-            metadata={"source_kind": source_kind, "source_path": str(path)},
+            metadata={
+                "source_kind": source_kind,
+                "source_path": str(path),
+                "briefing": briefing_text,
+                "briefing_excerpt": safe_excerpt(briefing_text, limit=240) if briefing_text else "",
+            },
         )
         notes: list[str] = []
         self.runtime_log.emit("INFO", "ingest_start", "Started document ingest.", experiment_id=experiment_id, path=str(path))
@@ -159,6 +172,8 @@ class IngestService:
                 "source_path": str(path),
                 "page_like_units": len(pages),
                 "notes": notes[:20],
+                "briefing": briefing_text,
+                "briefing_excerpt": safe_excerpt(briefing_text, limit=240) if briefing_text else "",
             },
         )
         self.runtime_log.emit(

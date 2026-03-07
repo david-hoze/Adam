@@ -243,3 +243,27 @@ Docs updated:
 README.md, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md
 Remaining uncertainties or follow-ups:
 Further tuning may still help with panel density at smaller terminal sizes, especially if the transcript grows beyond two recent turns or the operator wants quick inline verdict controls instead of the F7 review path.
+
+## [2026-03-07 11:50:27 EST] PRE-FLIGHT
+Task summary:
+Add a collapsible wide aperture scan, clarify the lower-right conversation lifecycle, visualize memgraph updates more directly in the signal field, and add a PDF ingest + framing-prompt flow for Adam.
+Scope of work:
+TUI layout and controls, ingest modal/runtime plumbing, memgraph telemetry rendering, tests/docs sync.
+Likely files/modules:
+eden/tui/app.py, eden/runtime.py, eden/ingest/pipeline.py, eden/storage/graph_store.py, tests/test_tui_smoke.py, README.md, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md
+Relevant invariants:
+Repo-local .venv, MLX as real runtime, TUI as primary interface, preserve v1 loop and explicit feedback, use apply_patch, run pytest before handoff.
+Proof path (how success will be verified):
+Run focused TUI smoke coverage for aperture/ingest flow, then full ./.venv/bin/pytest -q.
+
+## [2026-03-07 12:07:12 EST] POST-FLIGHT
+Files changed:
+eden/tui/app.py, eden/runtime.py, eden/ingest/pipeline.py, tests/test_tui_smoke.py, README.md, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md
+Behavior implemented or modified:
+Added an F8 pull-down aperture drawer, explicit conversation lifecycle strip, orthographic memgraph bus rendering in the signal field, and a top-level ingest modal with framing prompt whose text is indexed into the graph alongside the document.
+Evidence (tests / commands run):
+python3.12 -m py_compile eden/tui/app.py eden/runtime.py eden/ingest/pipeline.py; ./.venv/bin/pytest -q tests/test_tui_smoke.py; ./.venv/bin/pytest -q
+Docs updated:
+README.md, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md
+Remaining uncertainties or follow-ups:
+The ingest flow is keyboard-first and graph-real, but it still relies on absolute file paths rather than an OS-native picker, and resumed sessions do not yet reconstruct the most recent ingest summary into the dedicated UI state without a fresh ingest in the current run.
