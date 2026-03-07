@@ -42,3 +42,14 @@ Docs updated:
 Operational log appended; product docs unchanged because repository contents stayed on the current `main` tree.
 Remaining uncertainties or follow-ups:
 Branch refs still exist after consolidation; delete them only if you want branch cleanup in addition to merge history.
+## [2026-03-07 09:58:36 EST] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/codex_notes_garden.md`.
+Behavior implemented or modified:
+Rebuilt branch consolidation from `origin/main` after GitHub rejected local merge ancestry containing oversized export and `.venv` blobs; kept `main` pushable, merged the safe `codex/2-oneshot-reboot` branch into `main`, and repointed local backup branches to clean commits already represented on `main`.
+Evidence (tests / commands run):
+`git rev-list --objects origin/main..main | git cat-file --batch-check ... | tail -20`, `./.venv/bin/pytest -q` with `31 passed in 6.33s`, and branch ancestry checks against `main`.
+Docs updated:
+Operational log appended; product docs unchanged.
+Remaining uncertainties or follow-ups:
+The local helper branch `codex/main-failed-consolidation-attempt-20260307` preserves the rejected merge attempt for inspection; it is not needed for runtime behavior and can be cleaned up later.
