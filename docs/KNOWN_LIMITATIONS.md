@@ -13,6 +13,7 @@
 - Seeded geometry exports cap per-memode local reports to a bounded, relevance-sorted subset so observatory/export remains responsive on this machine. The browser payload is intentionally not an exhaustive local-report dump for every memode.
 - `current_active_set` geometry export is based on the latest persisted active set for the selected session, not the unsent live composer preview.
 - `Resume Latest` restores the latest persisted session state, not an unsent draft from the composer.
+- The repo-root `app.py` launcher reuses the repo-local `.venv`, but it does not repair a corrupted virtualenv by itself. If `.venv` was mixed across different base interpreters, rebuild it cleanly from one interpreter path.
 - Seeded Eden remains materially heavier than Blank Eden. The seeded path is real, but full canon ingest can still take substantial time and graph space.
 - Retrieval remains lexical/graph-heuristic rather than embedding-based.
 - Known memode confidence is currently operator-supplied plus provenance-backed. There is not yet a separate learned confidence model for memode validity.

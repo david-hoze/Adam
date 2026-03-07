@@ -48,20 +48,30 @@ Install MLX support for the real backend:
 .venv/bin/pip install -e '.[mlx]'
 ```
 
-`mlx-lm` is installed and import-validated in the repo venv. A full run with the selected local Qwen/Qwen3.5-35B-A3B 4-bit MLX model still requires you to provide the actual model path on disk.
+`mlx-lm` is installed in the repo venv. The default runtime now targets a repo-managed local MLX build of the official `Qwen/Qwen3.5-35B-A3B` line at `models/qwen3.5-35b-a3b-mlx-mxfp4`. This repo-local model has been downloaded and validated on this machine.
 
 ## Run
 
-Launch the TUI with the fast mock path:
+Fastest normal path:
+
+```bash
+.venv/bin/python -m eden
+```
+
+Equivalent explicit TUI command:
+
+```bash
+.venv/bin/python -m eden app
+```
+
+The startup launcher now lets you choose the runtime surface, open Blank Eden / Seeded Eden / Resume Latest, export the latest surfaces, or open the observatory without front-loading a bunch of flags. EDEN remembers the last runtime choice locally. The default MLX model is stored under `models/` inside the repo root rather than an external cache path.
+
+Use flags only when you want to override the remembered launcher settings. The normal path is the repo-local MLX default. The startup surface can prepare the local Qwen model directly if it is not cached yet.
+
+Advanced shell override example:
 
 ```bash
 .venv/bin/python -m eden app --backend mock
-```
-
-Launch the TUI with MLX:
-
-```bash
-.venv/bin/python -m eden app --backend mlx --model-path /absolute/path/to/Qwen3.5-35B-A3B-4bit-MLX
 ```
 
 Run a one-turn demo and emit graph, basin, geometry, measurement, and index exports:
@@ -98,18 +108,21 @@ Useful flags:
 
 ## First Run
 
-1. Start the TUI with `.venv/bin/python -m eden app --backend mock`.
-2. Choose `Blank Eden`, `Seeded Eden`, or `Resume Latest`.
-3. In the session-start modal choose the inference profile mode and bounded parameters for that session.
-4. Use the multiline composer to write a turn and send it with `Ctrl+S`.
-5. Watch the `Inference Circumstances / Budget` panel update as you type and after retrieval preview refreshes.
-6. Inspect the `Aperture / Active Set` and `Cogitation / Decision Trace` panes.
-7. Apply `Accept`, `Edit`, `Reject`, or `Skip` feedback.
-8. Use `Export` to write graph, basin, geometry, measurement, and index artifacts.
-9. Use `Observatory` to ensure the local server is running and open the current experiment's index page.
-10. In the browser observatory use `INSPECT`, `MEASURE`, `EDIT`, `ABLATE`, or `COMPARE`.
-11. Preview a change first, then commit it if the before/after metrics support the edit.
-12. Revert recent observatory-originated mutations from the measurement ledger when needed.
+1. Start EDEN with `.venv/bin/python -m eden`.
+2. In the startup launcher choose the runtime surface (`Adam / Local MLX` by default, `Mock Fallback` as fallback).
+3. If the local Qwen model is not cached yet, use `Prepare Qwen` once. EDEN stores it under `models/` in this repo.
+4. Choose `Blank Eden`, `Seeded Eden`, or `Resume Latest`.
+5. In the session-start modal choose the inference profile mode and bounded parameters for that session.
+6. Once chat is up, use the left operator bay to write a turn for Brian the operator and send it with `Ctrl+S`.
+7. The primary chat surface is now simplified: operator input on the left, animated ritual field and Adam membrane on the right, live console on the bottom.
+8. Open `Deck` when you want the hidden diagnostic surfaces: budget, thinking, active set, trace, telemetry, history, ingest, and launch utilities.
+9. Open `Review` when you want to apply `Accept`, `Edit`, `Reject`, or `Skip` feedback.
+10. Use `Profile` for the bounded hyperparameter / inference-mode surface.
+11. Use `Export` to write graph, basin, geometry, measurement, and index artifacts.
+12. Use `Observatory` to ensure the local server is running and open the current experiment's latest existing artifact without forcing a fresh export first.
+13. In the browser observatory use `INSPECT`, `MEASURE`, `EDIT`, `ABLATE`, or `COMPARE`.
+14. Preview a change first, then commit it if the before/after metrics support the edit.
+15. Revert recent observatory-originated mutations from the measurement ledger when needed.
 
 ## Inference notes
 
@@ -117,6 +130,7 @@ Useful flags:
 - `runtime_auto`: chooses a bounded preset per turn from transparent heuristics.
 - `adam_auto`: mock mode uses a bounded preset picker; MLX currently falls back to `runtime_auto` and logs that fact.
 - `temperature`, `top_p`, and `repetition_penalty` are passed through on the MLX path using local `mlx-lm` sampler/logits controls.
+- Qwen thinking is left enabled on the MLX path. EDEN separates model-emitted reasoning into its own TUI panel and keeps the final answer in the main response panel.
 - Prompt budget is an EDEN-side working budget estimate, not a claim about the model’s absolute maximum context window.
 - Token counts are exact when a tokenizer-backed counter is available; otherwise EDEN uses an explicit heuristic and labels it that way.
 
@@ -161,12 +175,14 @@ Every observatory-originated mutation is stored as a measurement-bearing event w
 
 Validated in this patch:
 
-- `24 passed`
 - observatory CLI fallback from an occupied requested port to the next free port with actual URL reporting
 - live API preview / commit / revert cycle executed against a real experiment
 - mock demo export generated graph, basin, geometry, measurement, and index artifacts
 - observatory graph instrument and geometry lab opened in a real browser session via Playwright
-- TUI smoke path from v1.1 remained green
+- repo-local Qwen MLX model download completed at `models/qwen3.5-35b-a3b-mlx-mxfp4`
+- direct MLX generation returned a clean answer from the repo-local Qwen model
+- EDEN runtime chat completed against the repo-local MLX backend with separate reasoning and answer surfaces
+- `31 passed`
 
 ## Evidence
 

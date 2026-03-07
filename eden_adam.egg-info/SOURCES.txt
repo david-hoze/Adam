@@ -14,6 +14,7 @@ eden/utils.py
 eden/ingest/extractors.py
 eden/ingest/pipeline.py
 eden/models/base.py
+eden/models/catalog.py
 eden/models/mlx_backend.py
 eden/models/mock.py
 eden/observatory/exporters.py
@@ -34,6 +35,8 @@ tests/test_cli_entry.py
 tests/test_geometry.py
 tests/test_inference_profiles.py
 tests/test_ingest.py
+tests/test_model_catalog.py
+tests/test_model_output.py
 tests/test_observatory_measurements.py
 tests/test_observatory_server.py
 tests/test_regard.py

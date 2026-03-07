@@ -16,17 +16,18 @@ EDEN is a local-first experimental memetic persona runtime. ADAM is the first ag
 ## Environment
 
 Validated with repo-local Python 3.12 in `/Users/brianray/Adam/.venv`.
+If you rebuild `.venv`, use one interpreter family consistently; do not layer a Homebrew Python onto a `pyenv`-created venv or vice versa.
 
 ```bash
-python3.12 -m venv .venv
-.venv/bin/pip install --upgrade pip setuptools wheel
-.venv/bin/pip install -e '.[dev]'
+/opt/homebrew/bin/python3.12 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip setuptools wheel
+.venv/bin/python -m pip install -e '.[dev]'
 ```
 
 Install MLX support for the real backend:
 
 ```bash
-.venv/bin/pip install -e '.[mlx]'
+.venv/bin/python -m pip install -e '.[mlx]'
 ```
 
 `mlx-lm` is installed in the repo venv. The default runtime now targets a repo-managed local MLX build of the official `Qwen/Qwen3.5-35B-A3B` line at `models/qwen3.5-35b-a3b-mlx-mxfp4`. This repo-local model has been downloaded and validated on this machine.
@@ -36,10 +37,16 @@ Install MLX support for the real backend:
 Fastest normal path:
 
 ```bash
-.venv/bin/python -m eden
+python3 app.py
 ```
 
 Equivalent explicit TUI command:
+
+```bash
+.venv/bin/eden
+```
+
+Original module path:
 
 ```bash
 .venv/bin/python -m eden app
@@ -89,7 +96,7 @@ Useful flags:
 
 ## First Run
 
-1. Start EDEN with `.venv/bin/python -m eden`.
+1. Start EDEN with `python3 app.py`.
 2. In the startup launcher choose the runtime surface (`Adam / Local MLX` by default, `Mock Fallback` as fallback).
 3. If the local Qwen model is not cached yet, use `Prepare Qwen` once. EDEN stores it under `models/` in this repo.
 4. Choose `Blank Eden`, `Seeded Eden`, or `Resume Latest`.

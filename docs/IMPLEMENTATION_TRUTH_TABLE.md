@@ -7,6 +7,7 @@
 | Fixed-pane amber TUI | Implemented | preserved and refocused around a ritual-first primary chat surface |
 | Panel-based launcher for startup and runtime surfaces | Implemented | startup launcher + left-side surface menu replace flag-heavy normal access |
 | `python -m eden` default entry path | Implemented | no subcommand required for the normal TUI path; flags remain optional overrides |
+| Repo-root `python3 app.py` launcher | Implemented | root launcher re-execs the repo-local `.venv` interpreter and then dispatches into `eden.app:main` |
 | Local repo-managed MLX model storage | Implemented | default MLX model target is `models/qwen3.5-35b-a3b-mlx-mxfp4` under repo root |
 | Local MLX shard-readiness tracking | Implemented | startup/runtime distinguish metadata-only, partial, and ready model states |
 | Repo-local Qwen 3.5 MLX backend | Implemented | repo-local 4-shard model completed and real MLX generation succeeded |
