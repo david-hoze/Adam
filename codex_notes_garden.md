@@ -267,3 +267,27 @@ Docs updated:
 README.md, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md
 Remaining uncertainties or follow-ups:
 The ingest flow is keyboard-first and graph-real, but it still relies on absolute file paths rather than an OS-native picker, and resumed sessions do not yet reconstruct the most recent ingest summary into the dedicated UI state without a fresh ingest in the current run.
+
+## [2026-03-07 12:55:15 EST] PRE-FLIGHT
+Task summary:
+Investigate why the operator cannot type into the chat composer reliably and make the prompt-entry path obvious and robust.
+Scope of work:
+TUI focus behavior, composer affordances, keyboard bindings, smoke coverage, docs if behavior changes.
+Likely files/modules:
+eden/tui/app.py, tests/test_tui_smoke.py, README.md, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md
+Relevant invariants:
+Repo-local .venv, TUI primary, MLX runtime preserved, apply_patch for edits, run full pytest before handoff.
+Proof path (how success will be verified):
+Reproduce typing/focus via Textual test, add robust composer-focus/send path, run focused smoke then full ./.venv/bin/pytest -q.
+
+## [2026-03-07 13:11:38 EST] POST-FLIGHT
+Files changed:
+eden/tui/app.py, tests/test_tui_smoke.py, README.md, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, codex_notes_garden.md
+Behavior implemented or modified:
+Hardened prompt entry by routing printable keys back to the composer when focus leaves editable widgets, added Esc-to-composer recovery, stronger composer affordances, and smoke coverage proving typing still works after focus shifts to the action menu.
+Evidence (tests / commands run):
+python3.12 -m py_compile eden/tui/app.py eden/runtime.py eden/ingest/pipeline.py; ./.venv/bin/pytest -q tests/test_tui_smoke.py; ./.venv/bin/pytest -q
+Docs updated:
+README.md, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md
+Remaining uncertainties or follow-ups:
+Mouse-based click targeting at very small terminal sizes can still be awkward in automated tests, but keyboard-first composer recovery is now explicit and verified.

@@ -109,7 +109,9 @@ class HelpModal(ModalScreen[None]):
             "[bold]F7[/] open review feedback\n"
             "[bold]F8[/] toggle the full-width aperture drawer\n"
             "[bold]F9[/] open document ingest with framing prompt\n"
+            "[bold]Esc[/] focus the composer on the main chat screen\n"
             "[bold]Esc[/] close this overlay\n\n"
+            "Printable keys typed outside editable widgets are routed back into the composer automatically.\n"
             "When the backend emits explicit reasoning, EDEN surfaces it as a visible model artifact.\n"
             "That thinking panel shows model-emitted text, not claimed hidden chain-of-thought.\n\n"
             "Inference modes:\n"
@@ -1626,7 +1628,7 @@ class ChatScreen(Screen):
             f"session={app.ui_state.session_title or app.ui_state.session_id or 'arming'} "
             f"profile={profile.get('profile_name', 'pending')} focus={focus_id} convo={stage}\n"
             f"note={safe_excerpt(stage_note, limit=116)}\n"
-            "keyboard=Tab switch | Enter run action | Ctrl+S send | F7 review | F8 aperture | F9 ingest"
+            "keyboard=Tab switch | Esc composer | type anywhere -> composer | Ctrl+S send | F7 review | F8 aperture | F9 ingest"
         )
         return Panel(text, title="Action Bus", border_style=AMBER, style=f"on {SHADE_ALT}")
 
@@ -1821,9 +1823,10 @@ class ChatScreen(Screen):
         text = Text.from_markup(
             f"[bold {AMBER}]Composer[/]\n"
             f"state={state} chars={len(draft)} backend={self._active_backend_label()} convo={stage}\n"
+            "TYPE HERE. Esc returns focus here. Printable keys outside menus jump here automatically.\n"
             "Ctrl+S send | Shift+Tab action menu | F7 review | F8 aperture | F9 ingest | F5 new session"
         )
-        return Panel(text, title="Transmit", border_style=AMBER, style=f"on {SHADE_ALT}")
+        return Panel(text, title="Transmit / Type Here", border_style=NEON if self.app.focused and getattr(self.app.focused, 'id', None) == "composer_input" else AMBER, style=f"on {SHADE_ALT}")
 
     def deck_summary_panel(self) -> Panel:
         app = self.app
@@ -1963,6 +1966,11 @@ class ChatScreen(Screen):
 
     def _set_text_area(self, selector: str, value: str) -> None:
         self.query_one(selector, TextArea).load_text(value)
+
+    def focus_composer(self) -> TextArea:
+        composer = self.query_one("#composer_input", TextArea)
+        composer.focus()
+        return composer
 
     def _schedule_preview_refresh(self) -> None:
         if not self.app.ui_state.session_id:
@@ -2133,6 +2141,24 @@ class ChatScreen(Screen):
             else "Aperture drawer collapsed back to cockpit mode."
         )
         self.refresh_panels()
+
+    def _route_printable_to_composer(self, event) -> bool:
+        character = getattr(event, "character", None)
+        if not character or not character.isprintable():
+            return False
+        if getattr(event, "is_control", False) or getattr(event, "ctrl", False) or getattr(event, "meta", False):
+            return False
+        focused = self.app.focused
+        if isinstance(focused, TextArea):
+            return False
+        if isinstance(focused, Input):
+            return False
+        composer = self.focus_composer()
+        composer.insert(character)
+        self.refresh_panels()
+        self._schedule_preview_refresh()
+        event.stop()
+        return True
 
     async def _new_session_worker(self) -> None:
         app = self.app
@@ -2360,6 +2386,14 @@ class ChatScreen(Screen):
         self.query_one("#runtime_status_strip", Static).update(self.main_action_status_panel())
 
     def on_key(self, event) -> None:
+        if event.key == "escape":
+            self.focus_composer()
+            self.app.ui_state.last_feedback = "Composer focused."
+            self.refresh_panels()
+            event.stop()
+            return
+        if self._route_printable_to_composer(event):
+            return
         if event.key == "enter" and self.app.focused and getattr(self.app.focused, "id", None) == "runtime_action_menu":
             action = str(self.query_one("#runtime_action_menu", Select).value or "review")
             self._execute_runtime_action(action)
@@ -2484,6 +2518,13 @@ class EdenTuiApp(App):
         background: #060403;
         border: tall {AMBER};
         color: {TEXT};
+    }}
+    #composer_input:focus {{
+        border: tall {NEON};
+        background: #0b0906;
+    }}
+    #runtime_action_menu:focus {{
+        border: tall {ICE};
     }}
     #composer_hint_panel {{
         height: 5;

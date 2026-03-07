@@ -66,7 +66,7 @@ Primary split:
     - latest persisted Brian / Adam transcript boxes
     - feedback-loop strip for pending/reviewed turn state
     - live Brian draft box when the composer is loaded
-    - multiline `TextArea` composer for Brian the operator
+    - multiline `TextArea` composer for Brian the operator with strong focus styling
     - transmit hint surface; `Ctrl+S` sends
 
 Wide aperture drawer:
@@ -108,6 +108,7 @@ Secondary surfaces:
 - shell flags remain optional overrides; the normal runtime contract is repo-local MLX
 - the action bar reports model readiness, active session, and focus/keyboard hints
 - multiline composition is first-class
+- `Esc` returns focus to the composer, and printable keys pressed outside editable widgets are routed back into the composer automatically
 - operator turns are persisted and graph-ingested as `Brian the operator: ...`
 - MLX/Qwen model-emitted thinking is surfaced as a dedicated panel instead of leaking into the main Adam response
 - the signal field is explicitly explanatory: it renders a live orthographic memgraph slice using active-set nodes, recall anchors, recent trace events, and ingest roots while remaining separate from any claim about hidden activations
@@ -149,3 +150,4 @@ Secondary surfaces:
 - `F7`: open the review feedback modal
 - `F8`: toggle the full-width aperture drawer
 - `F9`: open document ingest with framing prompt
+- `Esc`: return focus to the composer on the main chat screen

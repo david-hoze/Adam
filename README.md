@@ -109,22 +109,23 @@ Useful flags:
 3. EDEN resumes the latest persisted session automatically. If none exists yet, it creates a blank live session automatically.
 4. If the local Qwen model is not cached yet, use the top action menu and run `Prepare Qwen`. EDEN stores it under `models/` in this repo.
 5. The top action menu is keyboard-first: `Tab` / `Shift+Tab` moves focus, arrow keys choose a menu item, and `Enter` executes it.
-6. Press `F8` to pull down the full-width aperture drawer. It occupies the top band of the screen and renders a wider natural-language scan of the active set.
-7. The left bay is now the compact aperture snapshot, visible reasoning surface, and feedback/session state.
-8. The upper-right bay is the signal field / memgraph bus plus the cockpit scope and live trace bus beneath it.
-9. The lower-right deck is the conversation lifecycle, bounded Brian/Adam transcript, review strip, and composer.
-10. Start a conversation by asking Adam a question or pressing `F9` to ingest a document with a framing prompt. End a conversation by opening a new session with `F5`.
-11. Type into the lower-right chat deck and send with `Ctrl+S`.
-12. The signal field is an orthographic operator slice of the live memgraph: `D` marks the latest ingested document root, `o` knowledge memes, `^` behavior memes, `M` memodes, `@` the session anchor, and `R` the high-regard recall bank. It is still not a hidden-activation visualizer.
-13. `F9` opens the ingest bay, where you provide a PDF/document path plus a short framing prompt. The document content and framing prompt are both indexed into the memgraph for later retrieval.
-14. Open `Deck` when you want detailed budget, thinking, history, ingest, and launch utilities.
-15. Open `Review` when you want to apply `Accept`, `Edit`, `Reject`, or `Skip` feedback.
-16. Use `Adjust Profile` or `New Session` from the action menu when you want a bounded inference-profile change.
-17. Use `Export Latest` to write graph, basin, geometry, measurement, and index artifacts.
-18. Use `Open Observatory` to ensure the local server is running and open the current experiment's latest existing artifact without forcing a fresh export first.
-19. In the browser observatory use `INSPECT`, `MEASURE`, `EDIT`, `ABLATE`, or `COMPARE`.
-20. Preview a change first, then commit it if the before/after metrics support the edit.
-21. Revert recent observatory-originated mutations from the measurement ledger when needed.
+6. If focus drifts away from the composer, press `Esc` to return to it. Printable keys typed outside editable widgets are routed back into the composer automatically.
+7. Press `F8` to pull down the full-width aperture drawer. It occupies the top band of the screen and renders a wider natural-language scan of the active set.
+8. The left bay is now the compact aperture snapshot, visible reasoning surface, and feedback/session state.
+9. The upper-right bay is the signal field / memgraph bus plus the cockpit scope and live trace bus beneath it.
+10. The lower-right deck is the conversation lifecycle, bounded Brian/Adam transcript, review strip, and composer.
+11. Start a conversation by asking Adam a question or pressing `F9` to ingest a document with a framing prompt. End a conversation by opening a new session with `F5`.
+12. Type into the lower-right chat deck and send with `Ctrl+S`.
+13. The signal field is an orthographic operator slice of the live memgraph: `D` marks the latest ingested document root, `o` knowledge memes, `^` behavior memes, `M` memodes, `@` the session anchor, and `R` the high-regard recall bank. It is still not a hidden-activation visualizer.
+14. `F9` opens the ingest bay, where you provide a PDF/document path plus a short framing prompt. The document content and framing prompt are both indexed into the memgraph for later retrieval.
+15. Open `Deck` when you want detailed budget, thinking, history, ingest, and launch utilities.
+16. Open `Review` when you want to apply `Accept`, `Edit`, `Reject`, or `Skip` feedback.
+17. Use `Adjust Profile` or `New Session` from the action menu when you want a bounded inference-profile change.
+18. Use `Export Latest` to write graph, basin, geometry, measurement, and index artifacts.
+19. Use `Open Observatory` to ensure the local server is running and open the current experiment's latest existing artifact without forcing a fresh export first.
+20. In the browser observatory use `INSPECT`, `MEASURE`, `EDIT`, `ABLATE`, or `COMPARE`.
+21. Preview a change first, then commit it if the before/after metrics support the edit.
+22. Revert recent observatory-originated mutations from the measurement ledger when needed.
 
 ## Inference notes
 

@@ -12,6 +12,7 @@
 | Local MLX shard-readiness tracking | Implemented | live cockpit status surfaces distinguish metadata-only, partial, and ready model states |
 | Repo-local Qwen 3.5 MLX backend | Implemented | repo-local 4-shard model completed and real MLX generation succeeded |
 | Multiline composer | Implemented | `TextArea`-based; covered by TUI smoke test |
+| Composer focus recovery | Implemented | `Esc` returns focus to the composer and printable keys outside editable widgets are routed there automatically |
 | Cockpit chat layout | Implemented | aperture / thinking / feedback on the left, full-width explanatory signal field plus cockpit/trace upper-right, live transcript + feedback loop + composer lower-right |
 | Aperture pull-down drawer | Implemented | `F8` opens a full-width readable active-set scan above the cockpit |
 | Conversation lifecycle surface | Implemented | lower-right deck now shows explicit start / review / continue / end guidance |

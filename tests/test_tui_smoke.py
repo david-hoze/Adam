@@ -16,6 +16,13 @@ async def test_tui_boots_blank_mode_and_uses_multiline_composer(runtime, sample_
         assert app.ui_state.session_id is not None
         menu = app.screen.query_one("#runtime_action_menu", Select)
         assert str(menu.value) == "review"
+        await pilot.press("tab")
+        await pilot.pause(0.2)
+        assert getattr(app.focused, "id", None) == "runtime_action_menu"
+        await pilot.press("h", "i")
+        await pilot.pause(0.2)
+        composer = app.screen.query_one("#composer_input", TextArea)
+        assert composer.text == "hi"
         await app.action_toggle_aperture()
         await pilot.pause(0.2)
         assert app.ui_state.aperture_drawer_open is True
@@ -28,7 +35,6 @@ async def test_tui_boots_blank_mode_and_uses_multiline_composer(runtime, sample_
         assert app.ui_state.last_ingest_result is not None
         assert app.ui_state.last_ingest_result["title"] == sample_files["pdf"].name
         assert app.ui_state.last_ingest_result["briefing_indexed"] is True
-        composer = app.screen.query_one("#composer_input", TextArea)
         composer.load_text("line one\nline two")
         await pilot.pause()
         assert "\n" in composer.text
