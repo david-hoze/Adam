@@ -9,3 +9,14 @@ Relevant invariants:
 Stay on `main`, do not rewrite history, use append-only notes, and preserve current MLX/TUI repo constraints without runtime changes.
 Proof path (how success will be verified):
 Confirm local branch status, inspect commits ahead of `origin/main`, run push, and verify `main` matches `origin/main`.
+## [2026-03-07 09:47:24 EST] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/.gitignore` and `/Users/brianray/Adam/codex_notes_garden.md`.
+Behavior implemented or modified:
+Rebuilt the unpushed local `main` history without oversized generated `graph_knowledge_base` export blobs, added ignore rules for future oversized export HTML/JSON files, and pushed `main` to `origin`.
+Evidence (tests / commands run):
+`git push --dry-run origin main`, `git push origin main`, and `git rev-list --left-right --count origin/main...main` returned `0 0`.
+Docs updated:
+No feature docs changed; operational log appended and `.gitignore` updated to prevent future GitHub push failures.
+Remaining uncertainties or follow-ups:
+Older export artifacts remain tracked on `origin/main`; only the newly blocked oversized files were removed from the unpushed history.
