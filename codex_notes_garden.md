@@ -20,3 +20,14 @@ Docs updated:
 No feature docs changed; operational log appended and `.gitignore` updated to prevent future GitHub push failures.
 Remaining uncertainties or follow-ups:
 Older export artifacts remain tracked on `origin/main`; only the newly blocked oversized files were removed from the unpushed history.
+## [2026-03-07 09:51:43 EST] PRE-FLIGHT
+Task summary:
+Merge branch-held progress into `main` without losing work or reintroducing blocked oversized artifacts.
+Scope of work:
+Audit `codex/*` branches for unique commits, back up current `main`, merge or absorb branch-only work into `main`, run verification, and push the result to GitHub.
+Likely files/modules:
+Git branch history, `/Users/brianray/Adam/codex_notes_garden.md`, and any source/docs touched by branch-only commits.
+Relevant invariants:
+Do not rewrite or drop user progress, avoid restoring GitHub-rejected export blobs, keep append-only notes, and verify with repo-local tooling.
+Proof path (how success will be verified):
+Inspect branch diffs/cherries, merge or cherry-pick required work onto `main`, run `./.venv/bin/pytest -q`, and confirm `main` equals `origin/main` after push.
