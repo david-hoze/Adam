@@ -53,3 +53,25 @@ Docs updated:
 Operational log appended; product docs unchanged.
 Remaining uncertainties or follow-ups:
 The local helper branch `codex/main-failed-consolidation-attempt-20260307` preserves the rejected merge attempt for inspection; it is not needed for runtime behavior and can be cleaned up later.
+## [2026-03-07 09:59:59 EST] PRE-FLIGHT
+Task summary:
+Delete every branch except `main` and ensure future commits use the `shimmer-hue` git identity.
+Scope of work:
+Audit local and remote refs, remove the non-`main` worktree, delete non-`main` local and remote branches, set local git identity, and verify only `main` remains.
+Likely files/modules:
+Git refs, worktree metadata, and `/Users/brianray/Adam/codex_notes_garden.md`.
+Relevant invariants:
+Stay on `main`, do not disturb current tracked files, remove only non-`main` refs/worktrees, and keep commit identity explicitly configured for this repo.
+Proof path (how success will be verified):
+Confirm branch/worktree inventory before and after deletion, verify `git config user.name`/`user.email`, and ensure `git branch -a` shows only `main` plus `origin/main`.
+## [2026-03-07 10:00:30 EST] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/codex_notes_garden.md`.
+Behavior implemented or modified:
+Removed all non-`main` local branches, removed the extra non-`main` worktree, deleted the non-`main` remote branch, and explicitly set the repo-local git identity to `user.name=shimmer-hue` and `user.email=warnerpallitz@gmail.com`.
+Evidence (tests / commands run):
+`git branch -a -vv`, `git worktree list`, `git config --get user.name`, `git config --get user.email`, and `git status --short --branch`.
+Docs updated:
+Operational log appended; repository code/docs unchanged.
+Remaining uncertainties or follow-ups:
+GitHub commit attribution depends on the email remaining associated with the `shimmer-hue` account; the repo-local git config is now pinned for future commits in this repo.
