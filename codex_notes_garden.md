@@ -31,3 +31,14 @@ Relevant invariants:
 Do not rewrite or drop user progress, avoid restoring GitHub-rejected export blobs, keep append-only notes, and verify with repo-local tooling.
 Proof path (how success will be verified):
 Inspect branch diffs/cherries, merge or cherry-pick required work onto `main`, run `./.venv/bin/pytest -q`, and confirm `main` equals `origin/main` after push.
+## [2026-03-07 09:54:19 EST] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/codex_notes_garden.md`.
+Behavior implemented or modified:
+Backed up the pre-consolidation `main` tip, audited all `codex/*` branches, and merged remaining non-ancestor branch histories into `main` with safe `ours` merges where their meaningful code was already represented on `main` or where the branch only preserved stale artifact history.
+Evidence (tests / commands run):
+`git branch --merged main`, `git log --graph -10`, and `./.venv/bin/pytest -q` with `31 passed in 6.46s`.
+Docs updated:
+Operational log appended; product docs unchanged because repository contents stayed on the current `main` tree.
+Remaining uncertainties or follow-ups:
+Branch refs still exist after consolidation; delete them only if you want branch cleanup in addition to merge history.
