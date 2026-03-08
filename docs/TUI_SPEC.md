@@ -4,25 +4,33 @@ The TUI remains the primary EDEN runtime surface in v1.2.
 
 ## Boot flow
 
-Live cockpit boot:
+Live dialogue boot:
 
 - EDEN opens directly into a chat session surface
 - if a previous session exists, EDEN resumes the latest persisted session automatically
 - if no session exists yet, EDEN creates a blank experiment/session automatically
-- the top action menu remains available for:
-  - `Toggle Aperture`
-  - `Ingest PDF / Doc`
-  - `Review Feedback`
-  - `Adjust Profile`
-  - `New Session`
-  - `Resume Latest`
-  - `Blank Eden`
-  - `Seeded Eden`
-  - `Prepare Qwen`
-  - `Open Observatory`
-  - `Export Latest`
-  - `Open Deck`
-  - `Help`
+- the top action bus remains available:
+  - menu actions:
+    - `Toggle Aperture Drawer`
+    - `Ingest PDF / Doc`
+    - `Review Last Reply`
+    - `Open Conversation Log`
+    - `Tune Session`
+    - `Start New Session`
+    - `Continue Latest`
+    - `Start Blank Eden`
+    - `Start Seeded Eden`
+    - `Prepare Local Model`
+    - `Open Browser Observatory`
+    - `Export Artifacts`
+    - `Open Utilities Deck`
+    - `Help`
+  - persistent quick buttons:
+    - `Ingest Document`
+    - `Open/Close Aperture`
+  - layout:
+    - full-width action select
+    - separate quick-action row to avoid wrapped/clipped menu rendering
 - default MLX model storage remains under `models/` in the repo root
 
 Session-start modal:
@@ -51,30 +59,31 @@ Session-start modal:
 
 Primary split:
 
-- left cockpit bay:
-  - compact aperture snapshot
-  - visible thinking / reasoning artifact panel
-  - feedback / session-state panel
-- right cockpit bay:
-  - upper stack:
-    - full-width animated signal field / memgraph bus with orthographic glyph rendering and live update explanation
-    - lower instrumentation row:
-      - animated amber cockpit instrumentation
-      - forensic structured log
-  - lower chat deck:
-    - conversation lifecycle strip with explicit start / review / continue / end guidance
-    - latest persisted Brian / Adam transcript boxes
-    - feedback-loop strip for pending/reviewed turn state
-    - live Brian draft box when the composer is loaded
-    - multiline `TextArea` composer for Brian the operator with strong focus styling
-    - transmit hint surface; `Ctrl+S` sends
+- left primary dialogue bay:
+  - scrolling dialogue tape with persisted Brian / Adam turn boxes for the active session
+  - live Brian draft box when the composer is loaded
+  - inline reply-review strip for pending/reviewed turn state
+  - typed inline review flow:
+    - verdict code input: `A`, `E`, `R`, `S`
+    - confirm input: `Y` + `Enter` to submit
+    - explanation field appears for `A` / `E` / `R`
+    - corrected-text field appears for `E`
+  - multiline `TextArea` composer for Brian the operator with strong focus styling
+  - message-input hint surface directly under the composer; `Ctrl+S` sends
+  - keyboard-scrollable tape container so the operator can move up/down through the session history
+- right secondary telemetry bay:
+  - enlarged animated signal field / memgraph bus with explicit symbol legend and live update explanation
+  - enlarged aperture / active-set slice that speaks directly to the bus lanes: docs, knowledge memes, behavior memes, memodes, and relation read
+  - lower thinking / reasoning slice
+- bottom runtime strip:
+  - merged runtime/event chyron with loop phase, active-set summary, feedback state, transcript pointer, and latest event flow
 
 Wide aperture drawer:
 
 - toggled from the action menu or `F8`
 - occupies the top band of the screen when open
 - renders a wider natural-language scan of the active set, persistent anchors, and live heat
-- collapses back to the compact cockpit aperture when closed
+- collapses back to the compact telemetry stack when closed
 
 Secondary surfaces:
 
@@ -92,33 +101,35 @@ Secondary surfaces:
   - absolute document path
   - operator framing prompt that is indexed prior to later retrieval
   - keyboard-first submit / cancel flow
-- `Review` modal:
-  - explicit accept / edit / reject / skip feedback surface
-  - explanation and corrected-answer fields
-  - last-response summary
+- `Review` action:
+  - focuses the inline reply-review inputs under Adam's latest answer
 
 ## Design contract
 
-- fixed panes, no primary scrolling transcript
+- fixed telemetry panes, but the prime dialogue tape itself scrolls
 - amber-on-dark operator grammar preserved
-- cockpit-first primary chat surface: aperture/thinking/feedback left, animated telemetry upper-right, chat deck lower-right
+- dialogue-first prime surface: visible transcript and composer dominate the left column; telemetry stays visible but secondary on the right
 - live-session boot is the default path; the app no longer lands on a launcher before chat opens
-- session and utility actions now live in the keyboard-executable top menu instead of left-column buttons
+- session and utility actions now live in the keyboard-executable top action bus instead of left-column buttons
 - normal entry path is `.venv/bin/python -m eden` or `.venv/bin/python -m eden app`
 - shell flags remain optional overrides; the normal runtime contract is repo-local MLX
-- the action bar reports model readiness, active session, and focus/keyboard hints
+- the action bus exposes keyboard-focusable menu + quick buttons, while Live Contract reports model readiness, active session, and focus state
 - multiline composition is first-class
 - `Esc` returns focus to the composer, and printable keys pressed outside editable widgets are routed back into the composer automatically
+- the dialogue tape is scrollable and can be navigated by focusing it, then using `Up`, `Down`, `PageUp`, `PageDown`, `Home`, or `End`
 - operator turns are persisted and graph-ingested as `Brian the operator: ...`
 - MLX/Qwen model-emitted thinking is surfaced as a dedicated panel instead of leaking into the main Adam response
 - the signal field is explicitly explanatory: it renders a live orthographic memgraph slice using active-set nodes, recall anchors, recent trace events, and ingest roots while remaining separate from any claim about hidden activations
-- the aperture is rendered as both a compact animated snapshot and a full-width pull-down readable scan with natural-language summaries plus a ranked queue
-- the prime surface keeps aperture, thinking, feedback, and transcript visible while the operator types; Deck still carries the detailed trace and budget surfaces
-- feedback is integrated into the lower-right chat loop through a dedicated review-status strip in the chat deck
-- conversation boundaries are explicit: start by asking or ingesting, review when Adam answers, and end by opening a new session
+- the memgraph bus keeps an always-visible legend for its glyph vocabulary so the operator can read it as a tool rather than decorative telemetry
+- the aperture is rendered as both a compact but more verbose bus-to-active-set read and a full-width pull-down readable scan with natural-language summaries plus a ranked queue
+- the prime surface keeps transcript, reply review, composer, memgraph, aperture, thinking, and the merged runtime/event chyron visible while the operator types; Deck still carries the detailed trace and budget surfaces
+- feedback is integrated directly into the primary dialogue bay through an inline reply-review strip under Adam's latest answer
+- inline review uses typed `A` / `E` / `R` / `S` codes plus `Y` confirmation, but still reuses the graph-backed feedback path and therefore updates regard, reward, risk, and edit channels
+- conversation logs are written as markdown artifacts under `exports/conversations/` for the active session and surfaced on-screen plus via `Open Conversation Log`
+- conversation boundaries are explicit through the live contract, transcript state, and inline review flow: ask or ingest, review when Adam answers, and end by opening a new session
 - budget changes remain visible, but now live in Deck instead of the prime chat pane
 - latest-session resume restores the latest persisted session surface without forcing a new session flow first
-- keyboard-only navigation is supported through top-menu focus, `Enter` execution, `Tab` / `Shift+Tab` focus cycling, and the function-key bindings
+- keyboard-only navigation is supported through top action-bus focus, `Enter` execution, `Tab` / `Shift+Tab` focus cycling, and the function-key bindings
 - corpus ingest supports a framing prompt whose phrases are graph-indexed as persistent document-conditioning material
 
 ## Budget panel contents
@@ -146,8 +157,8 @@ Secondary surfaces:
 - `F3`: ensure/open local observatory
 - `F4`: toggle low-motion in the current session request
 - `F5`: open the new-session inference-profile flow
-- `F6`: open the operator deck
-- `F7`: open the review feedback modal
+- `F6`: open the utilities deck
+- `F7`: focus the inline reply-review strip
 - `F8`: toggle the full-width aperture drawer
 - `F9`: open document ingest with framing prompt
 - `Esc`: return focus to the composer on the main chat screen

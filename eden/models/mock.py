@@ -27,13 +27,9 @@ class MockModelAdapter(BaseModelAdapter):
             anchors.append(line.split("]", 1)[0].strip("["))
         anchor_text = ", ".join(anchors) if anchors else "no strong prior anchors"
         answer = (
-            "Answer:\n"
             f"I am responding through the current aperture rather than pretending to speak from fixed weights. "
             f"Your latest request was: {user_line[5:].strip()}\n\n"
-            "Basis:\n"
-            f"The highest pressure structures in the active set were {anchor_text}. "
-            "I am favoring them because their regard, recency, and feedback surfaces were strongest in this moment.\n\n"
-            "Next Step:\n"
+            f"The highest-pressure structures in the active set were {anchor_text}, so I leaned on the strongest regard, recency, and feedback surfaces available in this moment.\n\n"
             "If you want me to stabilize or revise this behavior, apply explicit feedback so the graph updates instead of the answer merely disappearing."
         )
         return ModelResult(

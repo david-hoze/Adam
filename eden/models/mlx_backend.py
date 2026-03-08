@@ -114,7 +114,7 @@ class MLXModelAdapter(BaseModelAdapter):
         if reasoning_text and answer_text.strip() == text.strip():
             answer_prompt = self._build_prompt(
                 system_prompt
-                + "\nThis is the final answer pass. Do not emit reasoning. Return one clean operator-facing response using the requested sections exactly once.",
+                + "\nThis is the final answer pass. Do not emit reasoning. Return one clean operator-facing response with no headings or scaffolding.",
                 conversation_prompt,
                 enable_thinking=False,
             )

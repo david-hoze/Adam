@@ -15,7 +15,7 @@ from rich.text import Text
 from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, Footer, Header, Input, RichLog, Select, Static, TextArea
 
@@ -23,33 +23,39 @@ from ..runtime import EdenRuntime
 from ..utils import safe_excerpt
 
 
-AMBER = "#ffbf66"
-TEXT = "#ffe2af"
-MUTED = "#b88646"
-BG = "#090603"
-PANEL = "#140d05"
-SHADE = "#110b06"
-SHADE_ALT = "#1a1108"
-NEON = "#8df7a8"
-ICE = "#a7d8ff"
-ROSE = "#ff8fb5"
-EMBER = "#ff8d47"
+AMBER = "#ffd98a"
+TEXT = "#fff1d2"
+MUTED = "#e6ab5a"
+BG = "#12080a"
+PANEL = "#211014"
+SHADE = "#1a0d12"
+SHADE_ALT = "#27121c"
+NEON = "#84ffd0"
+ICE = "#8ddcff"
+ROSE = "#ff7ad7"
+EMBER = "#ffae57"
+VIOLET = "#a890ff"
+MARBLE_DARK = "#160a14"
+MARBLE_LIGHT = "#351629"
 
 ACTION_MENU_OPTIONS = [
-    ("Toggle Aperture", "toggle_aperture"),
+    ("Toggle Aperture Drawer", "toggle_aperture"),
     ("Ingest PDF / Doc", "ingest_pdf"),
-    ("Review Feedback", "review"),
-    ("Adjust Profile", "profile"),
-    ("New Session", "new_session"),
-    ("Resume Latest", "resume"),
-    ("Blank Eden", "blank"),
-    ("Seeded Eden", "seeded"),
-    ("Prepare Qwen", "prepare_mlx"),
-    ("Open Observatory", "observatory"),
-    ("Export Latest", "export"),
-    ("Open Deck", "deck"),
+    ("Review Last Reply", "review"),
+    ("Open Conversation Log", "conversation_log"),
+    ("Tune Session", "profile"),
+    ("Start New Session", "new_session"),
+    ("Continue Latest", "resume"),
+    ("Start Blank Eden", "blank"),
+    ("Start Seeded Eden", "seeded"),
+    ("Prepare Local Model", "prepare_mlx"),
+    ("Open Browser Observatory", "observatory"),
+    ("Export Artifacts", "export"),
+    ("Open Utilities Deck", "deck"),
     ("Help", "help"),
 ]
+
+ACTION_MENU_LABELS = {value: label for label, value in ACTION_MENU_OPTIONS}
 
 
 def _observatory_target_url(runtime: EdenRuntime, status: dict[str, Any], experiment_id: str | None) -> str:
@@ -84,21 +90,23 @@ class UiState:
     current_budget: dict[str, Any] | None = None
     current_profile: dict[str, Any] | None = None
     current_graph_health: dict[str, Any] | None = None
+    conversation_log_path: str | None = None
 
 
 class HelpModal(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         help_text = Text.from_markup(
             "[bold #ffbf66]EDEN Controls[/]\n\n"
-            "EDEN boots directly into a live session cockpit.\n"
-            "The top action menu handles review, profile, launch, export, and observatory actions.\n"
+            "EDEN boots directly into a live dialogue surface.\n"
+            "The top action bus keeps the menu plus quick ingest/aperture controls visible.\n"
             "F8 opens a full-width aperture drawer for a wider active-set scan.\n"
             "F9 opens the ingest bay so you can load a PDF or other document with a framing prompt.\n"
-            "The left bay is aperture snapshot, visible thinking, and feedback.\n"
-            "The upper-right bay is the animated cockpit scope, dials, and trace bus.\n"
-            "The lower-right deck is the conversation loop, transcript, review state, and live composer.\n"
-            "Open Deck for detailed budget, thinking, history, ingest, and launch utilities.\n"
-            "Open Review for explicit accept / edit / reject feedback.\n\n"
+            "The large left column is the Adam dialogue: scrolling transcript tape, inline reply review, and live composer.\n"
+            "The right column stacks the memgraph bus, a larger aperture/active-set read, and a lower thinking surface.\n"
+            "The runtime loop and session/event state ride in the merged bottom chyron so they stay visible without stealing panel width.\n"
+            "Use Action Bus -> Open Conversation Log to open the saved markdown transcript for the live session.\n"
+            "Open Utilities Deck for detailed budget, thinking, history, ingest, and launch utilities.\n"
+            "Review Last Reply jumps focus to the inline reply-review strip.\n\n"
             "[bold]F1[/] help overlay\n"
             "[bold]Ctrl+S[/] send current input\n"
             "[bold]F2[/] export graph, basin, and geometry artifacts\n"
@@ -106,7 +114,7 @@ class HelpModal(ModalScreen[None]):
             "[bold]F4[/] toggle low motion for the current session request\n"
             "[bold]F5[/] open the new-session inference-profile flow\n"
             "[bold]F6[/] open the operator deck\n"
-            "[bold]F7[/] open review feedback\n"
+            "[bold]F7[/] focus inline reply review\n"
             "[bold]F8[/] toggle the full-width aperture drawer\n"
             "[bold]F9[/] open document ingest with framing prompt\n"
             "[bold]Esc[/] focus the composer on the main chat screen\n"
@@ -119,8 +127,9 @@ class HelpModal(ModalScreen[None]):
             "- RUNTIME_AUTO: deterministic transparent runtime policy\n"
             "- ADAM_AUTO: bounded preset choice; MLX currently falls back to runtime_auto and logs that fact\n\n"
             "Feedback rules:\n"
-            "- Accept requires explanation\n"
-            "- Reject requires explanation\n"
+            "- Type A to accept, R to reject, E to edit, S to skip\n"
+            "- Type Y in confirm and press Enter to commit the review\n"
+            "- Accept and reject require explanation\n"
             "- Edit requires explanation and corrected response\n"
             "- Skip records a lightweight no-op verdict"
         )
@@ -505,7 +514,7 @@ class AdamSigil(Static):
     LOOP = ("capture", "retrieve", "scope", "trace", "prune", "prompt", "model", "membrane", "feedback")
 
     def on_mount(self) -> None:
-        self.border_title = "Cockpit Scope"
+        self.border_title = "Runtime Loop"
         self._frame = 0
         self.set_interval(0.35, self._tick)
         self._tick()
@@ -570,10 +579,10 @@ class AdamSigil(Static):
         sweep = self.SWEEP[0 if app.runtime.settings.low_motion else self._frame % len(self.SWEEP)]
         pulse = self.PULSES[0 if app.runtime.settings.low_motion else self._frame % len(self.PULSES)]
         text = Text.from_markup(
-            f"[bold {AMBER}]Flight Loop[/]\n"
+            f"[bold {AMBER}]Turn Loop[/]\n"
             f"{loop_a}\n"
             f"{loop_b}\n\n"
-            f"[bold {AMBER}]Amber Dials[/]\n"
+            f"[bold {AMBER}]Live Dials[/]\n"
             f"scanner={sweep} pulse={pulse} model={model_status.get('stage', 'n/a')} reasoning={reasoning}\n"
             f"aperture   {self._gauge(len(active_items) / max_context_items)} {len(active_items)}/{max_context_items}\n"
             f"behavior   {self._gauge(behavior_mass / total_mass, fill='=')} {behavior_count} slots\n"
@@ -586,7 +595,7 @@ class AdamSigil(Static):
             f"[bold {AMBER}]Recent Signal[/]\n"
             + ("\n".join(event_lines) if event_lines else "No runtime signal yet.")
         )
-        self.update(Panel(text, title="Amber Cockpit", border_style=AMBER))
+        self.update(Panel(text, title="Runtime Loop", border_style=AMBER))
 
 
 class SignalField(Static):
@@ -724,20 +733,21 @@ class SignalField(Static):
         if not app.runtime.settings.low_motion:
             self._frame = (self._frame + 1) % 10_000
         state = self._field_state(app)
-        width = max(56, min((self.size.width or 84) - 6, 116))
-        height = max(10, min((self.size.height or 18) - 11, 14))
+        width = max(64, min((self.size.width or 92) - 6, 140))
+        height = max(12, min((self.size.height or 22) - 9, 16))
         center_x = width // 2
         center_y = height // 2
         canvas = [[(" ", TEXT) for _ in range(width)] for _ in range(height)]
 
+        nebula_palette = (MUTED, EMBER, ROSE, VIOLET, ICE, NEON)
         for y in range(0, height, 4):
             for x in range(width):
                 if (x + self._frame) % 9 == 0:
-                    self._draw(canvas, x, y, ".", MUTED)
+                    self._draw(canvas, x, y, ".", nebula_palette[(x + y + self._frame) % len(nebula_palette)])
         for x in range(0, width, 10):
             for y in range(height):
                 if (y + self._frame) % 5 == 0:
-                    self._draw(canvas, x, y, ":", MUTED)
+                    self._draw(canvas, x, y, ":", nebula_palette[(x + y + 2 * self._frame) % len(nebula_palette)])
 
         session_x = center_x
         session_y = center_y
@@ -765,14 +775,17 @@ class SignalField(Static):
             )
             if item.get("node_kind") == "memode":
                 glyph, style = "M", ICE
+                rail_style = VIOLET
             elif item.get("domain") == "behavior":
                 glyph, style = "^", ROSE
+                rail_style = ROSE
             else:
                 glyph, style = "o", NEON
+                rail_style = NEON
             active_positions.append((item, pos_x, pos_y, glyph, style))
             for point_x, point_y in self._line_points(session_x, session_y, pos_x, pos_y):
                 rail = "|" if point_x == session_x else "-" if point_y == session_y else "/" if point_y < session_y else "\\"
-                self._draw(canvas, point_x, point_y, rail, AMBER if item.get("node_kind") == "memode" else MUTED)
+                self._draw(canvas, point_x, point_y, rail, rail_style)
             self._draw(canvas, pos_x, pos_y, glyph, style)
 
         for anchor_index, anchor in enumerate(state["anchors"]):
@@ -783,7 +796,7 @@ class SignalField(Static):
             bank_x = width - 5
             bank_y = min(height - 2, 2 + anchor_index * 3)
             for point_x, point_y in self._line_points(anchor_x, anchor_y, bank_x - 1, bank_y):
-                self._draw(canvas, point_x, point_y, ".", ICE)
+                self._draw(canvas, point_x, point_y, ".", VIOLET if anchor_index % 2 else ICE)
             self._draw(canvas, bank_x, bank_y, "R", ICE)
 
         latest_event = state["latest_event"]
@@ -834,26 +847,46 @@ class SignalField(Static):
         latest_update = update_lines[0] if update_lines else "no recent memgraph mutation yet"
         health = state["health"]
         last_ingest = state["last_ingest"]
+        knowledge_labels = [
+            safe_excerpt(item.get("label", "untitled"), limit=18)
+            for item in state["active_items"]
+            if item.get("node_kind") != "memode" and item.get("domain") != "behavior"
+        ][:3]
+        behavior_labels = [
+            safe_excerpt(item.get("label", "untitled"), limit=18)
+            for item in state["active_items"]
+            if item.get("node_kind") != "memode" and item.get("domain") == "behavior"
+        ][:3]
+        memode_labels = [
+            safe_excerpt(item.get("label", "untitled"), limit=18)
+            for item in state["active_items"]
+            if item.get("node_kind") == "memode"
+        ][:2]
+        focus_label = (
+            safe_excerpt(state["active_items"][0].get("label", "untitled"), limit=24)
+            if state["active_items"]
+            else "no hot node"
+        )
         explanation = Text.from_markup(
-            f"\n\n[bold {AMBER}]Orthographic memgraph slice[/]\n"
-            "D=document root | o=knowledge meme | ^=behavior meme | M=memode bundle | @=session anchor | "
-            "R=high-regard recall bank\n"
-            f"[bold {AMBER}]live update[/] {latest_update}\n"
-            f"[bold {AMBER}]why it moves[/] turn pulses travel from the session anchor into the active set; "
-            "feedback throws rose sparks into the recall bank; ingest grows a document root that can keep resurfacing across turns.\n"
-            f"[bold {AMBER}]graph now[/] memes={health.get('memes', 0)} memodes={health.get('memodes', 0)} "
-            f"edges={health.get('edges', 0)} docs={health.get('documents', 0)} turns={health.get('turns', 0)} "
+            f"\n\n[bold {AMBER}]Legend[/] D doc | o knowledge meme | ^ behavior meme | M memode | @ session anchor | R recall bank | * turn pulse | ! feedback spark | ? framing brief\n"
+            f"[bold {AMBER}]Live read[/] update={latest_update}\n"
+            f"graph=memes {health.get('memes', 0)} memodes {health.get('memodes', 0)} "
+            f"edges {health.get('edges', 0)} docs {health.get('documents', 0)} turns {health.get('turns', 0)} "
             f"review={'pending' if state['pending_review'] else 'settled'} pressure={state['pressure']}\n"
-            f"[bold {AMBER}]cross-turn recall[/] right-bank anchors are the highest-regard nodes still available for later retrieval.\n"
+            f"[bold {AMBER}]Bus -> Aperture[/] docs={safe_excerpt(last_ingest.get('title', 'none yet'), limit=24)} | "
+            f"knowledge={', '.join(knowledge_labels) or 'quiet'} | "
+            f"behavior={', '.join(behavior_labels) or 'quiet'} | "
+            f"memodes={', '.join(memode_labels) or 'quiet'}\n"
+            f"[bold {AMBER}]Relation read[/] D -> @ -> {focus_label} -> R | "
+            f"knowledge={state['knowledge_count']} behavior={state['behavior_count']} memodes={state['memode_count']}\n"
             + (
-                f"[bold {AMBER}]latest corpus root[/] {safe_excerpt(last_ingest.get('title', ''), limit=48)} "
-                f"| brief={'yes' if last_ingest.get('briefing') else 'no'}"
+                f"latest corpus root={safe_excerpt(last_ingest.get('title', ''), limit=54)} | brief={'yes' if last_ingest.get('briefing') else 'no'}"
                 if last_ingest
-                else "[bold {AMBER}]latest corpus root[/] none yet"
+                else "latest corpus root=none yet"
             )
         )
         border = ROSE if state["pending_review"] else ICE if state["reasoning_present"] else AMBER
-        self.update(Panel(visual + explanation, title="Signal Field / Memgraph Bus", border_style=border, style=f"on {SHADE}"))
+        self.update(Panel(visual + explanation, title="Memgraph Bus", border_style=border, style=f"on {SHADE}"))
 
 
 class StartupScreen(Screen):
@@ -867,13 +900,13 @@ class StartupScreen(Screen):
             with Horizontal(id="startup_topbar"):
                 yield Select(
                     [
-                        ("Blank Eden", "blank"),
-                        ("Seeded Eden", "seeded"),
-                        ("Resume Latest", "resume"),
-                        ("Prepare Qwen", "prepare_mlx"),
+                        ("Start Blank Eden", "blank"),
+                        ("Start Seeded Eden", "seeded"),
+                        ("Continue Latest", "resume"),
+                        ("Prepare Local Model", "prepare_mlx"),
                         ("Refresh Model", "refresh_model"),
-                        ("Open Observatory", "observatory"),
-                        ("Export Latest", "export"),
+                        ("Open Browser Observatory", "observatory"),
+                        ("Export Artifacts", "export"),
                         ("Help", "help"),
                     ],
                     value="blank",
@@ -979,7 +1012,10 @@ class StartupScreen(Screen):
 
     def _transcript_panel(self) -> Panel:
         snapshot = self._latest_snapshot() or {}
-        operator_text = safe_excerpt(snapshot.get("last_user_text") or "Awaiting Brian transmission.", limit=260)
+        operator_text = (snapshot.get("last_user_text") or "Awaiting Brian transmission.").strip()
+        if operator_text.lower().startswith("brian the operator:"):
+            operator_text = operator_text.split(":", 1)[1].strip()
+        operator_text = safe_excerpt(operator_text, limit=260)
         response_text = safe_excerpt(snapshot.get("last_response") or "Awaiting Adam membrane response.", limit=500)
         exchange = Group(
             Panel(
@@ -1174,41 +1210,68 @@ class ChatScreen(Screen):
         self._preview_task: asyncio.Task[None] | None = None
         self._preview_generation = 0
         self._display_frame = 0
+        self._event_lines: list[str] = []
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         with Vertical(id="runtime_frame"):
             with Horizontal(id="runtime_topbar"):
-                yield Select(
-                    ACTION_MENU_OPTIONS,
-                    value="review",
-                    allow_blank=False,
-                    id="runtime_action_menu",
-                    prompt="Action menu",
-                )
+                with Vertical(id="runtime_action_bus"):
+                    yield Static(id="action_bus_panel")
+                    with Vertical(id="runtime_top_controls"):
+                        yield Select(
+                            ACTION_MENU_OPTIONS,
+                            value="review",
+                            allow_blank=False,
+                            id="runtime_action_menu",
+                            prompt="Action menu",
+                        )
+                        with Horizontal(id="runtime_quick_action_row"):
+                            yield Button("Ingest Document", id="header_ingest_btn")
+                            yield Button("Open Aperture", id="header_aperture_btn")
                 yield Static(id="runtime_status_strip")
-            yield Static(id="aperture_drawer_panel")
+                yield Static(id="aperture_drawer_panel")
             with Horizontal(id="chat_shell"):
-                with Vertical(id="chat_left"):
-                    yield Static(id="active_aperture_panel")
-                    yield Static(id="thinking_panel")
-                    yield Static(id="feedback_panel")
-                with Vertical(id="chat_right"):
-                    yield SignalField(id="signal_field")
-                    with Horizontal(id="chat_instrument_row"):
-                        yield AdamSigil(id="ritual_panel")
-                        yield RichLog(id="forensic_log", wrap=True, auto_scroll=True, highlight=True)
+                with Vertical(id="chat_primary"):
                     with Vertical(id="chat_deck"):
-                        yield Static(id="conversation_loop_panel")
-                        yield Static(id="chat_exchange_panel")
-                        yield Static(id="feedback_loop_panel")
+                        with VerticalScroll(id="chat_tape", can_focus=True):
+                            yield Static(id="chat_exchange_panel")
+                        with Vertical(id="inline_feedback_surface"):
+                            yield Static(id="feedback_loop_panel")
+                            with Horizontal(id="inline_feedback_command_row"):
+                                yield Input(
+                                    id="inline_feedback_verdict_input",
+                                    placeholder="Verdict code: A / E / R / S",
+                                )
+                                yield Input(
+                                    id="inline_feedback_confirm_input",
+                                    placeholder="Confirm with Y, then Enter",
+                                )
+                            yield TextArea(
+                                id="inline_feedback_explanation_input",
+                                soft_wrap=True,
+                                show_line_numbers=False,
+                                placeholder="Why accept, reject, or edit this reply? Required for A / E / R.",
+                            )
+                            yield TextArea(
+                                id="inline_feedback_corrected_input",
+                                soft_wrap=True,
+                                show_line_numbers=False,
+                                placeholder="Only for Edit: provide the corrected reply text Adam should have given.",
+                            )
+                            yield Static(id="inline_feedback_status_panel")
                         yield TextArea(
                             id="composer_input",
                             soft_wrap=True,
                             show_line_numbers=False,
-                            placeholder="Brian the operator: begin, continue, or correct here. Ctrl+S sends. F9 ingests a document. F5 starts a fresh session when you want to end this conversation.",
+                            placeholder="Message Adam here. Ask a question, continue the session, or correct the draft. Ctrl+S sends. F9 ingests a document first if needed.",
                         )
                         yield Static(id="composer_hint_panel")
+                with Vertical(id="chat_secondary"):
+                    yield SignalField(id="signal_field")
+                    yield Static(id="active_aperture_panel")
+                    yield Static(id="thinking_panel")
+            yield Static(id="runtime_chyron_panel")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -1222,15 +1285,18 @@ class ChatScreen(Screen):
         self._display_frame = (self._display_frame + 1) % 10_000
         self._health()
         self._sync_aperture_drawer()
+        self._sync_header_controls()
+        self.query_one("#action_bus_panel", Static).update(self.main_action_bus_panel())
         self.query_one("#runtime_status_strip", Static).update(self.main_action_status_panel())
         self.query_one("#aperture_drawer_panel", Static).update(self.main_aperture_drawer_panel())
         self.query_one("#active_aperture_panel", Static).update(self.main_aperture_panel())
         self.query_one("#thinking_panel", Static).update(self.main_thinking_panel())
-        self.query_one("#feedback_panel", Static).update(self.main_feedback_panel())
-        self.query_one("#conversation_loop_panel", Static).update(self.main_conversation_loop_panel())
         self.query_one("#chat_exchange_panel", Static).update(self.main_chat_exchange_panel())
+        self._sync_inline_feedback_surface()
         self.query_one("#feedback_loop_panel", Static).update(self.main_feedback_loop_panel())
+        self.query_one("#inline_feedback_status_panel", Static).update(self.main_inline_feedback_status_panel())
         self.query_one("#composer_hint_panel", Static).update(self.main_composer_hint_panel())
+        self.query_one("#runtime_chyron_panel", Static).update(self.main_runtime_chyron_panel())
 
     def _model_status(self) -> dict[str, Any]:
         app = self.app
@@ -1262,6 +1328,33 @@ class ChatScreen(Screen):
             return []
         return list(reversed(app.runtime.store.list_turns(app.ui_state.session_id, limit=limit)))
 
+    def _all_turns(self) -> list[dict[str, Any]]:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        if not app.ui_state.session_id:
+            return []
+        return app.runtime.store.list_all_turns(app.ui_state.session_id)
+
+    async def _sync_conversation_log(self) -> None:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        if not app.ui_state.session_id:
+            app.ui_state.conversation_log_path = None
+            return
+        path = await asyncio.to_thread(partial(app.runtime.write_conversation_log, app.ui_state.session_id))
+        app.ui_state.conversation_log_path = str(path)
+
+    def _scroll_chat_to_end(self) -> None:
+        if not self.is_mounted:
+            return
+
+        def _scroll() -> None:
+            if not self.is_mounted:
+                return
+            self.query_one("#chat_tape", VerticalScroll).scroll_end(animate=False)
+
+        self.call_after_refresh(_scroll)
+
     async def _bootstrap_live_surface(self) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
@@ -1271,7 +1364,7 @@ class ChatScreen(Screen):
             f"[INFO] Live cockpit boot :: backend={app.runtime.settings.model_backend} stage={model_status.get('stage', 'n/a')}"
         )
         if app.runtime.settings.model_backend.lower() == "mlx" and not model_status.get("ready", False):
-            app.ui_state.last_feedback = "Local MLX cache is not ready. Choose Prepare Qwen or send once to fetch it."
+            app.ui_state.last_feedback = "Local MLX cache is not ready. Choose Prepare Local Model or send once to fetch it."
         latest = await asyncio.to_thread(app.runtime.store.get_latest_experiment)
         experiment: dict[str, Any] | None = latest
         if latest is not None:
@@ -1282,6 +1375,7 @@ class ChatScreen(Screen):
                 app.ui_state.last_feedback = f"Resumed {snapshot['session_title']}."
                 self._write_forensic(f"[INFO] Resumed session :: {snapshot['session_title']}")
                 self.refresh_panels()
+                self._scroll_chat_to_end()
                 self._schedule_preview_refresh()
                 return
         if experiment is None:
@@ -1299,9 +1393,10 @@ class ChatScreen(Screen):
         )
         snapshot = await asyncio.to_thread(partial(app.runtime.session_state_snapshot, session["id"]))
         app.apply_session_snapshot(snapshot)
-        app.ui_state.last_feedback = "Live cockpit armed. Ask a question with Ctrl+S or ingest a document with F9."
+        app.ui_state.last_feedback = "Live dialogue surface armed. Ask a question with Ctrl+S or ingest a document with F9."
         self._write_forensic(f"[INFO] Armed session :: {snapshot['session_title']}")
         self.refresh_panels()
+        self._scroll_chat_to_end()
         self._schedule_preview_refresh()
 
     def _load_model_status_snapshot(self) -> dict[str, Any]:
@@ -1351,7 +1446,12 @@ class ChatScreen(Screen):
         return True
 
     def _write_forensic(self, line: str) -> None:
-        self.query_one("#forensic_log", RichLog).write(line)
+        self._record_event_line(line)
+
+    def _record_event_line(self, line: str) -> None:
+        self._event_lines.append(line)
+        if len(self._event_lines) > 80:
+            self._event_lines = self._event_lines[-80:]
 
     def _health(self) -> dict[str, Any]:
         app = self.app
@@ -1413,6 +1513,39 @@ class ChatScreen(Screen):
         else:
             drawer.styles.height = 0
 
+    def _sync_inline_feedback_surface(self) -> None:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        state, _ = self._feedback_loop_state()
+        surface = self.query_one("#inline_feedback_surface", Vertical)
+        has_reply = bool(app.ui_state.last_turn_id)
+        surface.display = has_reply
+        if not has_reply:
+            surface.styles.height = 0
+            return
+        command_row = self.query_one("#inline_feedback_command_row", Horizontal)
+        explanation = self.query_one("#inline_feedback_explanation_input", TextArea)
+        corrected = self.query_one("#inline_feedback_corrected_input", TextArea)
+        verdict, _ = self._inline_feedback_intent()
+        show_controls = state in {"pending", "reviewed"}
+        needs_explanation = verdict in {"accept", "edit", "reject"}
+        needs_corrected = verdict == "edit"
+        command_row.display = show_controls
+        explanation.display = show_controls and needs_explanation
+        corrected.display = show_controls and needs_corrected
+        height = 16
+        if needs_explanation:
+            height += 5
+        if needs_corrected:
+            height += 5
+        surface.styles.height = height if show_controls else 7
+
+    def _sync_header_controls(self) -> None:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        aperture_button = self.query_one("#header_aperture_btn", Button)
+        aperture_button.label = "Close Aperture" if app.ui_state.aperture_drawer_open else "Open Aperture"
+
     def _meter_bar(self, value: float, *, scale: float, width: int = 8, fill: str = "■", empty: str = "·") -> str:
         clamped = max(0.0, min(value / max(scale, 1e-6), 1.0))
         lit = int(round(clamped * width))
@@ -1461,6 +1594,39 @@ class ChatScreen(Screen):
             return ("reviewed", latest_entry)
         return ("pending", latest_entry)
 
+    def _inline_feedback_intent(self) -> tuple[str | None, str]:
+        raw_code = self.query_one("#inline_feedback_verdict_input", Input).value.strip().upper()
+        verdict_map = {
+            "A": "accept",
+            "E": "edit",
+            "R": "reject",
+            "S": "skip",
+        }
+        return verdict_map.get(raw_code), raw_code
+
+    def _inline_feedback_form_state(self) -> dict[str, Any]:
+        verdict, raw_code = self._inline_feedback_intent()
+        confirm = self.query_one("#inline_feedback_confirm_input", Input).value.strip().upper()
+        explanation = self.query_one("#inline_feedback_explanation_input", TextArea).text.strip()
+        corrected = self.query_one("#inline_feedback_corrected_input", TextArea).text.strip()
+        needs_explanation = verdict in {"accept", "edit", "reject"}
+        needs_corrected = verdict == "edit"
+        ready = verdict is not None and confirm == "Y"
+        if needs_explanation:
+            ready = ready and bool(explanation)
+        if needs_corrected:
+            ready = ready and bool(corrected)
+        return {
+            "verdict": verdict,
+            "raw_code": raw_code,
+            "confirm": confirm,
+            "explanation": explanation,
+            "corrected": corrected,
+            "needs_explanation": needs_explanation,
+            "needs_corrected": needs_corrected,
+            "ready": ready,
+        }
+
     def _conversation_stage(self) -> tuple[str, str]:
         app = self.app
         assert isinstance(app, EdenTuiApp)
@@ -1477,10 +1643,29 @@ class ChatScreen(Screen):
         if draft:
             return ("ask", "Draft is loaded. Press Ctrl+S to send this turn into the loop.")
         if feedback_state == "pending":
-            return ("review", "Adam has replied. Review the turn with F7, then continue or start a fresh session.")
+            return ("review", "Adam has replied. Review the turn in the inline strip below, then continue or start a fresh session.")
         if turns:
             return ("continue", "Conversation is active. Keep going here, or press F5 when you want a clean new session.")
         return ("start", "Session is armed. Begin when ready.")
+
+    def _display_operator_text(self, text: str) -> str:
+        cleaned = (text or "").strip()
+        prefix = "Brian the operator:"
+        if cleaned.lower().startswith(prefix.lower()):
+            return cleaned.split(":", 1)[1].strip()
+        return cleaned
+
+    def _marble_band(self, *, accent: str, width: int | None = None, background: str = MARBLE_DARK) -> Text:
+        width = width or max(28, min(72, (self.size.width or 120) // 2))
+        glyphs = ("░", "▒", "▓", "·", "◦", "◌", "╱", "╲", "·", "░")
+        palette = (accent, ICE, AMBER, VIOLET, NEON, accent)
+        shift = 0 if self.app.runtime.settings.low_motion else self._display_frame
+        band = Text()
+        for index in range(width):
+            glyph = " " if index % 13 in {0, 1} else glyphs[(index * 3 + shift) % len(glyphs)]
+            color = palette[(index + shift) % len(palette)]
+            band.append(glyph, style=f"{color} on {background}")
+        return band
 
     def main_aperture_panel(self) -> Panel:
         app = self.app
@@ -1505,43 +1690,94 @@ class ChatScreen(Screen):
                 "No active set yet. Type in the composer or ingest a document to arm the scan.\n"
                 "Press F8 for the wide aperture drawer once the loop is live."
             )
-            return Panel(text, title="Aperture", border_style=AMBER, style=f"on {SHADE}")
+            return Panel(text, title="Aperture / Active Set", border_style=AMBER, style=f"on {SHADE}")
         behavior_mass = sum(float(item.get("selection", 0.0)) for item in active_items if item.get("domain") == "behavior")
         knowledge_mass = sum(float(item.get("selection", 0.0)) for item in active_items if item.get("domain") != "behavior")
         lead = "knowledge-led" if knowledge_mass > behavior_mass * 1.15 else "behavior-led" if behavior_mass > knowledge_mass * 1.15 else "balanced"
         focus_index = self._display_frame % len(active_items)
         focus_item = active_items[focus_index]
         pulse = ("▶", "▸", "•", "▹")[0 if app.runtime.settings.low_motion else self._display_frame % 4]
+        ingest = app.ui_state.last_ingest_result or {}
+        knowledge_memes = [item for item in active_items if item.get("node_kind") != "memode" and item.get("domain") != "behavior"]
+        behavior_memes = [item for item in active_items if item.get("node_kind") != "memode" and item.get("domain") == "behavior"]
+        memodes = [item for item in active_items if item.get("node_kind") == "memode"]
+        anchors = sorted(active_items, key=lambda item: float(item.get("regard", 0.0)), reverse=True)[:3]
         body = Text.from_markup(
-            f"[bold {AMBER}]Snapshot[/]\n"
-            f"{lead} turn | knowledge={knowledge_count} behavior={behavior_count} memodes={memode_count}\n"
+            f"[bold {AMBER}]Bus-to-aperture read[/]\n"
+            f"{lead} turn | docs={1 if ingest else 0} knowledge={knowledge_count} behavior={behavior_count} memodes={memode_count} items={len(active_items)}\n"
             f"Focus {pulse} [bold {NEON}]{safe_excerpt(focus_item.get('label', 'untitled'), limit=28)}[/] "
             f"({self._active_item_role(focus_item)})\n"
             f"NOW={self._selection_phrase(float(focus_item.get('selection', 0.0)))} | "
             f"MEM={self._regard_phrase(float(focus_item.get('regard', 0.0)))} | "
             f"HEAT={self._activation_phrase(float(focus_item.get('activation', 0.0)))}\n\n"
-            f"[bold {AMBER}]Top pulls[/]\n"
+            f"[bold {AMBER}]Field dialogue[/]\n"
         )
-        for index, item in enumerate(active_items[:4]):
+        body.append(
+            f"DOC ROOT   {safe_excerpt(ingest.get('title', 'none yet'), limit=48)}\n",
+            style=EMBER,
+        )
+        body.append(
+            "KNOWLEDGE  " + (" | ".join(safe_excerpt(item.get("label", "untitled"), limit=18) for item in knowledge_memes[:4]) or "quiet")
+            + "\n",
+            style=NEON,
+        )
+        body.append(
+            "BEHAVIOR   " + (" | ".join(safe_excerpt(item.get("label", "untitled"), limit=18) for item in behavior_memes[:4]) or "quiet")
+            + "\n",
+            style=ROSE,
+        )
+        body.append(
+            "MEMODES    " + (" | ".join(safe_excerpt(item.get("label", "untitled"), limit=18) for item in memodes[:3]) or "quiet")
+            + "\n",
+            style=ICE,
+        )
+        body.append(
+            "\nRelation read\n",
+            style=f"bold {AMBER}",
+        )
+        body.append(
+            f"D -> @ -> {safe_excerpt(focus_item.get('label', 'untitled'), limit=30)} -> R\n",
+            style=TEXT,
+        )
+        if knowledge_memes and behavior_memes:
+            body.append(
+                f"{safe_excerpt(knowledge_memes[0].get('label', 'untitled'), limit=26)} braids with "
+                f"{safe_excerpt(behavior_memes[0].get('label', 'untitled'), limit=26)}\n",
+                style=VIOLET,
+            )
+        if memodes:
+            body.append(
+                f"{safe_excerpt(memodes[0].get('label', 'untitled'), limit=30)} is bundling the current lane.\n\n",
+                style=ICE,
+            )
+        body.append("Ranked pulls\n", style=f"bold {AMBER}")
+        for index, item in enumerate(active_items[:5]):
             selection = float(item.get("selection", 0.0))
             regard = float(item.get("regard", 0.0))
             activation = float(item.get("activation", 0.0))
-            indicator = pulse if index == focus_index % max(1, min(len(active_items), 4)) else " "
+            indicator = pulse if index == focus_index % max(1, min(len(active_items), 5)) else " "
             line_style = f"bold {NEON}" if indicator.strip() else TEXT
             body.append(
-                f"{indicator} {safe_excerpt(item.get('label', 'untitled'), limit=22):<22} "
-                f"NOW {self._meter_bar(selection, scale=5.0, width=6)} "
-                f"MEM {self._meter_bar(regard, scale=5.0, width=6, fill='=')} "
-                f"HEAT {self._meter_bar(activation, scale=1.0, width=6, fill=':')}\n",
+                f"{indicator} {safe_excerpt(item.get('label', 'untitled'), limit=28):<28} "
+                f"{self._active_item_role(item):<18} "
+                f"NOW {self._meter_bar(selection, scale=5.0, width=8)} "
+                f"MEM {self._meter_bar(regard, scale=5.0, width=8, fill='=')} "
+                f"HEAT {self._meter_bar(activation, scale=1.0, width=8, fill=':')}\n",
                 style=line_style,
             )
         body.append(
-            f"\n[bold {AMBER}]State[/] session={app.ui_state.session_title or app.ui_state.session_id or 'arming'} "
+            f"\n[bold {AMBER}]Recall anchors[/] "
+            + (" | ".join(safe_excerpt(item.get("label", "untitled"), limit=18) for item in anchors) or "quiet")
+            + "\n",
+            style=ICE,
+        )
+        body.append(
+            f"[bold {AMBER}]State[/] session={app.ui_state.session_title or app.ui_state.session_id or 'arming'} "
             f"state={'preview' if previewing else 'persisted'} items={len(active_items)} memes={meme_count} memodes={memode_count}\n"
-            "Press F8 for the full-width drawer.",
+            "This surface is the readable, pre-speech companion to the memgraph bus above. Press F8 for the full-width drawer.",
             style=MUTED,
         )
-        return Panel(body, title="Aperture", border_style=AMBER, style=f"on {SHADE}")
+        return Panel(body, title="Aperture / Active Set", border_style=AMBER, style=f"on {SHADE}")
 
     def main_aperture_drawer_panel(self) -> Panel:
         app = self.app
@@ -1609,28 +1845,39 @@ class ChatScreen(Screen):
             + "]Turn assembly[/]\n"
             + f"knowledge lane={len(knowledge_items)} | behavior lane={len(behavior_items)} | memode lane={len(memode_items)} | "
             + f"session={app.ui_state.session_title or app.ui_state.session_id or 'arming'}\n"
-            + "Collapse with F8 when you want the compact cockpit back.",
+            + "Collapse with F8 when you want the compact telemetry stack back.",
             style=MUTED,
         )
         return Panel(body, title="Aperture Drawer", border_style=AMBER, style=f"on {SHADE_ALT}")
+
+    def main_action_bus_panel(self) -> Panel:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        selected_value = str(self.query_one("#runtime_action_menu", Select).value or "review")
+        selected = ACTION_MENU_LABELS.get(selected_value, selected_value.replace("_", " "))
+        log_state = "ready" if app.ui_state.conversation_log_path else "pending"
+        text = Text.from_markup(
+            f"[bold {AMBER}]Action Bus[/]\n"
+            f"menu={selected} | aperture={'open' if app.ui_state.aperture_drawer_open else 'closed'} | review={'armed' if self._feedback_loop_state()[0] == 'pending' else 'clear'} | transcript={log_state}\n"
+            "Menu stays full width; quick actions sit below it."
+        )
+        return Panel(text, title="Action Bus", border_style=AMBER, style=f"on {SHADE_ALT}")
 
     def main_action_status_panel(self) -> Panel:
         app = self.app
         assert isinstance(app, EdenTuiApp)
         model_status = self._model_status()
-        selected = str(self.query_one("#runtime_action_menu", Select).value or "review").replace("_", " ")
         profile = app.ui_state.current_profile or {}
         focus_id = getattr(self.app.focused, "id", "none") or "none"
         stage, stage_note = self._conversation_stage()
         text = Text.from_markup(
             f"[bold {AMBER}]Live Contract[/]\n"
-            f"runtime={self._active_backend_label()} stage={model_status.get('stage', 'n/a')} action={selected}\n"
+            f"runtime={self._active_backend_label()} stage={model_status.get('stage', 'n/a')}\n"
             f"session={app.ui_state.session_title or app.ui_state.session_id or 'arming'} "
             f"profile={profile.get('profile_name', 'pending')} focus={focus_id} convo={stage}\n"
-            f"note={safe_excerpt(stage_note, limit=116)}\n"
-            "keyboard=Tab switch | Esc composer | type anywhere -> composer | Ctrl+S send | F7 review | F8 aperture | F9 ingest"
+            f"note={safe_excerpt(stage_note, limit=112)}"
         )
-        return Panel(text, title="Action Bus", border_style=AMBER, style=f"on {SHADE_ALT}")
+        return Panel(text, title="Live Contract", border_style=AMBER, style=f"on {SHADE_ALT}")
 
     def main_thinking_panel(self) -> Panel:
         app = self.app
@@ -1640,133 +1887,194 @@ class ChatScreen(Screen):
         trace_lines = [
             f">> {item.get('label', 'untitled')} sel={float(item.get('selection', 0.0)):.2f} "
             f"reg={float(item.get('regard', 0.0)):.2f} act={float(item.get('activation', 0.0)):.2f}"
-            for item in self._trace_items()[:4]
+            for item in self._trace_items()[:3]
         ]
         if not trace_lines:
             trace_lines = [">> no active consideration trace yet"]
         state = "draft-armed" if self._composer_text().strip() else "persisted"
         body = Text.from_markup(
-            f"[bold {AMBER}]Visible reasoning artifact[/]\n"
+            f"[bold {AMBER}]Reasoning surface[/]\n"
             f"state={state} mode={profile.get('requested_mode', 'pending')} -> {profile.get('effective_mode', 'pending')}\n"
-            f"pressure={budget.get('pressure_level', 'n/a')} response_cap={profile.get('response_char_cap', 'n/a')}\n\n"
+            f"pressure={budget.get('pressure_level', 'n/a')} cap={profile.get('response_char_cap', 'n/a')}\n\n"
         )
         if app.ui_state.last_reasoning:
-            body.append(safe_excerpt(app.ui_state.last_reasoning, limit=780), style=TEXT)
+            body.append(safe_excerpt(app.ui_state.last_reasoning, limit=520), style=TEXT)
             body.append("\n\n", style=TEXT)
         else:
             body.append(
-                "No model-emitted thinking artifact yet. The live trace below shows what the cockpit is weighting before the next turn.\n\n",
+                "No model-emitted reasoning yet. The live trace below shows what the runtime is weighting before the next turn.\n\n",
                 style=MUTED,
             )
         body.append("Consideration trace\n", style=f"bold {NEON}")
         body.append("\n".join(trace_lines), style=ICE if app.ui_state.last_reasoning else TEXT)
-        return Panel(body, title="Thinking", border_style=NEON if app.ui_state.last_reasoning else AMBER, style=f"on {SHADE}")
+        return Panel(body, title="Thinking / Reasoning", border_style=NEON if app.ui_state.last_reasoning else AMBER, style=f"on {SHADE}")
 
-    def main_feedback_panel(self) -> Panel:
+    def main_event_bus_panel(self) -> Panel:
         app = self.app
         assert isinstance(app, EdenTuiApp)
         profile = app.ui_state.current_profile or {}
         health = self._health()
-        recent_feedback = self._recent_feedback_entries(limit=3)
+        transcript_path = app.ui_state.conversation_log_path or "pending"
+        recent_feedback = self._recent_feedback_entries(limit=2)
         feedback_lines = [
-            f"T{item['turn_index']} {str(item['verdict']).upper()} :: {safe_excerpt(item['explanation'] or 'no explanation', limit=78)}"
+            f"T{item['turn_index']} {str(item['verdict']).upper()} :: {safe_excerpt(item['explanation'] or 'no explanation', limit=64)}"
             for item in reversed(recent_feedback)
         ]
         if not feedback_lines:
-            feedback_lines = ["No feedback events yet. Review the last turn from the action menu or F7."]
-        text = Text.from_markup(
-            f"[bold {AMBER}]Feedback / Session State[/]\n"
-            f"experiment={app.ui_state.experiment_name or app.ui_state.experiment_id or 'live-arming'}\n"
+            feedback_lines = ["No feedback events yet. Review Adam's latest reply in the inline strip or press F7 to jump there."]
+        recent_events = self._event_lines[-6:]
+        if not recent_events:
+            recent_events = ["[INFO] Event bus is quiet. Start a turn or ingest a document to populate it."]
+        body = Text.from_markup(
+            f"[bold {AMBER}]Session state[/]\n"
+            f"experiment={app.ui_state.experiment_name or app.ui_state.experiment_id or 'live-arming'} "
+            f"profile={profile.get('profile_name', 'pending')} "
             f"observatory={(app.ui_state.observatory_status or {}).get('url', 'offline')}\n"
             f"graph=memes {health['memes']} memodes {health['memodes']} triadic {health['triadic_closure']:.3f}\n"
-            f"profile={profile.get('profile_name', 'pending')} low_motion={app.runtime.settings.low_motion} debug={app.runtime.settings.debug}\n\n"
-            f"last_status={safe_excerpt(app.ui_state.last_feedback, limit=170)}\n\n"
-            "review rules: accept/reject need explanation; edit needs explanation plus corrected text\n"
-            "feedback surfaces update regard, reward, risk, and edit channels\n\n"
+            f"transcript={transcript_path}\n"
+            "open transcript via Action Bus -> Open Conversation Log\n"
+            f"last_status={safe_excerpt(app.ui_state.last_feedback, limit=108)}\n\n"
+            f"[bold {AMBER}]Feedback state[/]\n"
             + "\n".join(feedback_lines)
+            + "\n\n"
         )
-        return Panel(text, title="Feedback", border_style=AMBER, style=f"on {SHADE_ALT}")
+        body.append("Recent event flow\n", style=f"bold {ICE}")
+        for line in recent_events:
+            style = ROSE if "[ERROR]" in line else ICE if "[WARN]" in line else TEXT
+            body.append(f"{safe_excerpt(line, limit=140)}\n", style=style)
+        return Panel(body, title="Event Bus", border_style=ICE, style=f"on {SHADE_ALT}")
 
-    def main_conversation_loop_panel(self) -> Panel:
+    def main_runtime_chyron_panel(self) -> Panel:
         app = self.app
         assert isinstance(app, EdenTuiApp)
-        stage, stage_note = self._conversation_stage()
-        steps = ["start", "ask", "adam", "review", "continue/end"]
-        active_map = {
-            "start": "START",
-            "ask": "ASK",
-            "review": "REVIEW",
-            "continue": "CONTINUE/END",
-        }
-        active_label = active_map.get(stage, "ADAM")
-        rendered_steps = " > ".join(label.upper() if label.upper() == active_label else label for label in steps)
-        ingest = app.ui_state.last_ingest_result
-        ingest_line = (
-            f"Corpus ready: {safe_excerpt(ingest.get('title', 'recent ingest'), limit=44)} "
-            f"| framing brief={'loaded' if ingest.get('briefing') else 'none'}."
-            if ingest
-            else "Corpus ready: none yet. Press F9 to load a PDF or other supported document."
+        profile = app.ui_state.current_profile or {}
+        budget = app.ui_state.current_budget or {}
+        active_items = self._active_items()
+        trace_items = self._trace_items()
+        recent_feedback = self._recent_feedback_entries(limit=1)
+        latest_feedback = recent_feedback[0] if recent_feedback else None
+        transcript_name = Path(app.ui_state.conversation_log_path).name if app.ui_state.conversation_log_path else "pending"
+        ingest = app.ui_state.last_ingest_result or {}
+        phase_index = 0
+        if app.ui_state.session_id:
+            phase_index = 1
+        if app.ui_state.preview_active_set:
+            phase_index = 3
+        if app.ui_state.last_response:
+            phase_index = 6
+        if not app.runtime.settings.low_motion:
+            phase_index = (phase_index + self._display_frame) % len(AdamSigil.LOOP)
+        rendered_steps = " > ".join(
+            step.upper() if index == phase_index else step for index, step in enumerate(AdamSigil.LOOP)
         )
+        selection_peak = max((float(item.get("selection", 0.0)) for item in trace_items), default=0.0)
+        regard_peak = max((float(item.get("regard", 0.0)) for item in trace_items), default=0.0)
+        behavior_count = sum(1 for item in active_items if item.get("domain") == "behavior" and item.get("node_kind") != "memode")
+        knowledge_count = sum(1 for item in active_items if item.get("domain") != "behavior" and item.get("node_kind") != "memode")
+        memode_count = sum(1 for item in active_items if item.get("node_kind") == "memode")
+        feedback_state = (
+            f"{str(latest_feedback.get('verdict', 'pending')).upper()} T{latest_feedback.get('turn_index', '?')}"
+            if latest_feedback
+            else ("PENDING_REVIEW" if self._feedback_loop_state()[0] == "pending" else "QUIET")
+        )
+        event_summary = safe_excerpt(self._event_lines[-1] if self._event_lines else "No recent event flow.", limit=132)
         text = Text.from_markup(
-            f"[bold {AMBER}]Conversation loop[/]\n"
-            f"{rendered_steps}\n"
-            f"Current stage: {active_label}. {stage_note}\n"
-            "Start a conversation by asking a question or ingesting a document.\n"
-            "End a conversation by opening a new session (F5) when this line of inquiry is complete.\n"
-            f"{ingest_line}"
+            f"[bold {AMBER}]Runtime Loop[/] {rendered_steps}\n"
+            f"docs={1 if ingest else 0} knowledge={knowledge_count} behavior={behavior_count} memodes={memode_count} "
+            f"active={len(active_items)}/{profile.get('max_context_items', 'n/a')} "
+            f"pressure={budget.get('pressure_level', 'n/a')} reasoning={'present' if app.ui_state.last_reasoning else 'quiet'}\n"
+            f"selection={selection_peak:.2f} regard={regard_peak:.2f} feedback={feedback_state} transcript={transcript_name}\n"
+            f"event={event_summary}"
         )
-        border = NEON if stage in {"ask", "continue"} else ROSE if stage == "review" else AMBER
-        return Panel(text, title="Conversation Lifecycle", border_style=border, style=f"on {SHADE_ALT}")
+        return Panel(text, title="Runtime / Event Chyron", border_style=AMBER, style=f"on {SHADE_ALT}")
 
     def main_chat_exchange_panel(self):
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
         transcript: list[Panel] = []
-        feedback_map = {entry.get("turn_id"): entry for entry in self._recent_feedback_entries(limit=8)}
-        for turn in self._recent_turns(limit=2):
-            feedback_entry = feedback_map.get(turn["id"])
-            if feedback_entry is not None:
-                verdict = str(feedback_entry.get("verdict", "skip")).upper()
+        for turn in self._all_turns():
+            feedback_entries = app.runtime.store.list_feedback_for_turn(turn["id"])
+            latest_feedback = feedback_entries[-1] if feedback_entries else None
+            if latest_feedback is not None:
+                verdict = str(latest_feedback.get("verdict", "skip")).upper()
                 adam_title = f"Adam / T{turn['turn_index']} / {verdict}"
                 adam_border = NEON if verdict == "ACCEPT" else ICE if verdict == "EDIT" else EMBER if verdict == "REJECT" else AMBER
-            elif turn["id"] == self.app.ui_state.last_turn_id:
+            elif turn["id"] == app.ui_state.last_turn_id:
                 adam_title = f"Adam / T{turn['turn_index']} / AWAITING REVIEW"
                 adam_border = ROSE
             else:
                 adam_title = f"Adam / T{turn['turn_index']}"
                 adam_border = AMBER
+            brian_text = self._display_operator_text(turn.get("user_text") or "") or " "
+            adam_text, _ = app.runtime.sanitize_operator_response(
+                turn.get("membrane_text") or turn.get("response_text") or "",
+                response_char_cap=1600,
+            )
+            adam_text = adam_text or " "
             transcript.append(
                 Panel(
-                    Text(safe_excerpt(turn["user_text"], limit=180), style=TEXT),
-                    title=f"Brian / T{turn['turn_index']} / ask",
+                    Group(
+                        Text(brian_text, style=TEXT),
+                        self._marble_band(accent=AMBER, background=SHADE_ALT),
+                    ),
+                    title=f"Brian / T{turn['turn_index']}",
                     border_style=MUTED,
-                    style=f"on {SHADE_ALT}",
+                    style=f"on #26140b",
                 )
             )
             transcript.append(
                 Panel(
-                    Text(safe_excerpt(turn["membrane_text"], limit=260), style=TEXT),
+                    Group(
+                        Text(adam_text, style=TEXT),
+                        self._marble_band(accent=ROSE, background=MARBLE_LIGHT),
+                    ),
                     title=adam_title,
                     border_style=adam_border,
-                    style=f"on {SHADE}",
+                    style=f"on {MARBLE_LIGHT}",
                 )
             )
+            if feedback_entries:
+                feedback_lines: list[str] = []
+                for entry in feedback_entries:
+                    verdict = str(entry.get("verdict", "skip")).upper()
+                    explanation = (entry.get("explanation") or "").strip()
+                    corrected = (entry.get("corrected_text") or "").strip()
+                    feedback_lines.append(f"{verdict} @ {entry.get('created_at', 'n/a')}")
+                    feedback_lines.append(f"why: {explanation or 'none'}")
+                    if corrected:
+                        feedback_lines.append(f"edit: {corrected}")
+                transcript.append(
+                    Panel(
+                        Group(
+                            Text("\n".join(feedback_lines), style=TEXT),
+                            self._marble_band(accent=ICE, background=MARBLE_DARK),
+                        ),
+                        title=f"Review / T{turn['turn_index']}",
+                        border_style=ICE,
+                        style=f"on {MARBLE_DARK}",
+                    )
+                )
         operator_live = self._composer_text().strip()
         if operator_live:
             transcript.append(
                 Panel(
-                    Text(safe_excerpt(operator_live, limit=220), style=TEXT),
-                    title="Brian / Next Draft",
+                    Group(
+                        Text(operator_live, style=TEXT),
+                        self._marble_band(accent=VIOLET, background=SHADE_ALT),
+                    ),
+                    title="Brian / Draft",
                     border_style=ROSE,
-                    style=f"on {SHADE_ALT}",
+                    style=f"on #24111d",
                 )
             )
         if not transcript:
             transcript.append(
                 Panel(
                     Text(
-                        "Live deck armed. No turns yet. Start by asking Adam something here, or press F9 to ingest a document before the first turn.",
+                        "The dialogue tape is armed. Ask Adam a question here, or press F9 to ingest a document before the first turn.",
                         style=MUTED,
                     ),
-                    title="Chat Deck",
+                    title="Adam Dialogue",
                     border_style=AMBER,
                     style=f"on {SHADE}",
                 )
@@ -1781,38 +2089,74 @@ class ChatScreen(Screen):
             verdict = str(latest_entry.get("verdict", "skip")).upper()
             border = NEON if verdict == "ACCEPT" else ROSE if verdict == "EDIT" else EMBER if verdict == "REJECT" else AMBER
             text = Text.from_markup(
-                f"[bold {AMBER}]Feedback loop[/]\n"
+                f"[bold {AMBER}]Reply review[/]\n"
                 f"latest verdict={verdict} for T{latest_entry.get('turn_index', '?')} at {latest_entry.get('created_at', 'n/a')}\n"
                 f"explanation={safe_excerpt(latest_entry.get('explanation') or 'none', limit=180)}\n"
-                "F7 reopens structured review if you want to reinforce or revise this judgment."
+                "This feedback is already written into the graph through reward / risk / edit channels. "
+                "To revise it, type a new review code below: A, E, R, or S, then confirm with Y."
             )
-            return Panel(text, title="Chat Feedback", border_style=border, style=f"on {SHADE_ALT}")
+            return Panel(text, title="Reply Review", border_style=border, style=f"on {SHADE_ALT}")
         if state == "pending":
+            latest_turn = self._recent_turns(limit=1)
+            turn_label = f"T{latest_turn[0]['turn_index']}" if latest_turn else "latest"
             text = Text.from_markup(
-                f"[bold {AMBER}]Feedback loop[/]\n"
-                f"Adam / T{app.ui_state.last_turn_id or 'latest'} is awaiting operator judgment.\n"
-                "Use F7 or the action menu to review this turn.\n"
-                "Accept / Reject need explanation. Edit needs explanation plus corrected text.\n"
-                "Once reviewed, continue here or press F5 to end this conversation and open a new session."
+                f"[bold {AMBER}]Reply review[/]\n"
+                f"Adam / {turn_label} is awaiting operator judgment.\n"
+                "Type a review code here under the reply: A=accept, E=edit, R=reject, S=skip.\n"
+                "A / E / R require explanation. E also requires corrected text. All verdicts submit only after confirm=Y.\n"
+                "Submitting here writes a feedback event and updates the graph."
             )
-            return Panel(text, title="Chat Feedback", border_style=ROSE, style=f"on {SHADE_ALT}")
+            return Panel(text, title="Reply Review", border_style=ROSE, style=f"on {SHADE_ALT}")
         if app.ui_state.last_ingest_result:
             ingest = app.ui_state.last_ingest_result
             text = Text.from_markup(
-                f"[bold {AMBER}]Feedback loop[/]\n"
+                f"[bold {AMBER}]Reply review[/]\n"
                 f"Latest corpus root: {safe_excerpt(ingest.get('title', 'document'), limit=56)}.\n"
                 f"Framing brief={'present' if ingest.get('briefing') else 'absent'} | "
                 f"new memes={ingest.get('meme_count', 0)} + brief memes={ingest.get('brief_meme_count', 0)}.\n"
                 "Ask Adam about the document in this same session to exploit persistent recall."
             )
-            return Panel(text, title="Chat Feedback", border_style=ICE, style=f"on {SHADE_ALT}")
+            return Panel(text, title="Reply Review", border_style=ICE, style=f"on {SHADE_ALT}")
         text = Text.from_markup(
-            f"[bold {AMBER}]Feedback loop[/]\n"
+            f"[bold {AMBER}]Reply review[/]\n"
             "No turn needs review yet.\n"
             "Once Adam answers, this strip will show whether the turn is pending review or already judged.\n"
             "You can also start by ingesting a document with F9."
         )
-        return Panel(text, title="Chat Feedback", border_style=AMBER, style=f"on {SHADE_ALT}")
+        return Panel(text, title="Reply Review", border_style=AMBER, style=f"on {SHADE_ALT}")
+
+    def main_inline_feedback_status_panel(self) -> Panel:
+        state, latest_entry = self._feedback_loop_state()
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        form = self._inline_feedback_form_state()
+        if state == "pending":
+            text = Text.from_markup(
+                "code="
+                + (form["raw_code"] or "·")
+                + " -> "
+                + str(form["verdict"] or "pending")
+                + " | confirm="
+                + (form["confirm"] or "·")
+                + " | explanation="
+                + ("ready" if form["explanation"] else ("needed" if form["needs_explanation"] else "n/a"))
+                + " | corrected="
+                + ("ready" if form["corrected"] else ("needed" if form["needs_corrected"] else "n/a"))
+                + " | submit="
+                + ("armed" if form["ready"] else "waiting")
+            )
+            border = NEON if form["ready"] else ROSE
+        elif state == "reviewed" and latest_entry is not None:
+            text = Text.from_markup(
+                f"Latest stored verdict={str(latest_entry.get('verdict', 'skip')).upper()} | "
+                f"turn=T{latest_entry.get('turn_index', '?')} | "
+                f"{safe_excerpt(latest_entry.get('explanation') or 'no explanation', limit=96)}"
+            )
+            border = NEON if str(latest_entry.get("verdict", "")).lower() == "accept" else AMBER
+        else:
+            text = Text.from_markup("Reply review unlocks after Adam answers.")
+            border = AMBER
+        return Panel(text, title="Graph Impact", border_style=border, style=f"on {SHADE_ALT}")
 
     def main_composer_hint_panel(self) -> Panel:
         app = self.app
@@ -1821,12 +2165,13 @@ class ChatScreen(Screen):
         state = "draft-loaded" if draft else "idle"
         stage, _ = self._conversation_stage()
         text = Text.from_markup(
-            f"[bold {AMBER}]Composer[/]\n"
+            f"[bold {AMBER}]Message composer[/]\n"
             f"state={state} chars={len(draft)} backend={self._active_backend_label()} convo={stage}\n"
-            "TYPE HERE. Esc returns focus here. Printable keys outside menus jump here automatically.\n"
-            "Ctrl+S send | Shift+Tab action menu | F7 review | F8 aperture | F9 ingest | F5 new session"
+            "Type below to talk to Adam. Esc returns focus here. Printable keys outside menus jump here automatically.\n"
+            "Tab can reach the dialogue tape; Up/Down/PageUp/PageDown scroll it when focused.\n"
+            "Ctrl+S send | F9 ingest | F8 aperture | F5 new session | Shift+Tab header controls | F7 review"
         )
-        return Panel(text, title="Transmit / Type Here", border_style=NEON if self.app.focused and getattr(self.app.focused, 'id', None) == "composer_input" else AMBER, style=f"on {SHADE_ALT}")
+        return Panel(text, title="Message Input", border_style=NEON if self.app.focused and getattr(self.app.focused, 'id', None) == "composer_input" else AMBER, style=f"on {SHADE_ALT}")
 
     def deck_summary_panel(self) -> Panel:
         app = self.app
@@ -1834,7 +2179,7 @@ class ChatScreen(Screen):
         model_status = self._model_status()
         text = Text.from_markup(
             f"[bold {AMBER}]Deck / Detailed Surfaces[/]\n"
-            "Budget, thinking, history, ingest, and launch controls live here; the prime surface now keeps the aperture visible.\n\n"
+            "Budget, deeper reasoning, history, ingest, and launch controls live here; the prime surface keeps dialogue first while telemetry stays visible.\n\n"
             f"runtime={app.runtime.settings.model_backend}\n"
             f"model={model_status.get('label', 'n/a')}\n"
             f"cache={model_status.get('stage', 'n/a')}\n"
@@ -1956,9 +2301,12 @@ class ChatScreen(Screen):
         app = self.app
         assert isinstance(app, EdenTuiApp)
         events = app.runtime.runtime_log.recent(200)
-        widget = self.query_one("#forensic_log", RichLog)
         for event in events[self._seen_log_count :]:
-            widget.write(f"[{event.level}] {event.event} :: {event.message} {event.payload}")
+            payload = safe_excerpt(str(event.payload or ""), limit=68)
+            line = f"[{event.level}] {event.event} :: {safe_excerpt(event.message, limit=78)}"
+            if payload and payload != "{}":
+                line += f" | {payload}"
+            self._record_event_line(line)
         self._seen_log_count = len(events)
 
     def _composer_text(self) -> str:
@@ -1966,6 +2314,12 @@ class ChatScreen(Screen):
 
     def _set_text_area(self, selector: str, value: str) -> None:
         self.query_one(selector, TextArea).load_text(value)
+
+    def _reset_inline_feedback_inputs(self) -> None:
+        self.query_one("#inline_feedback_verdict_input", Input).value = ""
+        self.query_one("#inline_feedback_confirm_input", Input).value = ""
+        self.query_one("#inline_feedback_explanation_input", TextArea).load_text("")
+        self.query_one("#inline_feedback_corrected_input", TextArea).load_text("")
 
     def focus_composer(self) -> TextArea:
         composer = self.query_one("#composer_input", TextArea)
@@ -2013,6 +2367,49 @@ class ChatScreen(Screen):
         self.refresh_panels()
         self._schedule_preview_refresh()
 
+    async def _submit_inline_feedback_from_fields(self) -> None:
+        form = self._inline_feedback_form_state()
+        verdict = form["verdict"]
+        if verdict is None:
+            self.app.ui_state.last_feedback = "Review code must be A, E, R, or S before confirmation."
+            self.refresh_panels()
+            return
+        if form["confirm"] != "Y":
+            self.app.ui_state.last_feedback = "Type Y in confirm to commit the review."
+            self.refresh_panels()
+            return
+        await self.submit_feedback(
+            verdict,
+            explanation=form["explanation"],
+            corrected=form["corrected"],
+        )
+
+    @on(Input.Changed, "#inline_feedback_verdict_input")
+    @on(Input.Changed, "#inline_feedback_confirm_input")
+    def handle_inline_feedback_input_changed(self, _event: Input.Changed) -> None:
+        self._sync_inline_feedback_surface()
+        self.query_one("#inline_feedback_status_panel", Static).update(self.main_inline_feedback_status_panel())
+
+    @on(TextArea.Changed, "#inline_feedback_explanation_input")
+    @on(TextArea.Changed, "#inline_feedback_corrected_input")
+    def handle_inline_feedback_text_changed(self, _event: TextArea.Changed) -> None:
+        self.query_one("#inline_feedback_status_panel", Static).update(self.main_inline_feedback_status_panel())
+
+    @on(Input.Submitted, "#inline_feedback_verdict_input")
+    def handle_inline_feedback_verdict_submitted(self, _event: Input.Submitted) -> None:
+        verdict, _ = self._inline_feedback_intent()
+        if verdict == "skip":
+            self.query_one("#inline_feedback_confirm_input", Input).focus()
+            return
+        if verdict in {"accept", "edit", "reject"}:
+            self.query_one("#inline_feedback_explanation_input", TextArea).focus()
+            return
+        self.query_one("#inline_feedback_verdict_input", Input).focus()
+
+    @on(Input.Submitted, "#inline_feedback_confirm_input")
+    async def handle_inline_feedback_confirm_submitted(self, _event: Input.Submitted) -> None:
+        await self._submit_inline_feedback_from_fields()
+
     async def _send_turn(self) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
@@ -2032,12 +2429,15 @@ class ChatScreen(Screen):
         app.ui_state.preview_trace = outcome.trace
         app.ui_state.current_budget = outcome.budget
         app.ui_state.current_profile = outcome.profile
-        app.ui_state.last_feedback = f"Saved turn T{outcome.turn['turn_index']} from Brian the operator."
+        app.ui_state.last_feedback = f"Saved turn T{outcome.turn['turn_index']} from Brian."
         self._write_forensic(
             f"[INFO] Turn T{outcome.turn['turn_index']} stored :: active_set={len(outcome.active_set)} pressure={outcome.budget.get('pressure_level', 'n/a')}"
         )
         self._set_text_area("#composer_input", "")
+        await self._sync_conversation_log()
         self.refresh_panels()
+        self.focus_inline_feedback()
+        self._scroll_chat_to_end()
         self._schedule_preview_refresh()
 
     async def submit_feedback(self, verdict: str, *, explanation: str, corrected: str) -> None:
@@ -2062,7 +2462,11 @@ class ChatScreen(Screen):
             app.ui_state.last_feedback = f"{verdict.upper()} failed: {exc}"
         else:
             app.ui_state.last_feedback = f"{feedback['verdict'].upper()} recorded at {feedback['created_at']}."
+            self._reset_inline_feedback_inputs()
+            await self._sync_conversation_log()
             self._schedule_preview_refresh()
+            self.focus_composer()
+            self._scroll_chat_to_end()
         self.refresh_panels()
 
     async def ingest_path(self, path: str, *, briefing: str = "") -> None:
@@ -2122,8 +2526,33 @@ class ChatScreen(Screen):
         )
         self.refresh_panels()
 
+    async def handle_conversation_log(self) -> None:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        if not app.ui_state.session_id:
+            app.ui_state.last_feedback = "No session is active yet, so there is no transcript to open."
+            self.refresh_panels()
+            return
+        path = await asyncio.to_thread(partial(app.runtime.write_conversation_log, app.ui_state.session_id))
+        app.ui_state.conversation_log_path = str(path)
+        webbrowser.open(path.as_uri())
+        app.ui_state.last_feedback = f"Opened transcript log at {path}"
+        self.refresh_panels()
+
+    def focus_inline_feedback(self) -> None:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        if not app.ui_state.last_turn_id:
+            self.focus_composer()
+            return
+        self.query_one("#inline_feedback_verdict_input", Input).focus()
+
     async def handle_review(self) -> None:
-        await self.app.push_screen(FeedbackModal(self))
+        self.focus_inline_feedback()
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        app.ui_state.last_feedback = "Reply review is inline below Adam's latest answer. Type A, E, R, or S, then confirm with Y."
+        self.refresh_panels()
 
     async def handle_deck(self) -> None:
         await self.app.push_screen(DeckModal(self))
@@ -2138,7 +2567,7 @@ class ChatScreen(Screen):
         app.ui_state.last_feedback = (
             "Aperture drawer opened for a wide scan."
             if app.ui_state.aperture_drawer_open
-            else "Aperture drawer collapsed back to cockpit mode."
+            else "Aperture drawer collapsed back to the compact dialogue view."
         )
         self.refresh_panels()
 
@@ -2185,25 +2614,13 @@ class ChatScreen(Screen):
                 profile_request=payload,
             )
         )
-        app.apply_session_snapshot(
-            {
-                "experiment_id": app.ui_state.experiment_id,
-                "experiment_name": app.ui_state.experiment_name,
-                "session_id": session["id"],
-                "session_title": session["title"],
-                "last_turn_id": None,
-                "last_user_text": "",
-                "last_response": "",
-                "last_reasoning": "",
-                "last_active_set": [],
-                "last_trace": [],
-                "current_budget": None,
-                "current_profile": None,
-            }
-        )
+        snapshot = await asyncio.to_thread(partial(app.runtime.session_state_snapshot, session["id"]))
+        app.apply_session_snapshot(snapshot)
         app.ui_state.last_feedback = "Opened a new session."
         self._set_text_area("#composer_input", "")
+        self._reset_inline_feedback_inputs()
         self.refresh_panels()
+        self._scroll_chat_to_end()
         self._schedule_preview_refresh()
 
     def begin_new_session_flow(self) -> None:
@@ -2271,7 +2688,9 @@ class ChatScreen(Screen):
             app.ui_state.last_feedback = f"Resumed {snapshot['session_title']}."
             self._write_forensic(f"[INFO] Resumed session :: {snapshot['session_title']}")
             self._set_text_area("#composer_input", "")
+            self._reset_inline_feedback_inputs()
             self.refresh_panels()
+            self._scroll_chat_to_end()
             self._schedule_preview_refresh()
             return
         defaults = app.runtime.default_session_profile_request().to_dict()
@@ -2293,26 +2712,14 @@ class ChatScreen(Screen):
                 profile_request=payload,
             )
         )
-        app.apply_session_snapshot(
-            {
-                "experiment_id": experiment["id"],
-                "experiment_name": experiment["name"],
-                "session_id": session["id"],
-                "session_title": session["title"],
-                "last_turn_id": None,
-                "last_user_text": "",
-                "last_response": "",
-                "last_reasoning": "",
-                "last_active_set": [],
-                "last_trace": [],
-                "current_profile": None,
-                "current_budget": None,
-            }
-        )
+        snapshot = await asyncio.to_thread(partial(app.runtime.session_state_snapshot, session["id"]))
+        app.apply_session_snapshot(snapshot)
         app.ui_state.last_feedback = f"Opened a new {action} experiment session."
         self._write_forensic(f"[INFO] Opened {action} experiment :: {session['title']}")
         self._set_text_area("#composer_input", "")
+        self._reset_inline_feedback_inputs()
         self.refresh_panels()
+        self._scroll_chat_to_end()
         self._schedule_preview_refresh()
 
     def begin_surface_launch(self, action: str) -> None:
@@ -2366,6 +2773,8 @@ class ChatScreen(Screen):
             self.begin_edit_profile_flow()
         elif normalized == "review":
             self.run_worker(self.handle_review(), exclusive=True, group="review")
+        elif normalized == "conversation_log":
+            self.run_worker(self.handle_conversation_log(), exclusive=True, group="conversation_log")
         elif normalized == "toggle_aperture":
             self.toggle_aperture_drawer()
         elif normalized == "ingest_pdf":
@@ -2383,6 +2792,7 @@ class ChatScreen(Screen):
 
     @on(Select.Changed, "#runtime_action_menu")
     def handle_runtime_action_changed(self, _event: Select.Changed) -> None:
+        self.query_one("#action_bus_panel", Static).update(self.main_action_bus_panel())
         self.query_one("#runtime_status_strip", Static).update(self.main_action_status_panel())
 
     def on_key(self, event) -> None:
@@ -2392,12 +2802,46 @@ class ChatScreen(Screen):
             self.refresh_panels()
             event.stop()
             return
+        if self.app.focused and getattr(self.app.focused, "id", None) == "chat_tape":
+            tape = self.query_one("#chat_tape", VerticalScroll)
+            if event.key == "up":
+                tape.scroll_up(animate=False)
+                event.stop()
+                return
+            if event.key == "down":
+                tape.scroll_down(animate=False)
+                event.stop()
+                return
+            if event.key == "pageup":
+                tape.scroll_page_up(animate=False)
+                event.stop()
+                return
+            if event.key == "pagedown":
+                tape.scroll_page_down(animate=False)
+                event.stop()
+                return
+            if event.key == "home":
+                tape.scroll_home(animate=False)
+                event.stop()
+                return
+            if event.key == "end":
+                tape.scroll_end(animate=False)
+                event.stop()
+                return
         if self._route_printable_to_composer(event):
             return
         if event.key == "enter" and self.app.focused and getattr(self.app.focused, "id", None) == "runtime_action_menu":
             action = str(self.query_one("#runtime_action_menu", Select).value or "review")
             self._execute_runtime_action(action)
             event.stop()
+
+    @on(Button.Pressed, "#header_ingest_btn")
+    async def handle_header_ingest(self) -> None:
+        await self.handle_ingest()
+
+    @on(Button.Pressed, "#header_aperture_btn")
+    def handle_header_aperture(self) -> None:
+        self.toggle_aperture_drawer()
 
 
 class EdenTuiApp(App):
@@ -2413,7 +2857,7 @@ class EdenTuiApp(App):
         height: 1fr;
     }}
     #runtime_topbar {{
-        height: 8;
+        height: 11;
         padding: 0 1 1 1;
     }}
     #aperture_drawer_panel {{
@@ -2424,9 +2868,23 @@ class EdenTuiApp(App):
         height: 8;
         padding: 0 1 1 1;
     }}
+    #runtime_action_bus {{
+        width: 56;
+        min-width: 56;
+        padding-right: 1;
+    }}
+    #action_bus_panel {{
+        height: 4;
+    }}
+    #runtime_top_controls {{
+        height: 6;
+    }}
+    #runtime_quick_action_row {{
+        height: 3;
+    }}
     #runtime_action_menu, #startup_action_menu {{
-        width: 32;
-        margin-right: 1;
+        width: 1fr;
+        min-width: 32;
     }}
     #runtime_status_strip, #startup_menu_hint {{
         width: 1fr;
@@ -2439,25 +2897,29 @@ class EdenTuiApp(App):
         layout: horizontal;
         padding: 1 1;
     }}
-    #startup_left, #chat_left {{
+    #startup_left, #chat_primary {{
         width: 38%;
         min-width: 44;
         padding-right: 1;
     }}
-    #startup_right, #chat_right {{
+    #chat_primary {{
+        width: 55%;
+        min-width: 70;
+    }}
+    #startup_right, #chat_secondary {{
         width: 62%;
         min-width: 66;
         padding-left: 1;
     }}
-    #startup_aperture_panel, #active_aperture_panel {{
+    #chat_secondary {{
+        width: 45%;
+        min-width: 54;
+    }}
+    #startup_aperture_panel {{
         height: 1fr;
         min-height: 16;
     }}
-    #thinking_panel {{
-        height: 1fr;
-        min-height: 16;
-    }}
-    #feedback_panel, #startup_reasoning_panel {{
+    #startup_reasoning_panel {{
         height: 1fr;
         min-height: 13;
     }}
@@ -2471,22 +2933,8 @@ class EdenTuiApp(App):
         min-height: 18;
     }}
     #signal_field {{
-        height: 16;
-        min-height: 15;
-    }}
-    #chat_instrument_row {{
-        height: 1fr;
-        min-height: 13;
-        padding: 0 0 1 0;
-    }}
-    #signal_field {{
         width: 1fr;
         min-width: 32;
-    }}
-    #ritual_panel {{
-        width: 38%;
-        min-width: 30;
-        margin-right: 1;
     }}
     #startup_cockpit {{
         height: 1fr;
@@ -2500,30 +2948,87 @@ class EdenTuiApp(App):
     }}
     #chat_deck {{
         height: 1fr;
-        min-height: 22;
+        min-height: 28;
     }}
-    #conversation_loop_panel {{
-        height: 8;
+    #chat_tape {{
+        height: 1fr;
+        min-height: 14;
+        margin-bottom: 1;
+        border: tall {ROSE};
+        background: {MARBLE_DARK};
+        padding: 0 1;
+        scrollbar-gutter: stable;
+        scrollbar-size-vertical: 2;
+        scrollbar-color: {VIOLET};
+        scrollbar-color-hover: {ICE};
+        scrollbar-color-active: {NEON};
+        scrollbar-background: #261232;
+        scrollbar-background-hover: #311741;
+        scrollbar-background-active: #1b3144;
+        scrollbar-corner-color: {MARBLE_DARK};
+    }}
+    #chat_tape:focus {{
+        border: tall {ICE};
     }}
     #chat_exchange_panel {{
-        height: 1fr;
-        min-height: 10;
+        width: 100%;
+    }}
+    #signal_field {{
+        height: 20;
+        min-height: 18;
+    }}
+    #active_aperture_panel {{
+        height: 16;
+        min-height: 14;
+    }}
+    #thinking_panel {{
+        height: 10;
+        min-height: 8;
+    }}
+    #runtime_chyron_panel {{
+        height: 6;
+        min-height: 6;
+        margin: 0 1 1 1;
+    }}
+    #inline_feedback_surface {{
+        border: tall {ROSE};
+        background: {MARBLE_DARK};
+        padding: 0 1;
+        height: 16;
         margin-bottom: 1;
     }}
     #feedback_loop_panel {{
         height: 7;
     }}
+    #inline_feedback_command_row {{
+        height: 3;
+    }}
+    #inline_feedback_command_row Input {{
+        width: 1fr;
+        margin-right: 1;
+    }}
+    #inline_feedback_command_row Input:last-child {{
+        margin-right: 0;
+    }}
     #composer_input {{
         height: 6;
-        background: #060403;
+        background: #11070d;
         border: tall {AMBER};
         color: {TEXT};
+        scrollbar-gutter: stable;
+        scrollbar-size-vertical: 2;
+        scrollbar-color: {ICE};
+        scrollbar-color-hover: {ROSE};
+        scrollbar-color-active: {NEON};
+        scrollbar-background: #251225;
+        scrollbar-background-hover: #331833;
+        scrollbar-background-active: #183344;
     }}
     #composer_input:focus {{
         border: tall {NEON};
-        background: #0b0906;
+        background: #170a12;
     }}
-    #runtime_action_menu:focus {{
+    #runtime_action_menu:focus, #header_ingest_btn:focus, #header_aperture_btn:focus {{
         border: tall {ICE};
     }}
     #composer_hint_panel {{
@@ -2531,29 +3036,68 @@ class EdenTuiApp(App):
     }}
     #review_explanation_input, #review_corrected_input, #ingest_prompt_input {{
         height: 6;
-        background: #060403;
+        background: #11070d;
         border: tall {AMBER};
         color: {TEXT};
     }}
-    #forensic_log {{
-        height: 1fr;
+    #inline_feedback_explanation_input {{
+        height: 4;
+        background: #12070f;
+        border: tall {ROSE};
+        color: {TEXT};
+        scrollbar-gutter: stable;
+        scrollbar-size-vertical: 2;
+        scrollbar-color: {ROSE};
+        scrollbar-color-hover: {ICE};
+        scrollbar-color-active: {NEON};
+        scrollbar-background: #2a1226;
+        scrollbar-background-hover: #3b1836;
+        scrollbar-background-active: #183344;
+    }}
+    #inline_feedback_corrected_input {{
+        height: 4;
+        background: #0b0b15;
         border: tall {ICE};
-        color: {ICE};
-        width: 62%;
-        min-width: 36;
+        color: {TEXT};
+        scrollbar-gutter: stable;
+        scrollbar-size-vertical: 2;
+        scrollbar-color: {ICE};
+        scrollbar-color-hover: {VIOLET};
+        scrollbar-color-active: {NEON};
+        scrollbar-background: #17142a;
+        scrollbar-background-hover: #201d37;
+        scrollbar-background-active: #183344;
+    }}
+    #inline_feedback_status_panel {{
+        height: 4;
     }}
     Static, Input, RichLog, Select, TextArea {{
         margin-bottom: 1;
     }}
+    #runtime_top_controls Select {{
+        margin-bottom: 0;
+    }}
+    #runtime_quick_action_row Button {{
+        margin-bottom: 0;
+    }}
     Input, Select {{
-        background: {PANEL};
+        background: #261219;
         border: tall {AMBER};
         color: {TEXT};
     }}
     Button {{
         margin-right: 1;
-        background: #201208;
+        background: #32160f;
         color: {TEXT};
+    }}
+    #header_ingest_btn {{
+        background: #174328;
+        width: 1fr;
+    }}
+    #header_aperture_btn {{
+        background: #2b335a;
+        width: 1fr;
+        margin-right: 0;
     }}
     RichLog {{
         background: #060403;
@@ -2603,6 +3147,7 @@ class EdenTuiApp(App):
         self.ui_state.experiment_name = snapshot.get("experiment_name")
         self.ui_state.session_id = snapshot["session_id"]
         self.ui_state.session_title = snapshot.get("session_title")
+        self.ui_state.conversation_log_path = snapshot.get("conversation_log_path")
         self.ui_state.last_turn_id = snapshot.get("last_turn_id")
         self.ui_state.last_user_text = snapshot.get("last_user_text", "")
         self.ui_state.last_response = snapshot.get("last_response", "")

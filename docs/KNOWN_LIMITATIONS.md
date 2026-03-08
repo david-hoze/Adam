@@ -13,8 +13,11 @@
 - Seeded geometry exports cap per-memode local reports to a bounded, relevance-sorted subset so observatory/export remains responsive on this machine. The browser payload is intentionally not an exhaustive local-report dump for every memode.
 - `current_active_set` geometry export is based on the latest persisted active set for the selected session, not the unsent live composer preview.
 - `Resume Latest` restores the latest persisted session state, not an unsent draft from the composer.
-- The prime chat deck is a fixed-pane cockpit surface, so it shows a bounded recent transcript plus the current Brian draft rather than a full scrolling history of every prior turn.
+- The merged runtime/event chyron is intentionally bounded and concise. It exposes the latest runtime/event state, but it is not a full infinite-scroll event browser in the prime screen.
+- Inline reply review is scoped to Adam's latest turn in the live session. Older turns keep their stored verdict labels in the transcript, but they do not currently reopen as full inline review forms in-place.
+- Conversation logs are written as markdown transcript artifacts for operator access, but they are not yet a richer replay/index surface with per-turn jump links, filters, or diff views.
 - The signal field now renders an orthographic memgraph bus based on active-set nodes, recent trace events, and ingest roots, but it is still an operator-facing abstraction rather than a literal visualization of hidden model activations or attention tensors.
+- The terminal palette, marbled accents, and colored scrollbars are still constrained by Textual/Rich terminal rendering. The surface is brighter and more textured, but it is not a pixel-true graphical material system.
 - Document ingest framing prompts are graph-indexed as persistent conditioning material, but they are not yet a separate ranked evidence class with their own dedicated retrieval controls.
 - The repo-root `app.py` launcher reuses the repo-local `.venv`, but it does not repair a corrupted virtualenv by itself. If `.venv` was mixed across different base interpreters, rebuild it cleanly from one interpreter path.
 - Seeded Eden remains materially heavier than Blank Eden. The seeded path is real, but full canon ingest can still take substantial time and graph space.

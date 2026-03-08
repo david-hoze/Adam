@@ -19,6 +19,7 @@ from .inference import (
 from .ingest.pipeline import IngestService
 from .logging import RuntimeLog
 from .models.base import BaseModelAdapter
+from .models.base import split_model_output
 from .models.mlx_backend import MLXModelAdapter
 from .models.catalog import DEFAULT_LOCAL_MLX_MODEL, local_mlx_model_status, prepare_local_mlx_model
 from .models.mock import MockModelAdapter
@@ -28,10 +29,12 @@ from .observatory.service import ObservatoryService
 from .regard import ema, feedback_signal
 from .retrieval import RetrievalService
 from .storage.graph_store import GraphStore
-from .utils import now_utc, safe_excerpt, top_phrases
+from .utils import now_utc, safe_excerpt, slugify, top_phrases
 
 
 CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F]")
+ANSWER_LABEL_RE = re.compile(r"(?im)^\s*(final answer|answer|adam)\s*:\s*")
+SUPPORT_SECTION_RE = re.compile(r"(?im)^\s*(basis|next step)\s*:\s*")
 RUNTIME_LAUNCH_PROFILE_KEY = "runtime_launch_profile"
 OPERATOR_LABEL = "Brian the operator"
 
@@ -382,6 +385,78 @@ class EdenRuntime:
     def session_profile_request(self, session_id: str) -> dict[str, Any]:
         return self._session_profile_request(session_id).to_dict()
 
+    def conversation_log_path(self, session_id: str) -> Path:
+        session = self.store.get_session(session_id)
+        experiment = self.store.get_experiment(session["experiment_id"])
+        experiment_slug = experiment.get("slug") or slugify(experiment.get("name") or experiment["id"])
+        session_slug = slugify(session.get("title") or "operator-session")
+        out_dir = EXPORT_DIR / "conversations" / experiment_slug
+        out_dir.mkdir(parents=True, exist_ok=True)
+        return out_dir / f"{session_slug}-{session_id[:8]}.md"
+
+    def write_conversation_log(self, session_id: str) -> Path:
+        session = self.store.get_session(session_id)
+        experiment = self.store.get_experiment(session["experiment_id"])
+        path = self.conversation_log_path(session_id)
+        profile = self.session_profile_request(session_id)
+        lines = [
+            "# Adam Conversation Log",
+            "",
+            f"- experiment: {experiment['name']} ({experiment['id']})",
+            f"- session: {session['title']} ({session_id})",
+            f"- mode: {profile.get('mode', 'unknown')}",
+            f"- budget_mode: {profile.get('budget_mode', 'unknown')}",
+            f"- updated_at: {now_utc()}",
+            f"- transcript_path: {path}",
+            "",
+        ]
+        turns = self.store.list_all_turns(session_id)
+        if not turns:
+            lines.append("_No turns yet. The session is armed, but Brian has not sent a turn._")
+        for turn in turns:
+            user_text = (turn.get("user_text") or "").strip()
+            if user_text.lower().startswith(f"{OPERATOR_LABEL.lower()}:"):
+                user_text = user_text.split(":", 1)[1].strip()
+            visible_response, _ = self.sanitize_operator_response(
+                turn.get("membrane_text") or turn.get("response_text") or "",
+                response_char_cap=1600,
+            )
+            lines.extend(
+                [
+                    f"## Turn T{turn['turn_index']}",
+                    "",
+                    "### Brian",
+                    "```text",
+                    user_text,
+                    "```",
+                    "",
+                    "### Adam",
+                    "```text",
+                    visible_response,
+                    "```",
+                    "",
+                ]
+            )
+            feedback_entries = self.store.list_feedback_for_turn(turn["id"])
+            if feedback_entries:
+                lines.append("### Feedback")
+                lines.append("")
+                for feedback in feedback_entries:
+                    verdict = str(feedback.get("verdict", "skip")).upper()
+                    lines.append(f"- {verdict} at {feedback.get('created_at', 'n/a')}")
+                    explanation = (feedback.get("explanation") or "").strip()
+                    corrected_text = (feedback.get("corrected_text") or "").strip()
+                    lines.append(f"  explanation: {explanation or 'none'}")
+                    if corrected_text:
+                        lines.append("  corrected_text:")
+                        lines.append("")
+                        lines.append("  ```text")
+                        lines.append(f"  {corrected_text}")
+                        lines.append("  ```")
+                lines.append("")
+        path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+        return path
+
     def session_state_snapshot(self, session_id: str) -> dict[str, Any]:
         session = self.store.get_session(session_id)
         experiment = self.store.get_experiment(session["experiment_id"])
@@ -390,6 +465,7 @@ class EdenRuntime:
             "experiment_name": experiment["name"],
             "session_id": session["id"],
             "session_title": session["title"],
+            "conversation_log_path": str(self.write_conversation_log(session_id)),
             "profile_request": self.session_profile_request(session_id),
             "last_turn_id": None,
             "last_user_text": "",
@@ -405,11 +481,15 @@ class EdenRuntime:
             return snapshot
         turn = turns[0]
         metadata = json.loads(turn["metadata_json"] or "{}")
+        visible_response, _ = self.sanitize_operator_response(
+            turn["membrane_text"] or turn["response_text"] or "",
+            response_char_cap=1600,
+        )
         snapshot.update(
             {
                 "last_turn_id": turn["id"],
                 "last_user_text": turn["user_text"],
-                "last_response": turn["membrane_text"],
+                "last_response": visible_response,
                 "last_reasoning": metadata.get("model_result", {}).get("reasoning_text", ""),
                 "last_active_set": json.loads(turn["active_set_json"] or "[]"),
                 "last_trace": json.loads(turn["trace_json"] or "[]"),
@@ -471,7 +551,9 @@ class EdenRuntime:
             f"You are {self.agent_profile['name']}, the first graph-conditioned agent in EDEN.\n"
             "Your persistent identity is externalized into a memetic graph.\n"
             "If the model emits an explicit reasoning block, EDEN may surface it separately as operator-visible model thinking.\n"
-            "Respond using the sections: Answer, Basis, Next Step.\n"
+            "Return one clean operator-facing reply in Adam's voice.\n"
+            "Do not include headings such as Answer, Basis, Next Step, or Final Answer.\n"
+            "Do not expose hidden reasoning, scratch work, or chain-of-thought.\n"
             "Treat recent feedback as binding context when relevant.\n"
             f"Inference profile={profile.profile_name} mode={profile.effective_mode} response_char_cap={profile.response_char_cap}."
         )
@@ -502,18 +584,33 @@ class EdenRuntime:
         active_set: list[dict[str, Any]],
         response_char_cap: int,
     ) -> tuple[str, list[dict[str, Any]]]:
+        return self.sanitize_operator_response(text, response_char_cap=response_char_cap)
+
+    def sanitize_operator_response(self, text: str, *, response_char_cap: int) -> tuple[str, list[dict[str, Any]]]:
         original = text or ""
         events: list[dict[str, Any]] = []
         cleaned = CONTROL_CHAR_RE.sub("", original).strip()
         if cleaned != original:
             events.append({"event_type": "CONTROL_CHAR_STRIPPED", "detail": "Removed non-printing control characters."})
+        reasoning_text, cleaned_answer = split_model_output(cleaned)
+        if reasoning_text and cleaned_answer and cleaned_answer != cleaned:
+            cleaned = cleaned_answer.strip()
+            events.append({"event_type": "REASONING_SPLIT", "detail": "Removed a visible reasoning block from the operator-facing answer."})
+        if SUPPORT_SECTION_RE.search(cleaned):
+            cleaned = SUPPORT_SECTION_RE.split(cleaned, maxsplit=1)[0].strip()
+            events.append({"event_type": "SUPPORT_STRIPPED", "detail": "Removed Basis / Next Step scaffolding from the visible answer."})
+        label_cleaned = ANSWER_LABEL_RE.sub("", cleaned, count=1).strip()
+        if label_cleaned != cleaned:
+            cleaned = label_cleaned
+            events.append({"event_type": "LABEL_STRIPPED", "detail": "Removed operator-visible answer labels."})
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+        if not cleaned:
+            cleaned = "I am ready for Brian's next prompt."
+            events.append({"event_type": "EMPTY_REPAIRED", "detail": "Repaired an empty operator-facing answer after membrane cleanup."})
         max_chars = max(400, response_char_cap)
         if len(cleaned) > max_chars:
             cleaned = cleaned[: max_chars - 1].rstrip() + "…"
             events.append({"event_type": "TRIMMED", "detail": f"Clamped response to {max_chars} characters."})
-        if "Answer:" not in cleaned or "Basis:" not in cleaned or "Next Step:" not in cleaned:
-            cleaned = f"Answer:\n{cleaned}\n\nBasis:\nDerived from the active set and recent feedback.\n\nNext Step:\nProvide feedback to reinforce or correct this output."
-            events.append({"event_type": "FORMAT_ENFORCED", "detail": "Applied sectioned membrane format."})
         if not events:
             events.append({"event_type": "PASSTHROUGH", "detail": "Response passed the membrane unchanged."})
         return cleaned, events
@@ -530,6 +627,7 @@ class EdenRuntime:
         actor: str,
     ) -> dict[str, list[str]]:
         member_ids: list[str] = []
+        member_labels_by_id: dict[str, str] = {}
         memode_ids: list[str] = []
         for phrase, score in top_phrases(text, limit=6):
             meme = self.store.upsert_meme(
@@ -542,13 +640,15 @@ class EdenRuntime:
                 evidence_inc=score,
                 metadata={"session_id": session_id, "turn_id": turn_id, "origin": actor},
             )
-            member_ids.append(meme["id"])
+            member_id = str(meme["id"])
+            member_ids.append(member_id)
+            member_labels_by_id.setdefault(member_id, str(meme.get("label") or phrase))
             self.store.add_edge(
                 experiment_id=experiment_id,
                 src_kind="turn",
                 src_id=turn_id,
                 dst_kind="meme",
-                dst_id=meme["id"],
+                dst_id=member_id,
                 edge_type="OCCURS_IN",
                 provenance={"actor": actor},
             )
@@ -563,11 +663,14 @@ class EdenRuntime:
                     edge_type="CO_OCCURS_WITH",
                     provenance={"turn_id": turn_id, "actor": actor},
                 )
-        if len(member_ids) >= 2:
+        memode_member_ids = list(member_labels_by_id.keys())[: min(4, len(member_labels_by_id))]
+        memode_label_parts = list(member_labels_by_id.values())[:3]
+        memode_label = " / ".join(memode_label_parts) or safe_excerpt(text, limit=72)
+        if len(memode_member_ids) >= 2:
             memode = self.store.upsert_memode(
                 experiment_id=experiment_id,
-                label=" / ".join(self.store.get_meme(member_id)["label"] for member_id in member_ids[:3]),
-                member_ids=member_ids[: min(4, len(member_ids))],
+                label=memode_label,
+                member_ids=memode_member_ids,
                 summary=safe_excerpt(text, limit=320),
                 domain=domain,
                 scope=f"session:{session_id}",
@@ -583,7 +686,7 @@ class EdenRuntime:
                 edge_type="MATERIALIZES_AS_MEMODE",
                 provenance={"actor": actor},
             )
-            for member_id in member_ids[: min(4, len(member_ids))]:
+            for member_id in memode_member_ids:
                 self.store.add_edge(
                     experiment_id=experiment_id,
                     src_kind="memode",

@@ -4,18 +4,21 @@
 | --- | --- | --- |
 | Blank Eden bootstrap | Implemented | runtime + TUI path; validated in tests and demo |
 | Seeded Eden bootstrap code path | Implemented | ingests `assets/seed_canon/`; heavy-path validation started on real canon files |
-| Fixed-pane amber TUI | Implemented | preserved and refocused around a cockpit-style primary chat surface |
-| Live session cockpit boot | Implemented | app opens directly into a resumed-or-created session with the top action menu, active aperture/thinking/feedback panels, animated telemetry, and a live transcript deck |
+| Fixed-pane amber TUI | Implemented | preserved and refocused around a dialogue-first primary chat surface |
+| Live session dialogue boot | Implemented | app opens directly into a resumed-or-created session with the top action bus, visible transcript/composer, and secondary telemetry panels |
 | `python -m eden` default entry path | Implemented | no subcommand required for the normal TUI path; flags remain optional overrides |
 | Repo-root `python3 app.py` launcher | Implemented | root launcher re-execs the repo-local `.venv` interpreter and then dispatches into `eden.app:main` |
 | Local repo-managed MLX model storage | Implemented | default MLX model target is `models/qwen3.5-35b-a3b-mlx-mxfp4` under repo root |
-| Local MLX shard-readiness tracking | Implemented | live cockpit status surfaces distinguish metadata-only, partial, and ready model states |
+| Local MLX shard-readiness tracking | Implemented | live contract surfaces distinguish metadata-only, partial, and ready model states |
 | Repo-local Qwen 3.5 MLX backend | Implemented | repo-local 4-shard model completed and real MLX generation succeeded |
 | Multiline composer | Implemented | `TextArea`-based; covered by TUI smoke test |
 | Composer focus recovery | Implemented | `Esc` returns focus to the composer and printable keys outside editable widgets are routed there automatically |
-| Cockpit chat layout | Implemented | aperture / thinking / feedback on the left, full-width explanatory signal field plus cockpit/trace upper-right, live transcript + feedback loop + composer lower-right |
-| Aperture pull-down drawer | Implemented | `F8` opens a full-width readable active-set scan above the cockpit |
-| Conversation lifecycle surface | Implemented | lower-right deck now shows explicit start / review / continue / end guidance |
+| Dialogue-first chat layout | Implemented | primary left dialogue deck keeps transcript + inline review + composer visible; right telemetry stack now uses full-width memgraph/aperture/thinking/event slices plus a thin runtime chyron |
+| Scrolling dialogue tape | Implemented | prime transcript now renders the persisted session inside a focusable scroll container instead of a bounded fixed pane |
+| Operator-facing answer sanitization | Implemented | membrane now strips `Answer` / `Basis` / `Next Step` scaffolding and keeps model reasoning separate from Adam's visible reply |
+| Aperture pull-down drawer | Implemented | `F8` opens a full-width readable active-set scan above the dialogue/telemetry split |
+| Inline reply review | Implemented | typed `A` / `E` / `R` / `S` plus `Y` confirmation now live directly under Adam's latest answer and write through the graph-backed feedback path |
+| Conversation log artifact | Implemented | active session transcript is written to markdown under `exports/conversations/` and surfaced via the action bus + merged runtime/event chyron |
 | Fixed local-MLX runtime contract | Implemented | the live TUI no longer exposes backend selection on the primary surface; local MLX is the normal runtime contract |
 | Deck + Review secondary surfaces | Implemented | detailed budget / thinking / history remain in `Deck`; explicit feedback remains in `Review` |
 | Dedicated model thinking panel | Implemented | MLX/Qwen reasoning is kept on and surfaced separately from the final answer via Deck |
@@ -26,14 +29,14 @@
 | Adam auto inference mode | Implemented with bounded fallback | mock path chooses bounded presets; MLX path falls back to `runtime_auto` and logs it |
 | Live budget / allowance panel | Implemented | updates from preview/chat state and persists per turn |
 | Per-turn inference circumstance persistence | Implemented | stored in `turns.metadata_json` |
-| Explicit feedback persistence | Implemented | accept/edit/reject/skip remain graph-backed |
+| Explicit feedback persistence | Implemented | accept/edit/reject/skip remain graph-backed and are now available inline in the chat deck |
 | Edit stores rationale and corrected answer separately | Implemented | persisted in `feedback_events` |
 | Persistent memes and memodes | Implemented | SQLite tables + edges + retrieval |
 | Regard math in code | Implemented | `eden/regard.py` |
 | PDF ingest | Implemented | validated on `eden_whitepaper_v14.pdf` |
 | CSV/TXT/Markdown ingest | Implemented | validated in tests |
 | Ingest framing prompt | Implemented | document ingest modal indexes operator framing text into the memgraph as persistent document-conditioning material |
-| Live memgraph bus visualization | Implemented | signal field now renders an orthographic glyph slice using active nodes, recall anchors, recent trace events, and ingest roots |
+| Live memgraph bus visualization | Implemented | signal field now renders a brighter orthographic glyph slice using active nodes, recall anchors, recent trace events, ingest roots, and a bus-to-aperture read with an always-visible legend |
 | Graph knowledge-base export | Implemented | generated and browser-opened |
 | Behavioral attractor basin export | Implemented | upgraded with inference-circumstance overlays |
 | Geometry lab export | Implemented | `geometry_lab.html` + `geometry_diagnostics.json` |

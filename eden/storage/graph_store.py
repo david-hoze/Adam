@@ -242,6 +242,13 @@ class GraphStore:
         ).fetchall()
         return [_row_to_dict(row) for row in rows if row is not None]
 
+    def list_all_turns(self, session_id: str) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            "SELECT * FROM turns WHERE session_id = ? ORDER BY turn_index ASC",
+            (session_id,),
+        ).fetchall()
+        return [_row_to_dict(row) for row in rows if row is not None]
+
     def record_feedback(
         self,
         *,

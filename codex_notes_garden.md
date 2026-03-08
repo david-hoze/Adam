@@ -291,3 +291,299 @@ Docs updated:
 README.md, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md
 Remaining uncertainties or follow-ups:
 Mouse-based click targeting at very small terminal sizes can still be awkward in automated tests, but keyboard-first composer recovery is now explicit and verified.
+
+## [2026-03-08 10:53:40 EDT] PRE-FLIGHT
+Task summary:
+Move feedback inline into the chat loop after each Adam response, keep it graph-effective, clarify conversation/menu meaning, and rename the self-aware cockpit panel.
+Scope of work:
+TUI chat deck widgets and bindings, feedback submission path reuse, menu/copy renaming, docs/tests sync.
+Likely files/modules:
+eden/tui/app.py, tests/test_tui_smoke.py, README.md, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md
+Relevant invariants:
+TUI primary, explicit structured feedback, v1 loop preserved, apply_patch edits, full pytest before handoff.
+Proof path (how success will be verified):
+Focused TUI smoke for inline feedback path, then full ./.venv/bin/pytest -q.
+
+## [2026-03-08 11:24:51 EDT] POST-FLIGHT
+Files changed:
+eden/tui/app.py, tests/test_tui_smoke.py, README.md, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md, codex_notes_garden.md
+Behavior implemented or modified:
+Reply review now lives inline under Adam's latest answer with Accept/Edit/Reject/Skip controls, explanation/corrected-text inputs, and graph-impact messaging; the old self-aware cockpit wording was renamed to Runtime Loop and the top action menu labels were rewritten into more familiar operator language.
+Evidence (tests / commands run):
+python3.12 -m py_compile eden/tui/app.py eden/runtime.py eden/ingest/pipeline.py; ./.venv/bin/pytest -q tests/test_tui_smoke.py; ./.venv/bin/pytest -q
+Docs updated:
+README.md, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md
+Remaining uncertainties or follow-ups:
+Inline reply review is currently scoped to Adam's latest turn in the live session; historical turns retain verdict labels in the transcript but do not yet reopen as full inline review forms.
+
+## [2026-03-08 11:41:09 EDT] PRE-FLIGHT
+Operator task:
+Refactor the Adam TUI so the conversation surface is primary at launch, the composer is always visible, and telemetry remains present but secondary.
+Task checksum:
+adam-tui-dialogue-first-redesign-20260308
+Repo situation:
+Dirty worktree already includes README.md, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md, eden/tui/app.py, tests/test_tui_smoke.py, and this notepad; treat checked-out contents as baseline and patch surgically.
+Relevant spec surfaces read:
+docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md, README.md first-run guidance.
+Natural-language contracts in force:
+TUI is the primary runtime surface, chat boots live by default, local MLX remains the real runtime, explicit feedback remains graph-effective, and composer focus recovery stays keyboard-first.
+Files/modules likely in scope:
+eden/tui/app.py, tests/test_tui_smoke.py, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md, README.md.
+Status register:
+- Implemented:
+Live session boot, multiline composer, composer focus recovery, inline reply review, telemetry surfaces, fixed-pane amber TUI.
+- Instrumented:
+Runtime loop, signal field / memgraph bus, aperture snapshot, live contract/action bus status text.
+- Conceptual:
+Dialogue-first hierarchy where chat is visually dominant and telemetry is subordinate; stronger visible interaction affordances in the top controls.
+- Unknown:
+Whether the current Textual CSS/layout can be rearranged without clipping at smaller terminal sizes; whether existing smoke coverage is sufficient for the new hierarchy.
+Risks / invariants:
+Do not break the v1 operator loop, feedback semantics, or MLX runtime contract. Keep the composer always visible and preserve Esc/printable-key recovery. Avoid silent spec drift because the current TUI spec still describes the older cockpit-first hierarchy.
+Evidence plan:
+Patch the compose tree and panel copy in eden/tui/app.py, update smoke assertions for dialogue-first boot surfaces, then run python3.12 -m py_compile plus focused and full pytest from the repo-local .venv.
+Shortest proof path:
+Make the chat column primary, restack telemetry into a narrower secondary column, adjust affordance copy/titles, update TUI spec/truth table/limitations/README, run ./.venv/bin/pytest -q tests/test_tui_smoke.py then ./.venv/bin/pytest -q.
+
+## [2026-03-08 11:50:31 EDT] POST-FLIGHT
+Files changed:
+eden/tui/app.py, tests/test_tui_smoke.py, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md, README.md, codex_notes_garden.md
+Specs changed:
+docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md
+Natural-language contracts added/revised/preserved:
+Revised the TUI contract from cockpit-first to dialogue-first, preserved live-session boot, preserved composer focus recovery, preserved graph-effective inline feedback, and preserved local-MLX as the real runtime contract.
+Behavior implemented or modified:
+Refactored the chat screen so the primary left column is a persistent Adam dialogue deck with visible transcript, inline review strip, and always-visible composer; moved memgraph/runtime/aperture/thinking/session telemetry into a secondary right stack; added explicit header quick controls for ingest and aperture; rewrote panel copy so interaction affordances point at the visible composer instead of hidden telemetry assumptions.
+Evidence produced (tests / traces / commands / exports):
+python3.12 -m py_compile eden/tui/app.py; ./.venv/bin/pytest -q tests/test_tui_smoke.py -> 1 passed; ./.venv/bin/pytest -q -> 31 passed
+Status register changes:
+- Implemented:
+Dialogue-first chat layout, persistent header action bus with quick buttons, visible message-input affordance near the composer, docs/tests aligned to the new hierarchy.
+- Instrumented:
+Telemetry remains visible through memgraph bus, runtime loop, aperture snapshot, thinking, session feedback, and bounded forensic log in the secondary column.
+- Conceptual:
+No additional conceptual surfaces were introduced this turn.
+- Unknown:
+No visual artifact from this turn proves how the new split behaves at the smallest terminal sizes; only Textual smoke and full pytest evidence exist so far.
+Truth-table / limitations updates:
+Updated docs/IMPLEMENTATION_TRUTH_TABLE.md to record dialogue-first boot/layout semantics and docs/KNOWN_LIMITATIONS.md to keep the bounded-transcript limitation truthful under the new hierarchy.
+Remaining uncertainties:
+Tab from the composer currently lands on the forensic log before the header controls. Printable-key recovery still routes input back to the composer and the smoke test now proves that path, but tiny-terminal visual tuning and focus-order ergonomics could still use a dedicated follow-up if operator testing keeps surfacing friction.
+Next shortest proof path:
+Run the TUI in a small terminal, confirm the left dialogue deck remains visibly dominant without clipping, and decide whether telemetry widgets like the forensic log should remain in the tab order or be demoted further.
+
+## [2026-03-08 11:52:08 EDT] POST-FLIGHT ADDENDUM
+Files changed:
+eden/tui/app.py, tests/test_tui_smoke.py, codex_notes_garden.md
+Behavior implemented or modified:
+Removed the forensic log from the tab order so keyboard focus now cycles from the composer back to actionable header controls instead of landing on passive telemetry first.
+Evidence produced (tests / traces / commands / exports):
+python3.12 -m py_compile eden/tui/app.py; ./.venv/bin/pytest -q tests/test_tui_smoke.py -> 1 passed; ./.venv/bin/pytest -q -> 31 passed
+Status register changes:
+- Implemented:
+Forensic log is now non-focusable in the primary TUI, and the smoke test again proves composer-to-header keyboard recovery.
+- Instrumented:
+Trace visibility is preserved; only focusability changed.
+- Conceptual:
+No additional conceptual surfaces were introduced.
+- Unknown:
+Small-terminal visual density still lacks a dedicated artifact from this turn.
+Remaining uncertainties:
+The remaining risk is visual density, not keyboard focus order.
+Next shortest proof path:
+Open the TUI in a smaller terminal and confirm the left dialogue deck still reads as the dominant surface without clipping or telemetry crowd-out.
+
+## [2026-03-08 12:00:04 EDT] PRE-FLIGHT
+Operator task:
+Rebalance the dialogue-first TUI so the memgraph bus regains readable real estate and legending, aperture and thinking become full-width telemetry slices, runtime loop becomes a thin chyron, the event bus becomes more legible, and the action dropdown stops formatting/wrapping incorrectly.
+Task checksum:
+adam-tui-telemetry-restack-20260308
+Repo situation:
+Dirty worktree already includes the prior dialogue-first refactor in README.md, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md, eden/tui/app.py, tests/test_tui_smoke.py, and this notepad; patch surgically from the checked-out state.
+Relevant spec surfaces read:
+docs/TUI_SPEC.md, prior truth-table/limitations state, current TUI layout/render code in eden/tui/app.py.
+Natural-language contracts in force:
+Dialogue remains primary, telemetry remains visible and explanatory, local MLX remains the real runtime, composer focus recovery stays intact, and explicit feedback remains graph-effective even if the square leaves the prime telemetry stack.
+Files/modules likely in scope:
+eden/tui/app.py, tests/test_tui_smoke.py, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md, README.md.
+Status register:
+- Implemented:
+Dialogue-first layout, inline reply review, action bus quick controls, composer focus recovery, memgraph bus, aperture drawer, dedicated thinking panel.
+- Instrumented:
+Runtime loop widget, memgraph glyph bus, aperture snapshot, chat-screen forensic log, live contract state text.
+- Conceptual:
+Telemetry restack with full-width memgraph/aperture/thinking/event slices and a thinner runtime chyron; better readable legending for the memgraph bus; cleaner action dropdown ergonomics.
+- Unknown:
+Whether the built-in Textual Select formatting issue is purely width/layout pressure or needs a deeper control substitution; whether the taller telemetry stack still fits well at medium terminal sizes.
+Risks / invariants:
+Do not regress the visible composer, inline feedback path, or keyboard recovery. Keep the memgraph bus explanatory rather than mystical. Preserve the active-set/aperture ontology and do not overclaim the event bus as more than an operator-facing trace.
+Evidence plan:
+Restack the telemetry column, rework the memgraph legend/event bus/chyron rendering, widen the action control area, update docs/tests, then run python3.12 -m py_compile plus focused and full pytest from the repo-local .venv.
+Shortest proof path:
+Patch eden/tui/app.py to stack telemetry vertically and widen the menu control, update smoke assertions for the new telemetry widgets, then run ./.venv/bin/pytest -q tests/test_tui_smoke.py and ./.venv/bin/pytest -q.
+
+## [2026-03-08 12:08:05 EDT] POST-FLIGHT
+Files changed:
+eden/tui/app.py, tests/test_tui_smoke.py, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md, README.md, codex_notes_garden.md
+Specs changed:
+docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md
+Natural-language contracts added/revised/preserved:
+Preserved dialogue-first interaction, revised the telemetry contract to use a stacked tool-oriented right column, preserved explicit inline feedback in the dialogue bay, and preserved the memgraph bus as an explanatory operator surface with visible legend.
+Behavior implemented or modified:
+Restacked the right telemetry column into enlarged full-width slices for memgraph bus, aperture, thinking, and event bus; moved runtime-loop status into a thin bottom chyron; removed the old feedback square from the prime stack; replaced the raw chat-screen RichLog with a cleaner event-bus panel; widened and reformatted the top action controls so the action select gets a full row and the quick buttons live on a separate row beneath it.
+Evidence produced (tests / traces / commands / exports):
+python3.12 -m py_compile eden/tui/app.py; ./.venv/bin/pytest -q tests/test_tui_smoke.py -> 1 passed; ./.venv/bin/pytest -q -> 31 passed
+Status register changes:
+- Implemented:
+Readable memgraph legend in the prime screen, full-width aperture/active-set slice, expanded thinking surface, bounded event-bus slice, thin runtime chyron, and wider action-control layout.
+- Instrumented:
+Event flow remains a bounded operator-facing slice derived from runtime/cockpit events; it is cleaner, but still not a full historical log browser in the prime screen.
+- Conceptual:
+No additional conceptual surfaces were introduced.
+- Unknown:
+No fresh screenshot artifact from this turn proves the exact visual result of the widened action dropdown and taller telemetry stack at the 163x67 geometry shown by the operator.
+Truth-table / limitations updates:
+Updated docs/IMPLEMENTATION_TRUTH_TABLE.md to record the stacked telemetry layout and visible memgraph legend, and docs/KNOWN_LIMITATIONS.md to state that the prime event bus is a bounded readability-first slice.
+Remaining uncertainties:
+The main remaining risk is visual tuning at specific terminal geometries, not correctness or regression. The select control has been given its own full row, but this turn still lacks a screenshot proof that the malformed dropdown is fully resolved at the operator’s exact window size.
+Next shortest proof path:
+Boot the TUI at the target terminal geometry, open the action menu once, and confirm the dropdown no longer wraps/clips while the memgraph/aperture/thinking/event stack reads cleanly at a glance.
+
+## [2026-03-08 12:44:25 EDT] POST-FLIGHT
+Files changed:
+eden/runtime.py, eden/storage/graph_store.py, eden/tui/app.py, tests/test_tui_smoke.py, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md, README.md, codex_notes_garden.md
+Specs changed:
+docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md, README.md
+Natural-language contracts added/revised/preserved:
+Preserved dialogue-first TUI, preserved explicit graph-effective feedback requirements, revised the transcript contract from bounded static deck to scrolling tape, and added a durable operator-accessible conversation-log artifact under exports/conversations.
+Behavior implemented or modified:
+Replaced the static bounded transcript with a focusable VerticalScroll tape over the full persisted session; removed the top dialogue-surface instruction panel; replaced inline feedback buttons with typed verdict/confirm inputs (`A`/`E`/`R`/`S` plus `Y`) while preserving explanation/corrected-text requirements; added markdown transcript writing/opening for the active session and surfaced the path in the event bus/action bus; switched new-session/resume flows to restore snapshot-backed transcript metadata.
+Evidence produced (tests / traces / commands / exports):
+./.venv/bin/python -m py_compile eden/tui/app.py eden/runtime.py eden/storage/graph_store.py tests/test_tui_smoke.py; ./.venv/bin/pytest -q tests/test_tui_smoke.py -> 1 passed; ./.venv/bin/pytest -q -> 31 passed
+Status register changes:
+- Implemented:
+Scrollable dialogue tape, typed inline review command flow, keyboard scrolling for the focused tape, active-session markdown transcript artifact, action-bus transcript opener, and transcript-path surfacing in the event bus.
+- Instrumented:
+Event bus now reports the saved transcript path and last status, but it remains a bounded readability-first slice rather than a full log browser.
+- Conceptual:
+Richer transcript replay/index features such as per-turn jump links, filtering, or diff views remain conceptual only.
+- Unknown:
+No fresh screenshot artifact from this turn proves the exact visual result of the tape plus typed review inputs at the operator’s target terminal geometry.
+Truth-table / limitations updates:
+Updated docs/IMPLEMENTATION_TRUTH_TABLE.md to record the scrolling tape, typed inline review, and conversation-log artifact; updated docs/KNOWN_LIMITATIONS.md to replace the old bounded-transcript limitation with the newer transcript-artifact caveat.
+Remaining uncertainties:
+The main unknown is visual fit, not correctness: long real-world transcripts and the typed review strip have test coverage and compile/test proof, but this turn still lacks a screenshot at the operator’s exact window size after the latest patch.
+Next shortest proof path:
+Open the live TUI at the target terminal size, tab into the transcript tape to verify keyboard scrolling ergonomics, then open one saved transcript through Action Bus -> Open Conversation Log and confirm the operator can reach the file without leaving the cockpit workflow.
+
+## [2026-03-08 13:02:06 EDT] PRE-FLIGHT
+Operator task:
+Stop visible reasoning/section-scaffolding from leaking into Adam's operator-facing reply, simplify transcript speaker labels to Brian/Adam, brighten and aesthetically enrich the TUI, deepen the memgraph/aperture coupling, enlarge the aperture surface, and demote/remove the prime Event Bus box by folding any necessary state into the chyron.
+Task checksum:
+adam-tui-answer-sanitize-aperture-restyle-20260308
+Repo situation:
+Dirty worktree includes the prior dialogue-tape and conversation-log refactor plus older TUI restacks; patch surgically from the checked-out state and avoid touching unrelated `.DS_Store`.
+Relevant spec surfaces read:
+docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md, current runtime prompt/membrane code in eden/runtime.py, current model output splitting in eden/models/base.py and eden/models/mlx_backend.py, current TUI layout/render/CSS in eden/tui/app.py.
+Natural-language contracts in force:
+TUI remains the primary runtime surface; MLX/Qwen reasoning can be surfaced separately but must not leak into Adam's visible answer; telemetry should remain explanatory and operator-facing rather than mystical; explicit feedback semantics remain graph-effective; repo-local .venv / python3.12 stays the execution path.
+Files/modules likely in scope:
+eden/runtime.py, eden/models/mock.py, eden/tui/app.py, tests/test_tui_smoke.py, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md, README.md.
+Status register:
+- Implemented:
+Scrolling dialogue tape, typed inline review, conversation-log artifact, explanatory memgraph bus, aperture slice, dedicated thinking panel, runtime chyron.
+- Instrumented:
+Reasoning panel, memgraph bus live read, runtime/chyron event summaries.
+- Conceptual:
+More aesthetic marble-like interior treatments, richer memgraph-to-aperture narrative coupling, and a telemetry hierarchy where the bus and aperture feel predictive before Adam speaks.
+- Unknown:
+Whether Textual CSS can support the desired scrollbar styling directly; whether answer leakage is solely prompt/membrane scaffolding or also requires stronger answer sanitization against model fallbacks.
+Risks / invariants:
+Do not regress separate reasoning capture, explicit feedback requirements, transcript persistence, or keyboard navigation. Preserve operator readability even while brightening the palette. Avoid introducing hidden-thought claims under the guise of memgraph “mind reading”; keep it framed as operator-facing graph/active-set diagnostics.
+Evidence plan:
+Remove section-forcing from prompt/membrane, add response sanitization, restack right-column layout to memgraph + larger aperture + thinking + richer chyron, update CSS/palette/scrollbars, update docs/tests, then run py_compile plus focused and full pytest.
+Shortest proof path:
+Patch runtime sanitization first, then reshape TUI layout/render/CSS, adjust smoke assertions around clean Adam/Brian labels and the removed Event Bus panel, then run ./.venv/bin/python -m py_compile and ./.venv/bin/pytest -q tests/test_tui_smoke.py followed by full pytest.
+
+## [2026-03-08 13:30:28 EDT] POST-FLIGHT
+Files changed:
+eden/runtime.py, eden/models/mock.py, eden/models/mlx_backend.py, eden/tui/app.py, tests/test_tui_smoke.py, tests/test_runtime_e2e.py, docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md, README.md, codex_notes_garden.md
+Specs changed:
+docs/TUI_SPEC.md, docs/IMPLEMENTATION_TRUTH_TABLE.md, docs/KNOWN_LIMITATIONS.md
+Natural-language contracts added/revised/preserved:
+Preserved the dialogue-first cockpit, revised the operator-facing reply contract so Adam emits one clean visible answer with separate reasoning instrumentation, enlarged the aperture as the readable companion to the memgraph bus, and preserved explicit inline feedback semantics plus transcript persistence.
+Behavior implemented or modified:
+Removed runtime-enforced `Answer` / `Basis` / `Next Step` scaffolding from operator-facing responses and sanitized any leaked reasoning or labels before display/logging; restyled the prime TUI with brighter marbled interior surfaces and styled scrollbars; made the memgraph bus more color-dynamic and more explicit about document, knowledge-meme, behavior-meme, memode, and recall relations; enlarged the aperture panel with a richer bus-to-aperture narrative; removed the prime Event Bus box in favor of a merged runtime/event chyron; simplified transcript speaker labels to Brian / Adam in the visible tape and saved markdown log.
+Evidence produced (tests / traces / commands / exports):
+./.venv/bin/python -m py_compile eden/tui/app.py eden/runtime.py eden/models/mock.py eden/models/mlx_backend.py tests/test_tui_smoke.py tests/test_runtime_e2e.py; ./.venv/bin/pytest -q tests/test_tui_smoke.py tests/test_runtime_e2e.py -> 3 passed; ./.venv/bin/pytest -q -> 31 passed; exports/conversations/ updated with session markdown transcript artifacts during test/runtime execution.
+Status register changes:
+- Implemented:
+Operator-facing answer sanitization; Brian / Adam display labels in tape/log; brighter marbled prime-surface styling; richer colorized memgraph bus with relation legend/readout; expanded aperture/active-set narrative surface; merged runtime/event chyron replacing the prime Event Bus box.
+- Instrumented:
+Reasoning remains separately surfaced in the lower panel and sanitized out of Adam's visible answer; transcript artifact path remains surfaced through the runtime/event chyron and action bus.
+- Conceptual:
+Exact terminal-rendered marble fidelity is still constrained by Textual/terminal color-cell rendering; the aesthetic direction is implemented, but full graphical marbling remains terminal-native rather than image-grade.
+- Unknown:
+No fresh screenshot artifact from this turn proves the exact visual result of the brighter marble treatment, scrollbar appearance, and enlarged right-column stack at the operator's target window geometry.
+Truth-table / limitations updates:
+Updated docs/IMPLEMENTATION_TRUTH_TABLE.md for clean operator-facing answer sanitization and richer bus/aperture contract; updated docs/KNOWN_LIMITATIONS.md to record terminal-rendering constraints for marbled accents/scrollbars and the merged runtime/event chyron; updated docs/TUI_SPEC.md to align the prime layout and answer-surface contract with the current build.
+Remaining uncertainties:
+The main residual risk is visual tuning at the exact live terminal geometry, not correctness. The response bleed path is fixed in runtime code and covered by tests, but this turn still lacks a new screenshot proving the final aesthetic balance at 163x67.
+Next shortest proof path:
+Launch the TUI at the target geometry, send one turn that previously leaked reasoning, confirm the visible Adam reply is clean, then visually inspect the memgraph bus / aperture stack and scrollbar treatment for final aesthetic tuning.
+
+## [2026-03-08 14:00:52 EDT] PRE-FLIGHT
+Operator task:
+Fix the runtime crash triggered by sending a turn from the TUI, where `_index_text_into_graph()` raises `KeyError: Unknown meme` while building a memode label after Adam has already generated a reply.
+Task checksum:
+adam-runtime-index-memode-label-crash-20260308
+Repo situation:
+Dirty worktree already contains the dialogue/answer-sanitization/TUI restyle work from earlier today plus unrelated `.DS_Store`; patch only the bounded runtime/test surface needed for this crash.
+Relevant spec surfaces read:
+docs/GRAPH_SCHEMA.md, current runtime indexing path in eden/runtime.py, current graph-store meme/memode semantics in eden/storage/graph_store.py.
+Natural-language contracts in force:
+Turns must persist into the graph without crashing; memes remain first-class and memodes remain derived bundles over multiple meme ids; fixes should preserve the current v1 loop and avoid broad storage-contract drift.
+Files/modules likely in scope:
+eden/runtime.py, tests/test_runtime_e2e.py, codex_notes_garden.md.
+Status register:
+- Implemented:
+Turn persistence, meme indexing, memode derivation, TUI send-turn path, explicit feedback, transcript persistence.
+- Instrumented:
+Runtime traces and TUI traceback surface the crash path clearly through `_index_text_into_graph`.
+- Conceptual:
+Broader graph-store thread-safety hardening is not yet scoped for this turn.
+- Unknown:
+Whether the root issue is purely the redundant `get_meme()` refetch during memode label construction or a wider shared-SQLite read/write hazard.
+Risks / invariants:
+Do not change graph ontology or memode semantics. Preserve current turn indexing behavior and avoid introducing new storage keys or contract drift unless evidence requires it. Add a regression test so this exact crash path stays closed.
+Evidence plan:
+Replace the memode-label refetch with labels captured from the just-upserted meme rows, add a regression test covering `_index_text_into_graph()` with a store that would fail on redundant `get_meme()` calls, then run py_compile and targeted/full pytest.
+Shortest proof path:
+Patch eden/runtime.py, add the regression test in tests/test_runtime_e2e.py, run `./.venv/bin/python -m py_compile eden/runtime.py tests/test_runtime_e2e.py`, run `./.venv/bin/pytest -q tests/test_runtime_e2e.py`, then run `./.venv/bin/pytest -q`.
+
+## [2026-03-08 14:04:21 EDT] POST-FLIGHT
+Files changed:
+eden/runtime.py, tests/test_runtime_e2e.py, codex_notes_garden.md
+Specs changed:
+None.
+Natural-language contracts added/revised/preserved:
+Preserved the existing graph contract: a turn still materializes memes first and may derive a memode bundle from them, but memode label construction no longer depends on a second store lookup for those same meme rows.
+Behavior implemented or modified:
+Changed `_index_text_into_graph()` to capture meme labels directly from the `upsert_meme()` results and reuse those labels when creating the derived memode, instead of re-fetching meme rows by id. Also bounded memode-member selection to the unique upserted meme ids already in hand. Added a regression test that fails if `_index_text_into_graph()` tries the redundant `get_meme()` refetch path again.
+Evidence produced (tests / traces / commands / exports):
+./.venv/bin/python -m py_compile eden/runtime.py tests/test_runtime_e2e.py; ./.venv/bin/pytest -q tests/test_runtime_e2e.py -> 3 passed; ./.venv/bin/pytest -q -> 32 passed
+Status register changes:
+- Implemented:
+Crash-free memode derivation during turn indexing for the TUI send-turn path, backed by a regression test.
+- Instrumented:
+The traceback already identified the failing call path clearly; no new instrumentation was added.
+- Conceptual:
+Broader graph-store read-lock hardening across all shared-SQLite read methods remains out of scope for this turn.
+- Unknown:
+Whether the original missing-row symptom was purely the redundant refetch or also reflects a rarer shared-connection timing issue elsewhere; this exact crash path is now closed.
+Truth-table / limitations updates:
+None. This is a bounded correctness fix, not a user-facing contract change.
+Remaining uncertainties:
+The current fix removes the brittle lookup that triggered the crash. If another shared-connection race appears on a different read path, the next bounded step would be to audit and lock all GraphStore reads consistently.
+Next shortest proof path:
+Relaunch the TUI, send the same prompt that previously crashed, and confirm the turn persists normally with the reply-review strip appearing instead of a traceback.
