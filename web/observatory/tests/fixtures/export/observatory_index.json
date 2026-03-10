@@ -1,0 +1,12 @@
+{
+  "graph_counts": {
+    "nodes": 2,
+    "edges": 1
+  },
+  "basin": {
+    "filtered_turn_count": 1
+  },
+  "measurements": {
+    "events": 0
+  }
+}

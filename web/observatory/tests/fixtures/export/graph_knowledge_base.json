@@ -1,0 +1,67 @@
+{
+  "export_manifest_id": "fixture-graph-manifest",
+  "source_graph_hash": "fixture-graph-hash",
+  "graph_modes": ["Semantic Map", "Assemblies", "Runtime", "Active Set", "Compare"],
+  "assembly_render_modes": ["hulls", "collapsed-meta-node", "hidden"],
+  "semantic_nodes": [
+    {
+      "id": "meme-1",
+      "label": "Persistence",
+      "kind": "meme",
+      "domain": "knowledge",
+      "degree": 4,
+      "render_coords": { "force": { "x": 0.0, "y": 0.0 } }
+    },
+    {
+      "id": "meme-2",
+      "label": "Retrieval",
+      "kind": "meme",
+      "domain": "behavior",
+      "degree": 3,
+      "render_coords": { "force": { "x": 1.0, "y": 0.5 } }
+    }
+  ],
+  "semantic_edges": [
+    {
+      "id": "edge-1",
+      "source": "meme-1",
+      "target": "meme-2",
+      "type": "SUPPORTS",
+      "weight": 1.0
+    }
+  ],
+  "runtime_nodes": [],
+  "runtime_edges": [],
+  "assemblies": [
+    {
+      "id": "memode-1",
+      "label": "Persistence memode",
+      "summary": "Reusable persistence script.",
+      "domain": "behavior",
+      "member_meme_ids": ["meme-1", "meme-2"],
+      "supporting_edge_ids": ["edge-1"],
+      "member_order": [],
+      "invariance_summary": "The same persistence script appears across turns.",
+      "measurement_history": []
+    }
+  ],
+  "cluster_summaries": [
+    {
+      "cluster_signature": "cluster-1",
+      "display_label": "Persistence cluster",
+      "member_meme_ids": ["meme-1", "meme-2"],
+      "top_meme_ids": ["meme-1"],
+      "domain_mix": { "behavior": 1, "knowledge": 1 }
+    }
+  ],
+  "active_set_slices": [
+    {
+      "turn_id": "turn-1",
+      "node_ids": ["meme-1", "meme-2"]
+    }
+  ],
+  "counts": {
+    "nodes": 2,
+    "edges": 1
+  }
+}

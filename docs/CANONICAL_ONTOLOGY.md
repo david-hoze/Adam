@@ -16,10 +16,10 @@
 
 ## Derived objects
 
-- `Memode`: derived second-order structure built from at least two memes plus at least one relation.
+- `Memode`: derived second-order structure built from at least two memes plus a connected qualifying semantic support subgraph.
 - `ActiveSet snapshot`: bounded retrieval result for a turn.
 - `Basin summary`: trajectory and attractor summary derived from turns and active sets.
-- `Cluster / motif summary`: graph-health and attractor summaries.
+- `Cluster / motif summary`: derived semantic neighborhood label or graph-health summary. Clusters are not memodes.
 
 ## Edge semantics used in v1
 
@@ -40,6 +40,8 @@
 
 - Memes are the persistent base primitive.
 - Memodes are semantically derived, though they may be materialized and cached in the store.
+- The memode admissibility floor is graph-theoretic, not conceptual completeness: every selected meme must participate in at least one qualifying support edge and the support subgraph must be connected.
+- Semantic clusters are derived summaries over meme-only semantic neighborhoods. They may carry manual labels, but they are never auto-promoted into memodes.
 - Regard acts over memes and memodes, not over tokens.
 - Active-set assembly mixes behavior and knowledge but keeps their provenance visible.
 
@@ -56,4 +58,5 @@ This patch treats a memode as more than a pairwise relation or a UI label. In pr
 - observatory measurements can produce new persistent facts with provenance
 - operator assertions and operator refinements remain distinguishable from auto-derived facts
 - a known memode can be asserted from a selected node set and later refined
+- manual cluster labels are attributable measurement annotations over derived cluster instances, not silent topology rewrites
 - measurement events are the provenance bridge between observation, mutation, and later runtime effects

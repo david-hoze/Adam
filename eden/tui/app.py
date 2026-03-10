@@ -1869,7 +1869,7 @@ class ChatScreen(Screen):
         if not app.ui_state.session_id:
             app.ui_state.conversation_log_path = None
             return
-        path = await asyncio.to_thread(partial(app.runtime.write_conversation_log, app.ui_state.session_id))
+        path = app.runtime.write_conversation_log(app.ui_state.session_id)
         app.ui_state.conversation_log_path = str(path)
 
     def _scroll_chat_to_end(self) -> None:

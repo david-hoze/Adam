@@ -23,6 +23,7 @@ EDEN v1.2 treats the observatory as a constructive measurement instrument. Obser
 - remove an edge
 - assert a known memode from a multi-node selection
 - refine an existing memode's membership
+- annotate a derived semantic cluster without mutating topology
 
 ### `ABLATE`
 
@@ -53,12 +54,31 @@ EDEN v1.2 treats the observatory as a constructive measurement instrument. Obser
 The operator may:
 
 - select multiple meme nodes
+- satisfy the admissibility floor:
+  - at least two meme nodes
+  - at least one qualifying semantic support edge
+  - every selected meme participates in that support graph
+  - the support graph is connected
 - set label, summary, domain, rationale, confidence, and evidence label
 - preview the local geometry impact
 - commit a memode assertion
 - later refine the memode membership or notes
 
 Known memodes are operator-facing structured claims about reusable motifs. They are not silently promoted to observed geometry.
+
+## Graph reading workflow
+
+- `Semantic Map` is the default reading mode
+- `Assemblies` highlights memode member memes and supporting edges
+- `Runtime` isolates turns, sessions, documents, feedback, and provenance relations
+- `Active Set` foregrounds turn-bounded retrieval participation
+- `Compare` keeps baseline vs modified state visible without hiding the measurement ledger
+
+Inspector workflow:
+
+- cards first
+- raw JSON only as a debug tab
+- view presets stay browser-local and never enter the measurement ledger
 
 ## Runtime bridge
 

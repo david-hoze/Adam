@@ -1,6 +1,6 @@
 # Observatory Spec
 
-EDEN v1.2 keeps the static export path from v1.1 and adds a lightweight local observatory API so the browser layer can act as a measurement-bearing instrument instead of a read-only gallery.
+EDEN v1.2 keeps Python authoritative for exports, clustering, basin projection, and measurement provenance while replacing the inline canvas artifacts with one checked-in React + TypeScript + Vite observatory bundle. The browser layer is a live-first measurement instrument with static export retained as an HTTP-served artifact path.
 
 ## Artifact families
 
@@ -20,6 +20,7 @@ Generated per experiment under `exports/<experiment_id>/`:
 - `measurement_events.manifest.json`
 - `observatory_index.html`
 - `observatory_index.json`
+- `_observatory_app/` checked-in frontend bundle copied from `eden/observatory/static/observatory_app/`
 
 ## Observatory modes
 
@@ -38,23 +39,31 @@ Generated per experiment under `exports/<experiment_id>/`:
 
 ## Graph knowledge base
 
-- filterable by search, session, kind, domain, source, verdict, evidence label, and timestamp substring
-- multiple coordinate modes:
-  - `force`
-  - `spectral`
-  - `circular_candidate`
-  - `temporal`
-  - `symmetry` (`pca`)
-  - `basin_linked`
-- left rail filters, health cards, graph surface, measurement toolbar, precision drawer, and measurement ledger
-- inspector shows:
-  - node or edge identity
-  - provenance
-  - community and motif signals
-  - memode membership
-  - recent active-set presence
-  - observatory-originated event history
-- coordinate modes are explicitly view modes, not evidence claims
+- authoritative graph payload planes:
+  - `semantic_nodes`
+  - `semantic_edges`
+  - `runtime_nodes`
+  - `runtime_edges`
+  - `assemblies`
+  - `cluster_summaries`
+  - `active_set_slices`
+- legacy `nodes` / `edges` remain for one compatibility release only
+- semantic clustering is computed only on the meme-only semantic subgraph with deterministic Louvain settings, canonical node ordering, and versioned tokenization/labeling inputs
+- graph UI grammar is explicit:
+  - `Semantic Map`
+  - `Assemblies`
+  - `Runtime`
+  - `Active Set`
+  - `Compare`
+- `Semantic Map` shows memes as first-class visible nodes, semantic edges, cluster hull/label summaries, and memode overlays
+- memodes render as second-order assemblies with `hulls`, `collapsed-meta-node`, or `hidden` overlay modes; they are not default peer dots
+- label disclosure is progressive and non-hover-dependent:
+  - cluster labels first
+  - selected / pinned / high-centrality meme labels next
+  - edge labels only on focus or selection
+- inspector surfaces structured cards for identity, ontology, domain, provenance, evidence/confidence, cluster membership, memode membership, supporting relations, active-set presence, measurement history, and preview delta
+- raw JSON survives only as a debug tab
+- coordinate modes remain explicit view modes, not evidence claims
 
 ## Measurement-first contract
 
@@ -72,6 +81,12 @@ Observation does not silently mutate the graph. Mutation is a separate, attribut
 
 - turn trajectory computed from real turn features
 - explicit projection provenance (`svd_on_turn_features`)
+- projection metadata includes:
+  - `projection_method`
+  - `projection_version`
+  - `projection_input_hash`
+  - `source_turn_count`
+  - `filtered_turn_count`
 - per-turn overlays for:
   - inference profile
   - requested/effective mode
@@ -80,7 +95,14 @@ Observation does not silently mutate the graph. Mutation is a separate, attribut
   - membrane-event counts
   - active-set recurrence
   - phase-transition markers
-- session filter in the browser artifact
+- stable per-turn and per-attractor identity fields include dominant node, dominant memode, dominant cluster signature, and display attractor label
+- basin lift modes are explicit derived rendering choices:
+  - `flat`
+  - `time_lift`
+  - `density_lift`
+  - `session_offset`
+- the UI surfaces projection method, lift mode, and derived-status badges directly in the controls and inspector
+- sparse basin payloads are honest: if fewer than two turns survive filtering, the browser shows a diagnostic empty state instead of a fake basin
 
 ## Geometry lab
 
@@ -118,23 +140,38 @@ Behavior:
 Live API:
 
 - `GET /api/status`
+- `GET /api/experiments`
 - `GET /api/experiments/<experiment_id>/payload`
+- `GET /api/experiments/<experiment_id>/overview`
+- `GET /api/experiments/<experiment_id>/graph`
+- `GET /api/experiments/<experiment_id>/basin`
+- `GET /api/experiments/<experiment_id>/geometry`
 - `GET /api/experiments/<experiment_id>/measurement-events`
+- `GET /api/experiments/<experiment_id>/sessions`
+- `GET /api/sessions/<session_id>/turns`
+- `GET /api/sessions/<session_id>/active-set`
+- `GET /api/runtime/status`
+- `GET /api/runtime/model`
+- `GET /api/experiments/<experiment_id>/events` (SSE invalidation stream)
 - `POST /api/experiments/<experiment_id>/preview`
 - `POST /api/experiments/<experiment_id>/commit`
 - `POST /api/experiments/<experiment_id>/revert`
+
+SSE emits small invalidation payloads only. It does not push full graph or basin payloads.
 
 TUI behavior:
 
 - `Observatory` ensures the local server is running and opens the current experiment index page
 - repeated use is safe and does not create ghost server state
 - observatory-originated edits are logged back into the runtime trace surfaces
+- static exports must be HTTP-served, either by the EDEN observatory server or another static file server; direct `file://` opening is not a supported runtime path for the v1 bundle
+- runtime status exposes frontend build freshness so stale checked-in assets can warn at runtime and fail CI/release checks
 
 ## Validation
 
 Validated in this patch:
 
 - CLI port fallback from an occupied requested port to a nearby free port
-- live API preview / commit / revert against a real experiment
-- observatory graph instrument opened in a real browser session
-- geometry lab opened in a real browser session
+- live API preview / commit / revert plus graph / basin / transcript read endpoints against a real experiment
+- SSE invalidation stream emits compact refresh messages after observatory commits
+- the checked-in React observatory bundle builds and emits `build-meta.json`

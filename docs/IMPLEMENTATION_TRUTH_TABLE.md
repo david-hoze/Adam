@@ -45,6 +45,15 @@
 | Geometry lab export | Implemented | `geometry_lab.html` + `geometry_diagnostics.json` |
 | Measurement ledger export | Implemented | `measurement_ledger.html` + `measurement_events.json` |
 | Observatory index page | Implemented | `observatory_index.html` |
+| React observatory shell | Implemented | checked-in Vite bundle served by Python shells and copied into static exports |
+| Layered observatory graph payload | Implemented | authoritative `semantic_*`, `runtime_*`, `assemblies`, `cluster_summaries`, and `active_set_slices` planes |
+| Deterministic semantic clustering | Implemented | meme-only Louvain clustering with fixed seed, canonical node ordering, and versioned label/token inputs |
+| Manual cluster annotation | Implemented | `motif_annotation` now supports `target.kind=\"cluster\"` with exact/transfer/detached cluster label semantics |
+| Connected memode support validation | Implemented | memode assertion/update requires a connected qualifying meme support subgraph and rejects passenger memes |
+| Live observatory read endpoints | Implemented | overview, graph, basin, sessions, transcript, active-set, runtime status/model |
+| Observatory SSE invalidation stream | Implemented | compact invalidation events after turns, feedback, commits, and reverts |
+| Browser-local view presets | Implemented | `localStorage` only, keyed by experiment + surface + export manifest/source graph hash |
+| Frontend build freshness guard | Implemented | `build-meta.json` emitted at build time, runtime warning via `/api/status`, CI check script in `scripts/check_observatory_build_meta.py` |
 | Robust observatory server lifecycle | Implemented | host/port args, reuse, free-port fallback, tests |
 | Observatory open without forced synchronous export | Implemented | TUI observatory actions now start/open the server immediately and reuse existing artifacts when present |
 | Export location feedback | Implemented | TUI export action reports the artifact directory path in the session feedback surface after generation |
@@ -68,11 +77,7 @@
 
 Validated in this patch:
 
-- `.venv/bin/pytest -q` -> `35 passed`
-- CLI observatory fallback from occupied requested port to actual port `8877`
-- live observatory preview / commit / revert succeeded against a real experiment
-- mock demo export wrote graph, basin, geometry, measurement, and index artifacts
-- observatory graph instrument and geometry lab opened in a real browser session
-- repo-local Qwen MLX model completed under `models/qwen3.5-35b-a3b-mlx-mxfp4`
-- direct MLX generation succeeded against the repo-local Qwen model
-- EDEN runtime chat completed against the repo-local MLX backend with separate reasoning and answer surfaces
+- `./.venv/bin/pytest -q tests/test_observatory_measurements.py tests/test_observatory_server.py` -> `14 passed`
+- `npm --prefix web/observatory run build`
+- `npm --prefix web/observatory run test`
+- `./.venv/bin/python scripts/check_observatory_build_meta.py`

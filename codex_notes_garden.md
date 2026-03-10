@@ -894,3 +894,96 @@ Remaining uncertainties:
 - The graph and basin surfaces were audited from generated artifacts and source, not redesigned here.
 Next shortest proof path:
 - Feed the final zip and brief into DeepResearch, then decide whether the next build step is a design-spike document, a dedicated frontend architecture spike, or direct observatory UI implementation.
+
+## [2026-03-10 16:08:51 EDT] PRE-FLIGHT
+Operator task:
+Implement the approved EDEN observatory live-first refactor: layered graph/basin payloads, stricter memode validation, new live API breadth, checked-in frontend bundle, and matching tests/docs.
+Task checksum:
+EDEN observatory v1 live-first refactor plan approved on 2026-03-10 with localStorage presets, deterministic clustering, explicit memode support allowlist/denylist, SSE invalidation events, stale-build guard, and HTTP-served static export constraint.
+Repo situation:
+Working tree clean at start. Current observatory remains Python exporters plus inline handwritten HTML/JS in `eden/observatory/exporters.py`; no existing frontend toolchain is present.
+Relevant spec surfaces read:
+`docs/CANONICAL_ONTOLOGY.md`, `docs/OBSERVATORY_SPEC.md`, `docs/OBSERVATORY_INTERACTION_SPEC.md`, `docs/OBSERVATORY_GEOMETRY_SPEC.md`, `docs/MEASUREMENT_EVENT_MODEL.md`, `docs/GEOMETRY_EVIDENCE_POLICY.md`, `docs/IMPLEMENTATION_TRUTH_TABLE.md`, `docs/KNOWN_LIMITATIONS.md`, and repo `AGENTS.md`.
+Natural-language contracts in force:
+Browser remains observability/export work, not the primary runtime chat surface. Memes remain first-class, memodes derived second-order assemblies, clusters derived summaries, attractors dynamic summaries, and layout/render coordinates are not evidence.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/observatory/exporters.py`, `/Users/brianray/Adam/eden/observatory/service.py`, `/Users/brianray/Adam/eden/observatory/server.py`, `/Users/brianray/Adam/eden/storage/schema.py`, `/Users/brianray/Adam/eden/storage/graph_store.py`, `/Users/brianray/Adam/tests/test_observatory_measurements.py`, `/Users/brianray/Adam/tests/test_observatory_server.py`, `/Users/brianray/Adam/docs/*.md`, `/Users/brianray/Adam/web/observatory/*`, and checked-in frontend build assets under the observatory package.
+Status register:
+- Implemented:
+  - Preview/commit/revert observatory flow, measurement ledger persistence, graph/basin/geometry exports, and minimal local API.
+- Instrumented:
+  - Existing geometry metrics, basin feature projection, and lightweight live server status.
+- Conceptual:
+  - Layered semantic/runtime/assembly payloads, deterministic cluster summaries, live transcript/runtime APIs, shell-page frontend bundle, and Quid-like graph UI grammar.
+- Unknown:
+  - Exact effort/risk for landing the full frontend plus backend breadth in one turn without regressions; stale-build guard and build pipeline are not yet present in code.
+Risks / invariants:
+Do not break preview/commit/revert semantics, measurement attribution, or the TUI-primary runtime contract. Keep export artifact filenames stable. Keep view presets out of authoritative payload planes. Avoid overclaiming implementation if verification is partial.
+Evidence plan:
+Run targeted observatory pytest coverage while refactoring backend contracts, add/extend tests for memode validation and new APIs, build the frontend bundle, and run the full `./.venv/bin/pytest -q` plus frontend verification commands.
+Shortest proof path:
+Land backend/store/payload changes first, wire server endpoints/SSE, scaffold and build the frontend shell against real payloads, update docs/truth tables, then prove with pytest and frontend build/test commands.
+
+## [2026-03-10 16:40:22 EDT] POST-FLIGHT
+Files changed:
+- `/Users/brianray/Adam/eden/observatory/contracts.py`
+- `/Users/brianray/Adam/eden/observatory/clustering.py`
+- `/Users/brianray/Adam/eden/observatory/graph_planes.py`
+- `/Users/brianray/Adam/eden/observatory/frontend_assets.py`
+- `/Users/brianray/Adam/eden/observatory/exporters.py`
+- `/Users/brianray/Adam/eden/observatory/service.py`
+- `/Users/brianray/Adam/eden/observatory/server.py`
+- `/Users/brianray/Adam/eden/runtime.py`
+- `/Users/brianray/Adam/eden/tui/app.py`
+- `/Users/brianray/Adam/tests/test_observatory_measurements.py`
+- `/Users/brianray/Adam/tests/test_observatory_server.py`
+- `/Users/brianray/Adam/web/observatory/...`
+- `/Users/brianray/Adam/eden/observatory/static/observatory_app/...`
+- `/Users/brianray/Adam/scripts/check_observatory_build_meta.py`
+- `/Users/brianray/Adam/docs/CANONICAL_ONTOLOGY.md`
+- `/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`
+- `/Users/brianray/Adam/docs/OBSERVATORY_INTERACTION_SPEC.md`
+- `/Users/brianray/Adam/docs/OBSERVATORY_GEOMETRY_SPEC.md`
+- `/Users/brianray/Adam/docs/MEASUREMENT_EVENT_MODEL.md`
+- `/Users/brianray/Adam/docs/GEOMETRY_EVIDENCE_POLICY.md`
+- `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+- `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+- `/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+- Updated ontology, observatory, geometry, evidence, measurement, truth-table, and limitations surfaces to describe layered payload planes, deterministic cluster summaries, connected memode admissibility, browser-local view presets, live API breadth, SSE invalidation, HTTP-served static export, and build freshness semantics.
+Natural-language contracts added/revised/preserved:
+- Preserved TUI-primary runtime contract.
+- Revised observatory contract from inline placeholder HTML to checked-in React/Sigma/Three shell with Python-authoritative payloads.
+- Revised memode admissibility floor to require a connected qualifying semantic support subgraph with no passenger memes.
+- Preserved measurement-first attribution boundary and kept browser view presets outside authoritative graph facts.
+Behavior implemented or modified:
+- Added authoritative graph payload planes (`semantic_*`, `runtime_*`, `assemblies`, `cluster_summaries`, `active_set_slices`) plus deterministic meme-only cluster computation and transfer-aware manual cluster labels.
+- Tightened memode validation to explicit allowlist/denylist support edges, connected support-subgraph requirement, and returned `supporting_edge_ids`.
+- Added live observatory read endpoints, runtime/model status, transcript/active-set endpoints, and SSE invalidation events.
+- Replaced inline graph/basin/measurement/index HTML with thin shell pages that bootstrap the checked-in observatory bundle.
+- Added checked-in React app with Sigma graph surface, Three basin surface, structured inspector cards, localStorage view presets, derived-status badges, and sparse-basin empty state.
+- Added frontend build freshness metadata and CI/runtime verification script.
+- Fixed unrelated TUI conversation-log thread misuse revealed by the full-suite proof path.
+Evidence produced (tests / traces / commands / exports):
+- `./.venv/bin/pytest -q tests/test_observatory_measurements.py tests/test_observatory_server.py` -> `14 passed in 5.64s`
+- `npm --prefix web/observatory run test` -> `2 passed`
+- `npm --prefix web/observatory run build` -> success, emitted checked-in bundle + `build-meta.json`
+- `npm --prefix web/observatory run test:e2e` -> `2 passed`
+- `./.venv/bin/python scripts/check_observatory_build_meta.py` -> `ok: true`
+- `./.venv/bin/pytest -q` -> `41 passed in 16.16s`
+Status register changes:
+- Implemented:
+  - Layered observatory payloads, deterministic semantic clustering, connected memode admissibility checks, live observatory read APIs, SSE invalidation, checked-in frontend shell, build freshness guard, and frontend/browser test harness.
+- Instrumented:
+  - Runtime build-freshness warning surface via `/api/status`.
+- Conceptual:
+  - No figure-generation jobs or richer View Studio controls landed in this turn.
+- Unknown:
+  - Large-graph frontend performance beyond the bounded smoke/test fixtures remains unproved in this turn.
+Truth-table / limitations updates:
+- Updated `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md` and `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md` to reflect the new observatory stack, payload contract, and HTTP-served export/runtime limits.
+Remaining uncertainties:
+- The React graph surface is functionally present, but it is not yet tuned for very large semantic graphs or richer assembly hull rendering beyond the current highlight/overlay path.
+- Figure job persistence and a full View Studio control surface remain deferred.
+Next shortest proof path:
+- Exercise the new observatory shell against a heavier seeded experiment, then implement server-side analytics job persistence plus the View Studio / figure-generation path on top of the now-stable payload and shell contracts.

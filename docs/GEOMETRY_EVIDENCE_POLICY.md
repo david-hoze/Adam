@@ -50,6 +50,8 @@ EDEN may use evocative operator language such as “geometry lab” or “sacred
 - A manually added edge is an assertion unless and until measurement supports it.
 - A memode assertion is a structured operator claim about a reusable motif.
 - A coordinate-mode switch is only a rendering change.
+- A basin lift-mode switch is only a derived rendering change.
+- A saved browser view preset is never evidence.
 
 ## Forbidden shortcuts
 

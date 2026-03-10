@@ -39,6 +39,22 @@ The geometry layer in v1.2 is an empirical observability surface over the memgra
 
 - rendering mode anchored to basin ordering rather than a claim about topology
 
+## Basin trajectory metadata
+
+- basin exports retain the SVD `x/y` projection over turn-feature columns
+- every export carries:
+  - `projection_method`
+  - `projection_version`
+  - `projection_input_hash`
+  - `source_turn_count`
+  - `filtered_turn_count`
+- lift modes are derived visualization choices over the same underlying turn set:
+  - `flat`
+  - `time_lift`
+  - `density_lift`
+  - `session_offset`
+- the browser must badge projection and lift state as derived
+
 ## Computed diagnostics
 
 `OBSERVED`
@@ -106,3 +122,4 @@ The geometry lab is intentionally in conversation with the Karkada et al. symmet
 - perturbation / ablation framing
 - care around collective structure surviving local masking
 - the treatment of memodes as recoverable higher-order motifs rather than pairwise links
+- the treatment of the basin as a trajectory-reading instrument rather than direct evidence of latent geometry

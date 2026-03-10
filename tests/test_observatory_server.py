@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import socket
+import threading
+import time
 import urllib.request
 
 from eden.observatory.server import ObservatoryServer
@@ -75,6 +77,44 @@ def test_observatory_server_exposes_live_api(runtime, tmp_path) -> None:
             payload = json.loads(response.read().decode("utf-8"))
         assert payload["ok"] is True
         assert payload["status"]["capabilities"]["preview"] is True
+        assert "frontend_build" in payload["status"]
+
+        with urllib.request.urlopen(f"{status['url']}api/experiments") as response:
+            experiments_payload = json.loads(response.read().decode("utf-8"))
+        assert experiments_payload["experiments"]
+
+        with urllib.request.urlopen(f"{status['url']}api/runtime/status") as response:
+            runtime_status = json.loads(response.read().decode("utf-8"))
+        assert runtime_status["available"] is True
+
+        with urllib.request.urlopen(f"{status['url']}api/runtime/model") as response:
+            runtime_model = json.loads(response.read().decode("utf-8"))
+        assert runtime_model["available"] is True
+
+        with urllib.request.urlopen(f"{status['url']}api/experiments/{experiment['id']}/overview?session_id={session['id']}") as response:
+            overview = json.loads(response.read().decode("utf-8"))
+        assert "graph_counts" in overview
+
+        with urllib.request.urlopen(f"{status['url']}api/experiments/{experiment['id']}/graph?session_id={session['id']}") as response:
+            graph_payload = json.loads(response.read().decode("utf-8"))
+        assert graph_payload["semantic_nodes"]
+        assert "cluster_summaries" in graph_payload
+
+        with urllib.request.urlopen(f"{status['url']}api/experiments/{experiment['id']}/basin?session_id={session['id']}") as response:
+            basin_payload = json.loads(response.read().decode("utf-8"))
+        assert basin_payload["projection_method"] == "svd_on_turn_features"
+
+        with urllib.request.urlopen(f"{status['url']}api/experiments/{experiment['id']}/sessions") as response:
+            sessions_payload = json.loads(response.read().decode("utf-8"))
+        assert any(item["id"] == session["id"] for item in sessions_payload["sessions"])
+
+        with urllib.request.urlopen(f"{status['url']}api/sessions/{session['id']}/turns") as response:
+            turns_payload = json.loads(response.read().decode("utf-8"))
+        assert turns_payload["turns"]
+
+        with urllib.request.urlopen(f"{status['url']}api/sessions/{session['id']}/active-set") as response:
+            active_set_payload = json.loads(response.read().decode("utf-8"))
+        assert active_set_payload["turns"]
 
         preview_request = urllib.request.Request(
             f"{status['url']}api/experiments/{experiment['id']}/preview",
@@ -128,5 +168,73 @@ def test_observatory_server_exposes_live_api(runtime, tmp_path) -> None:
         with urllib.request.urlopen(f"{status['url']}api/experiments/{experiment['id']}/measurement-events?session_id={session['id']}") as response:
             ledger = json.loads(response.read().decode("utf-8"))
         assert ledger["counts"]["events"] >= 1
+    finally:
+        runtime.stop_observatory()
+
+
+def test_observatory_server_sse_emits_small_invalidation_events(runtime, tmp_path) -> None:
+    export_root = (tmp_path / "exports").resolve()
+    runtime.observatory_service.export_root = export_root
+    runtime.observatory_server.root = export_root
+    experiment = runtime.initialize_experiment("blank")
+    session = runtime.start_session(experiment["id"], title="SSE")
+    runtime.chat(session_id=session["id"], user_text="Seed the graph for SSE testing.")
+    memes = runtime.store.list_memes(experiment["id"])
+    status = runtime.start_observatory(host="127.0.0.1", port=8892, reuse_existing=False)
+    try:
+        events_url = f"{status['url']}api/experiments/{experiment['id']}/events?session_id={session['id']}"
+        with urllib.request.urlopen(events_url, timeout=10) as response:
+            observed: dict[str, object] = {}
+
+            def _commit_event() -> None:
+                time.sleep(0.2)
+                commit_request = urllib.request.Request(
+                    f"{status['url']}api/experiments/{experiment['id']}/commit",
+                    method="POST",
+                    headers={"Content-Type": "application/json"},
+                    data=json.dumps(
+                        {
+                            "session_id": session["id"],
+                            "action": {
+                                "action_type": "edge_add",
+                                "source_id": memes[0]["id"],
+                                "target_id": memes[1]["id"],
+                                "source_kind": "meme",
+                                "target_kind": "meme",
+                                "edge_type": "REINFORCES",
+                                "weight": 1.15,
+                                "operator_label": "api_test",
+                                "evidence_label": "OPERATOR_ASSERTED",
+                                "confidence": 0.74,
+                                "rationale": "commit from api",
+                            },
+                        }
+                    ).encode("utf-8"),
+                )
+                with urllib.request.urlopen(commit_request) as commit_response:
+                    observed["commit"] = json.loads(commit_response.read().decode("utf-8"))
+
+            worker = threading.Thread(target=_commit_event, daemon=True)
+            worker.start()
+
+            deadline = time.time() + 10
+            event_payload = None
+            while time.time() < deadline:
+                line = response.readline().decode("utf-8").strip()
+                if not line or line.startswith(":"):
+                    continue
+                if line.startswith("data: "):
+                    event_payload = json.loads(line.removeprefix("data: "))
+                    break
+            worker.join(timeout=2)
+
+        assert observed["commit"]["event"]["action_type"] == "edge_add"
+        assert event_payload is not None
+        assert event_payload["experiment_id"] == experiment["id"]
+        assert event_payload["session_id"] == session["id"]
+        assert event_payload["reason"] == "measurement_committed"
+        assert "graph" in event_payload["kinds"]
+        assert "measurements" in event_payload["kinds"]
+        assert "payload" not in event_payload
     finally:
         runtime.stop_observatory()

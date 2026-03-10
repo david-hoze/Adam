@@ -2,6 +2,11 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
+from eden.observatory import clustering as observatory_clustering
+from eden.observatory.contracts import MEMODE_SUPPORT_EDGE_ALLOWLIST
+
 
 def _isolated_observatory(runtime, tmp_path) -> None:
     export_root = (tmp_path / "exports").resolve()
@@ -17,6 +22,24 @@ def _seed_session(runtime, tmp_path):
     memes = runtime.store.list_memes(experiment["id"])
     assert len(memes) >= 2
     return experiment, session, memes
+
+
+def _connected_meme_pair(runtime, experiment_id: str) -> tuple[str, str]:
+    for edge in runtime.store.list_edges(experiment_id):
+        if edge["src_kind"] == "meme" and edge["dst_kind"] == "meme" and edge["edge_type"] in MEMODE_SUPPORT_EDGE_ALLOWLIST:
+            return edge["src_id"], edge["dst_id"]
+    raise AssertionError("Expected at least one qualifying semantic meme edge in the seeded graph.")
+
+
+def _isolated_meme(runtime, experiment_id: str, label: str) -> dict[str, str]:
+    return runtime.store.upsert_meme(
+        experiment_id=experiment_id,
+        label=label,
+        text=f"{label} should stay disconnected from the qualifying semantic subgraph.",
+        domain="knowledge",
+        source_kind="operator_test",
+        metadata={"origin": "pytest"},
+    )
 
 
 def test_edge_measurement_commit_and_revert_persist(tmp_path, runtime) -> None:
@@ -81,9 +104,10 @@ def test_edge_measurement_commit_and_revert_persist(tmp_path, runtime) -> None:
 
 def test_memode_assert_and_membership_update_persist(tmp_path, runtime) -> None:
     experiment, session, memes = _seed_session(runtime, tmp_path)
+    left_id, right_id = _connected_meme_pair(runtime, experiment["id"])
     action = {
         "action_type": "memode_assert",
-        "selected_node_ids": [memes[0]["id"], memes[1]["id"]],
+        "selected_node_ids": [left_id, right_id],
         "label": "Known persistence motif",
         "summary": "Operator-asserted reusable motif for persistence and retrieval.",
         "domain": "behavior",
@@ -100,7 +124,18 @@ def test_memode_assert_and_membership_update_persist(tmp_path, runtime) -> None:
     )
     memode = committed["committed_state"]["memode"]
     metadata = json.loads(memode["metadata_json"])
-    assert metadata["member_ids"] == sorted([memes[0]["id"], memes[1]["id"]])
+    assert metadata["member_ids"] == sorted([left_id, right_id])
+    assert metadata["supporting_edge_ids"]
+
+    runtime.store.set_edge(
+        experiment_id=experiment["id"],
+        src_kind="meme",
+        src_id=right_id,
+        dst_kind="meme",
+        dst_id=memes[2]["id"],
+        edge_type="SUPPORTS",
+        provenance={"assertion_origin": "operator_asserted", "evidence_label": "OPERATOR_ASSERTED", "confidence": 0.9},
+    )
 
     update = runtime.commit_observatory_action(
         experiment_id=experiment["id"],
@@ -109,7 +144,7 @@ def test_memode_assert_and_membership_update_persist(tmp_path, runtime) -> None:
         action={
             "action_type": "memode_update_membership",
             "memode_id": memode["id"],
-            "member_ids": [memes[0]["id"], memes[1]["id"], memes[2]["id"]],
+            "member_ids": [left_id, right_id, memes[2]["id"]],
             "summary": "Expanded motif membership",
             "confidence": 0.86,
             "operator_label": "test_operator",
@@ -119,7 +154,8 @@ def test_memode_assert_and_membership_update_persist(tmp_path, runtime) -> None:
     )
     updated_memode = runtime.store.get_memode(memode["id"])
     updated_metadata = json.loads(updated_memode["metadata_json"])
-    assert updated_metadata["member_ids"] == sorted([memes[0]["id"], memes[1]["id"], memes[2]["id"]])
+    assert updated_metadata["member_ids"] == sorted([left_id, right_id, memes[2]["id"]])
+    assert len(updated_metadata["supporting_edge_ids"]) >= 2
     assert update["event"]["action_type"] == "memode_update_membership"
 
 
@@ -143,3 +179,203 @@ def test_measurement_only_action_persists_without_topology_mutation(tmp_path, ru
     assert counts_after["edges"] == counts_before["edges"]
     assert counts_after["measurement_events"] == counts_before["measurement_events"] + 1
     assert result["event"]["action_type"] == "geometry_measurement_run"
+
+
+def test_memode_assert_rejects_missing_support_edges(tmp_path, runtime) -> None:
+    experiment, session, memes = _seed_session(runtime, tmp_path)
+    isolated = _isolated_meme(runtime, experiment["id"], "Disconnected observatory meme")
+    with pytest.raises(ValueError, match="qualifying semantic support edge"):
+        runtime.commit_observatory_action(
+            experiment_id=experiment["id"],
+            session_id=session["id"],
+            turn_id=None,
+            action={
+                "action_type": "memode_assert",
+                "selected_node_ids": [memes[0]["id"], isolated["id"]],
+                "label": "Invalid disconnected memode",
+                "summary": "This should fail because there is no qualifying support edge.",
+                "domain": "knowledge",
+                "confidence": 0.7,
+                "operator_label": "test_operator",
+                "evidence_label": "OPERATOR_ASSERTED",
+                "rationale": "negative test for support-edge floor",
+            },
+        )
+
+
+def test_memode_support_allowlist_and_passenger_rejection(tmp_path, runtime) -> None:
+    experiment, session, _ = _seed_session(runtime, tmp_path)
+    left = _isolated_meme(runtime, experiment["id"], "Left support test meme")
+    right = _isolated_meme(runtime, experiment["id"], "Right support test meme")
+    passenger = _isolated_meme(runtime, experiment["id"], "Passenger meme")
+    base_action = {
+        "action_type": "memode_assert",
+        "selected_node_ids": [left["id"], right["id"]],
+        "label": "Support check memode",
+        "summary": "Used to verify the qualifying-edge allowlist and denylist.",
+        "domain": "knowledge",
+        "confidence": 0.72,
+        "operator_label": "test_operator",
+        "evidence_label": "OPERATOR_ASSERTED",
+        "rationale": "support check",
+    }
+
+    runtime.store.set_edge(
+        experiment_id=experiment["id"],
+        src_kind="meme",
+        src_id=left["id"],
+        dst_kind="meme",
+        dst_id=right["id"],
+        edge_type="BELONGS_TO_SESSION",
+        provenance={"assertion_origin": "operator_asserted"},
+    )
+    with pytest.raises(ValueError, match="qualifying semantic support edge"):
+        runtime.preview_observatory_action(
+            experiment_id=experiment["id"],
+            session_id=session["id"],
+            turn_id=None,
+            action=base_action,
+        )
+
+    runtime.store.set_edge(
+        experiment_id=experiment["id"],
+        src_kind="meme",
+        src_id=left["id"],
+        dst_kind="meme",
+        dst_id=right["id"],
+        edge_type="UNKNOWN_RELATION",
+        provenance={"assertion_origin": "operator_asserted"},
+    )
+    with pytest.raises(ValueError, match="qualifying semantic support edge"):
+        runtime.preview_observatory_action(
+            experiment_id=experiment["id"],
+            session_id=session["id"],
+            turn_id=None,
+            action=base_action,
+        )
+
+    runtime.store.set_edge(
+        experiment_id=experiment["id"],
+        src_kind="meme",
+        src_id=left["id"],
+        dst_kind="meme",
+        dst_id=right["id"],
+        edge_type="SUPPORTS",
+        provenance={"assertion_origin": "operator_asserted", "evidence_label": "OPERATOR_ASSERTED", "confidence": 0.81},
+    )
+    committed = runtime.commit_observatory_action(
+        experiment_id=experiment["id"],
+        session_id=session["id"],
+        turn_id=None,
+        action=base_action,
+    )
+    committed_metadata = json.loads(committed["committed_state"]["memode"]["metadata_json"])
+    assert committed_metadata["supporting_edge_ids"]
+
+    with pytest.raises(ValueError, match="disconnected passenger memes"):
+        runtime.preview_observatory_action(
+            experiment_id=experiment["id"],
+            session_id=session["id"],
+            turn_id=None,
+            action={**base_action, "selected_node_ids": [left["id"], right["id"], passenger["id"]]},
+        )
+
+
+def test_cluster_summaries_are_deterministic_and_versioned(tmp_path, runtime, monkeypatch) -> None:
+    experiment, session, _ = _seed_session(runtime, tmp_path)
+    payload_one = runtime.observatory_service.graph_payload(experiment_id=experiment["id"], session_id=session["id"])
+    payload_two = runtime.observatory_service.graph_payload(experiment_id=experiment["id"], session_id=session["id"])
+    signatures_one = [item["cluster_signature"] for item in payload_one["cluster_summaries"]]
+    signatures_two = [item["cluster_signature"] for item in payload_two["cluster_summaries"]]
+    assert signatures_one == signatures_two
+    assert [item["algorithm_version"] for item in payload_one["cluster_summaries"]] == [
+        item["algorithm_version"] for item in payload_two["cluster_summaries"]
+    ]
+
+    coord_lookup = {
+        node["id"]: node.get("render_coords", {}).get("force", {"x": 0.0, "y": 0.0})
+        for node in payload_one["semantic_nodes"]
+    }
+    baseline_summaries, _ = observatory_clustering.build_cluster_summaries(
+        semantic_nodes=payload_one["semantic_nodes"],
+        semantic_edges=payload_one["semantic_edges"],
+        coord_lookup=coord_lookup,
+        measurement_events=payload_one["measurement_events"],
+    )
+    monkeypatch.setattr(
+        observatory_clustering,
+        "OBSERVATORY_CLUSTER_ALGORITHM_VERSION",
+        "deterministic_louvain:seed=1729:tokenizer=v99:weights=v99",
+    )
+    changed_summaries, _ = observatory_clustering.build_cluster_summaries(
+        semantic_nodes=payload_one["semantic_nodes"],
+        semantic_edges=payload_one["semantic_edges"],
+        coord_lookup=coord_lookup,
+        measurement_events=payload_one["measurement_events"],
+    )
+    assert baseline_summaries[0]["algorithm_version"] != changed_summaries[0]["algorithm_version"]
+    assert baseline_summaries[0]["cluster_signature"] != changed_summaries[0]["cluster_signature"]
+
+
+def test_manual_cluster_label_persists_without_mutating_topology(tmp_path, runtime) -> None:
+    experiment, session, _ = _seed_session(runtime, tmp_path)
+    before = runtime.observatory_service.graph_payload(experiment_id=experiment["id"], session_id=session["id"])
+    cluster = before["cluster_summaries"][0]
+    semantic_labels_before = {node["id"]: node["label"] for node in before["semantic_nodes"]}
+
+    runtime.commit_observatory_action(
+        experiment_id=experiment["id"],
+        session_id=session["id"],
+        turn_id=None,
+        action={
+            "action_type": "motif_annotation",
+            "target": {
+                "kind": "cluster",
+                "cluster_signature": cluster["cluster_signature"],
+                "member_meme_ids": cluster["member_meme_ids"],
+                "dominant_domain": max(cluster["domain_mix"], key=cluster["domain_mix"].get),
+            },
+            "cluster_signature": cluster["cluster_signature"],
+            "source_graph_hash": cluster["source_graph_hash"],
+            "algorithm_version": cluster["algorithm_version"],
+            "manual_label": "Persistence script",
+            "manual_summary": "Operator-defined semantic neighborhood label.",
+            "operator_label": "test_operator",
+            "evidence_label": "OPERATOR_ASSERTED",
+            "confidence": 0.83,
+            "rationale": "manual cluster naming",
+        },
+    )
+
+    after = runtime.observatory_service.graph_payload(experiment_id=experiment["id"], session_id=session["id"])
+    cluster_after = next(item for item in after["cluster_summaries"] if item["cluster_signature"] == cluster["cluster_signature"])
+    assert cluster_after["manual_label"] == "Persistence script"
+    assert cluster_after["display_label"] == "Persistence script"
+    assert cluster_after["transfer_status"] == "exact"
+    assert {node["id"]: node["label"] for node in after["semantic_nodes"]} == semantic_labels_before
+    assert "view_presets" not in after
+    assert after["semantic_nodes"]
+    assert after["runtime_nodes"]
+    assert after["assemblies"] is not None
+
+
+def test_basin_payload_exposes_projection_metadata_and_sparse_diagnostics(tmp_path, runtime) -> None:
+    experiment, session, _ = _seed_session(runtime, tmp_path)
+    basin = runtime.observatory_service.basin_payload(experiment_id=experiment["id"], session_id=session["id"])
+    assert basin["projection_method"] == "svd_on_turn_features"
+    assert basin["projection_version"]
+    assert basin["projection_input_hash"]
+    assert basin["source_turn_count"] >= basin["filtered_turn_count"] >= 1
+    assert basin["turns"][0]["dominant_node_id"]
+    assert "dominant_cluster_signature" in basin["turns"][0]
+    assert "display_attractor_label" in basin["turns"][0]
+    assert "cluster_signature" in basin["attractors"][0]
+    assert "display_label" in basin["attractors"][0]
+
+    _isolated_observatory(runtime, tmp_path / "sparse")
+    sparse_experiment = runtime.initialize_experiment("blank")
+    sparse_session = runtime.start_session(sparse_experiment["id"], title="Sparse")
+    sparse_basin = runtime.observatory_service.basin_payload(experiment_id=sparse_experiment["id"], session_id=sparse_session["id"])
+    assert sparse_basin["filtered_turn_count"] == 0
+    assert sparse_basin["diagnostics"]["empty_state"] is True
+    assert "Not enough turns" in sparse_basin["diagnostics"]["reason"]

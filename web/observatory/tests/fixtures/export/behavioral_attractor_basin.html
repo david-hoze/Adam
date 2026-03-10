@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EDEN Observatory Basin Fixture</title>
+    <link rel="stylesheet" href="/eden/observatory/static/observatory_app/style.css" />
+  </head>
+  <body>
+    <div id="observatory-root"></div>
+    <script>
+      window.__EDEN_BOOTSTRAP__ = {
+        mode: "static",
+        initial_surface: "basin",
+        experiment_id: "fixture-exp",
+        export_manifest_id: "fixture-basin-manifest",
+        payload_urls: {
+          graph: "/web/observatory/tests/fixtures/export/graph_knowledge_base.json",
+          basin: "/web/observatory/tests/fixtures/export/behavioral_attractor_basin.json",
+          overview: "/web/observatory/tests/fixtures/export/observatory_index.json",
+          measurements: "/web/observatory/tests/fixtures/export/measurement_events.json",
+          geometry: "/web/observatory/tests/fixtures/export/geometry_diagnostics.json"
+        }
+      };
+    </script>
+    <script type="module" src="/eden/observatory/static/observatory_app/index.js"></script>
+  </body>
+  </html>

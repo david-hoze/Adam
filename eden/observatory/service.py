@@ -1,21 +1,25 @@
 from __future__ import annotations
 
 import json
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
 import networkx as nx
 
 from ..utils import now_utc, safe_excerpt
+from .contracts import MEMODE_SUPPORT_EDGE_ALLOWLIST, MEMODE_SUPPORT_EDGE_DENYLIST
 from .geometry import compute_geometry_metrics, compute_selection_geometry, metric_deltas
 
 
 class ObservatoryService:
-    def __init__(self, *, store, exporter, runtime_log, export_root: Path) -> None:
+    def __init__(self, *, store, exporter, runtime_log, export_root: Path, runtime_status_provider=None, runtime_model_provider=None) -> None:
         self.store = store
         self.exporter = exporter
         self.runtime_log = runtime_log
         self.export_root = export_root
+        self.runtime_status_provider = runtime_status_provider
+        self.runtime_model_provider = runtime_model_provider
 
     def refresh_exports(self, *, experiment_id: str, session_id: str | None) -> tuple[dict[str, str], dict[str, Any]]:
         out_dir = self.export_root / experiment_id
@@ -29,6 +33,97 @@ class ObservatoryService:
             "index": json.loads((out_dir / "observatory_index.json").read_text(encoding="utf-8")),
         }
         return paths, payload
+
+    def experiment_payload(self, *, experiment_id: str, session_id: str | None) -> dict[str, Any]:
+        _, payload = self.refresh_exports(experiment_id=experiment_id, session_id=session_id)
+        return payload
+
+    def experiment_overview(self, *, experiment_id: str, session_id: str | None) -> dict[str, Any]:
+        payload = self.experiment_payload(experiment_id=experiment_id, session_id=session_id)
+        return {
+            "index": payload["index"],
+            "graph_counts": payload["graph"].get("counts", {}),
+            "basin": {
+                "turn_count": payload["basin"].get("turn_count", 0),
+                "filtered_turn_count": payload["basin"].get("filtered_turn_count", 0),
+                "projection_method": payload["basin"].get("projection_method", ""),
+            },
+            "measurements": payload["measurements"].get("counts", {}),
+        }
+
+    def graph_payload(self, *, experiment_id: str, session_id: str | None) -> dict[str, Any]:
+        return self.experiment_payload(experiment_id=experiment_id, session_id=session_id)["graph"]
+
+    def basin_payload(self, *, experiment_id: str, session_id: str | None) -> dict[str, Any]:
+        return self.experiment_payload(experiment_id=experiment_id, session_id=session_id)["basin"]
+
+    def geometry_payload(self, *, experiment_id: str, session_id: str | None) -> dict[str, Any]:
+        return self.experiment_payload(experiment_id=experiment_id, session_id=session_id)["geometry"]
+
+    def measurement_payload(self, *, experiment_id: str, session_id: str | None) -> dict[str, Any]:
+        return self.experiment_payload(experiment_id=experiment_id, session_id=session_id)["measurements"]
+
+    def list_experiments(self) -> dict[str, Any]:
+        return {"experiments": self.store.list_experiments()}
+
+    def list_sessions(self, *, experiment_id: str) -> dict[str, Any]:
+        sessions = [item for item in self.store.list_session_catalog(limit=250) if item.get("experiment_id") == experiment_id]
+        return {"sessions": sessions}
+
+    def session_turns(self, *, session_id: str) -> dict[str, Any]:
+        session = self.store.get_session(session_id)
+        turns = self.store.list_all_turns(session_id)
+        feedback_by_turn = {turn["id"]: self.store.list_feedback_for_turn(turn["id"]) for turn in turns}
+        membrane_by_turn = defaultdict(list)
+        for event in self.store.list_membrane_events(session["experiment_id"], limit=500, session_id=session_id):
+            if event.get("turn_id"):
+                membrane_by_turn[str(event["turn_id"])].append(event)
+        transcript = []
+        for turn in turns:
+            metadata = json.loads(turn.get("metadata_json") or "{}")
+            inference = metadata.get("inference_profile", {})
+            budget = metadata.get("budget", {})
+            transcript.append({
+                "session_id": session_id,
+                "turn_id": turn["id"],
+                "turn_index": int(turn.get("turn_index", 0) or 0),
+                "created_at": turn.get("created_at"),
+                "user_text": turn.get("user_text", ""),
+                "adam_text": turn.get("membrane_text") or turn.get("response_text") or "",
+                "feedback": feedback_by_turn.get(turn["id"], []),
+                "membrane_events": membrane_by_turn.get(turn["id"], []),
+                "active_set_summary": {"size": len(json.loads(turn.get("active_set_json") or "[]"))},
+                "active_set_node_ids": [item.get("node_id") for item in json.loads(turn.get("active_set_json") or "[]") if item.get("node_id")],
+                "requested_mode": inference.get("requested_mode", ""),
+                "effective_mode": inference.get("effective_mode", ""),
+                "budget_summary": budget,
+            })
+        return {"session": session, "turns": transcript}
+
+    def session_active_set(self, *, session_id: str) -> dict[str, Any]:
+        turns = self.store.list_all_turns(session_id)
+        return {
+            "session_id": session_id,
+            "turns": [
+                {
+                    "turn_id": turn["id"],
+                    "turn_index": int(turn.get("turn_index", 0) or 0),
+                    "created_at": turn.get("created_at"),
+                    "items": json.loads(turn.get("active_set_json") or "[]"),
+                }
+                for turn in turns
+            ],
+        }
+
+    def runtime_status(self) -> dict[str, Any]:
+        if self.runtime_status_provider is None:
+            return {"available": False}
+        return self.runtime_status_provider()
+
+    def runtime_model(self) -> dict[str, Any]:
+        if self.runtime_model_provider is None:
+            return {"available": False}
+        return self.runtime_model_provider()
 
     def preview_action(
         self,
@@ -282,6 +377,8 @@ class ObservatoryService:
         }
         if action_type in {"geometry_measurement_run", "motif_annotation"}:
             change["measurement_only"] = True
+            if action_type == "motif_annotation":
+                change["annotation"] = self._cluster_annotation_from_action(action)
             return change
         if action_type == "ablation_measurement_run":
             removed_edges: list[dict[str, Any]] = []
@@ -322,7 +419,8 @@ class ObservatoryService:
                 directed.add_edge(source_id, target_id, weight=next_weight, edge_type=edge_type, provenance=provenance)
             return change
         if action_type == "memode_assert":
-            member_ids = self._validated_memode_member_ids(action.get("selected_node_ids") or [], node_lookup)
+            subgraph = self._validated_memode_subgraph(experiment_id=experiment_id, candidate_ids=action.get("selected_node_ids") or [], node_lookup=node_lookup)
+            member_ids = subgraph["member_ids"]
             temp_id = "__preview_memode__"
             graph.add_node(
                 temp_id,
@@ -333,6 +431,8 @@ class ObservatoryService:
                 source_kind="memode",
                 summary=str(action.get("summary", "")).strip(),
                 provenance=str(action.get("operator_label", "local_operator")).strip(),
+                supporting_edge_ids=subgraph["supporting_edge_ids"],
+                invariance_summary=str(action.get("invariance_summary", action.get("summary", ""))).strip(),
             )
             directed.add_node(temp_id, **graph.nodes[temp_id])
             for member_id in member_ids:
@@ -340,13 +440,15 @@ class ObservatoryService:
                 directed.add_edge(temp_id, member_id, weight=1.0, edge_type="MATERIALIZES_AS_MEMODE", provenance={})
             change["before_state"] = {"memode": None}
             change["graph_changed"] = True
+            change["supporting_edge_ids"] = subgraph["supporting_edge_ids"]
             change["after_selection_ids"] = [temp_id, *member_ids]
             return change
         if action_type == "memode_update_membership":
             memode_id = str(action.get("memode_id", "")).strip()
             if memode_id not in node_lookup:
                 raise ValueError("memode_update_membership requires a valid memode_id.")
-            member_ids = self._validated_memode_member_ids(action.get("member_ids") or [], node_lookup)
+            subgraph = self._validated_memode_subgraph(experiment_id=experiment_id, candidate_ids=action.get("member_ids") or [], node_lookup=node_lookup)
+            member_ids = subgraph["member_ids"]
             existing_edges = []
             for _, target, attrs in list(directed.out_edges(memode_id, data=True)):
                 if attrs.get("edge_type") == "MATERIALIZES_AS_MEMODE":
@@ -359,6 +461,7 @@ class ObservatoryService:
                 directed.add_edge(memode_id, member_id, weight=1.0, edge_type="MATERIALIZES_AS_MEMODE", provenance={})
             change["before_state"] = {"memode": {"memode_id": memode_id, "member_ids": existing_edges}}
             change["graph_changed"] = True
+            change["supporting_edge_ids"] = subgraph["supporting_edge_ids"]
             change["after_selection_ids"] = [memode_id, *member_ids]
             return change
         raise ValueError(f"Unsupported action_type: {action_type}")
@@ -374,10 +477,13 @@ class ObservatoryService:
     ) -> dict[str, Any]:
         action_type = str(action["action_type"])
         if action_type in {"geometry_measurement_run", "ablation_measurement_run", "motif_annotation"}:
-            return {
+            committed = {
                 "summary": safe_excerpt(str(action.get("rationale", action_type)), limit=160),
                 "measurement_only": True,
             }
+            if action_type == "motif_annotation":
+                committed["annotation"] = self._cluster_annotation_from_action(action)
+            return committed
         if action_type in {"edge_add", "edge_update"}:
             source_id = str(action["source_id"])
             target_id = str(action["target_id"])
@@ -430,10 +536,12 @@ class ObservatoryService:
             )
             return {"edge": removed, "summary": f"edge_remove {source_id} -> {target_id} [{edge_type}]"}
         if action_type == "memode_assert":
-            member_ids = self._validated_memode_member_ids(
-                action.get("selected_node_ids") or [],
-                self._node_lookup_for_experiment(experiment_id),
+            subgraph = self._validated_memode_subgraph(
+                experiment_id=experiment_id,
+                candidate_ids=action.get("selected_node_ids") or [],
+                node_lookup=self._node_lookup_for_experiment(experiment_id),
             )
+            member_ids = subgraph["member_ids"]
             memode = self.store.upsert_memode(
                 experiment_id=experiment_id,
                 label=str(action.get("label", "Known Memode")).strip() or "Known Memode",
@@ -448,6 +556,10 @@ class ObservatoryService:
                     "assertion_origin": "operator_asserted",
                     "session_id": session_id,
                     "turn_id": turn_id,
+                    "supporting_edge_ids": subgraph["supporting_edge_ids"],
+                    "invariance_summary": str(action.get("invariance_summary", action.get("summary", ""))).strip(),
+                    "member_order": action.get("member_order") or [],
+                    "occurrence_examples": action.get("occurrence_examples") or [],
                 },
             )
             self._sync_memode_membership_edges(
@@ -459,10 +571,12 @@ class ObservatoryService:
             return {"memode": memode, "summary": f"memode_assert {memode['label']}"}
         if action_type == "memode_update_membership":
             memode_id = str(action.get("memode_id", "")).strip()
-            member_ids = self._validated_memode_member_ids(
-                action.get("member_ids") or [],
-                self._node_lookup_for_experiment(experiment_id),
+            subgraph = self._validated_memode_subgraph(
+                experiment_id=experiment_id,
+                candidate_ids=action.get("member_ids") or [],
+                node_lookup=self._node_lookup_for_experiment(experiment_id),
             )
+            member_ids = subgraph["member_ids"]
             memode = self.store.update_memode(
                 memode_id=memode_id,
                 label=str(action.get("label", "")).strip() or None,
@@ -476,6 +590,10 @@ class ObservatoryService:
                     "assertion_origin": "operator_refined",
                     "session_id": session_id,
                     "turn_id": turn_id,
+                    "supporting_edge_ids": subgraph["supporting_edge_ids"],
+                    "invariance_summary": str(action.get("invariance_summary", action.get("summary", ""))).strip() or None,
+                    "member_order": action.get("member_order") or [],
+                    "occurrence_examples": action.get("occurrence_examples") or [],
                 },
             )
             self._sync_memode_membership_edges(
@@ -585,8 +703,13 @@ class ObservatoryService:
             ]
         if action_type.startswith("memode_"):
             memode = committed_state.get("memode") or {}
-            member_ids = (memode and json.loads(memode.get("metadata_json", "{}")).get("member_ids")) or action.get("member_ids") or action.get("selected_node_ids") or []
-            return [{"kind": "memode", "memode_id": memode.get("id") or action.get("memode_id"), "member_ids": member_ids}]
+            metadata = json.loads(memode.get("metadata_json", "{}")) if memode else {}
+            member_ids = metadata.get("member_ids") or action.get("member_ids") or action.get("selected_node_ids") or []
+            supporting_edge_ids = metadata.get("supporting_edge_ids") or action.get("supporting_edge_ids") or []
+            return [{"kind": "memode", "memode_id": memode.get("id") or action.get("memode_id"), "member_ids": member_ids, "supporting_edge_ids": supporting_edge_ids}]
+        if action_type == "motif_annotation":
+            annotation = committed_state.get("annotation") or self._cluster_annotation_from_action(action)
+            return [{"kind": annotation.get("target", {}).get("kind", "measurement"), **annotation.get("target", {}), "cluster_signature": annotation.get("cluster_signature"), "source_graph_hash": annotation.get("source_graph_hash"), "algorithm_version": annotation.get("algorithm_version")} ]
         return [{"kind": "measurement", "action_type": action_type}]
 
     def _edge_provenance(self, action: dict[str, Any], existing: dict[str, Any]) -> dict[str, Any]:
@@ -649,12 +772,66 @@ class ObservatoryService:
             "updated_at": row.get("updated_at"),
         }
 
-    def _validated_memode_member_ids(self, candidate_ids: list[str], node_lookup: dict[str, dict[str, Any]]) -> list[str]:
+    def _cluster_annotation_from_action(self, action: dict[str, Any]) -> dict[str, Any]:
+        target = dict(action.get("target") or {})
+        if not target and action.get("cluster_signature"):
+            target = {
+                "kind": "cluster",
+                "cluster_signature": str(action.get("cluster_signature")),
+            }
+        return {
+            "target": target,
+            "cluster_signature": str(action.get("cluster_signature") or target.get("cluster_signature") or "").strip(),
+            "source_graph_hash": str(action.get("source_graph_hash") or "").strip(),
+            "algorithm_version": str(action.get("algorithm_version") or "").strip(),
+            "manual_label": str(action.get("manual_label") or "").strip(),
+            "manual_summary": str(action.get("manual_summary") or "").strip(),
+            "transfer_policy": str(action.get("transfer_policy") or "exact_then_unique_best_jaccard_0.70").strip(),
+            "confidence": float(action.get("confidence", 0.6) or 0.0),
+            "operator_label": str(action.get("operator_label", "local_operator")).strip(),
+            "evidence_label": str(action.get("evidence_label", "OPERATOR_ASSERTED")).strip(),
+        }
+
+    def _validated_memode_subgraph(
+        self,
+        *,
+        experiment_id: str,
+        candidate_ids: list[str],
+        node_lookup: dict[str, dict[str, Any]],
+    ) -> dict[str, Any]:
         member_ids = [node_id for node_id in candidate_ids if node_lookup.get(node_id, {}).get("kind") == "meme"]
         member_ids = sorted(dict.fromkeys(member_ids))
         if len(member_ids) < 2:
             raise ValueError("Known memodes require at least two selected meme nodes.")
-        return member_ids
+        support_graph = nx.Graph()
+        support_graph.add_nodes_from(member_ids)
+        supporting_edge_ids: list[str] = []
+        for edge in self.store.list_edges(experiment_id):
+            if edge.get("edge_type") in MEMODE_SUPPORT_EDGE_DENYLIST:
+                continue
+            if edge.get("edge_type") not in MEMODE_SUPPORT_EDGE_ALLOWLIST:
+                continue
+            if edge.get("src_kind") != "meme" or edge.get("dst_kind") != "meme":
+                continue
+            source_id = str(edge.get("src_id"))
+            target_id = str(edge.get("dst_id"))
+            if source_id not in member_ids or target_id not in member_ids:
+                continue
+            support_graph.add_edge(source_id, target_id, edge_id=str(edge.get("id")), edge_type=str(edge.get("edge_type")))
+            supporting_edge_ids.append(str(edge.get("id")))
+        if not supporting_edge_ids:
+            raise ValueError("Known memodes require at least one qualifying semantic support edge between the selected memes.")
+        isolated = sorted(node for node in member_ids if support_graph.degree(node) == 0)
+        if isolated:
+            raise ValueError(f"Known memodes cannot include disconnected passenger memes: {', '.join(isolated)}")
+        if support_graph.number_of_nodes() and not nx.is_connected(support_graph):
+            components = [sorted(component) for component in nx.connected_components(support_graph)]
+            if len(components) > 1:
+                raise ValueError(f"Known memodes require one connected qualifying support subgraph; found {len(components)} disconnected components.")
+        return {
+            "member_ids": member_ids,
+            "supporting_edge_ids": sorted(dict.fromkeys(supporting_edge_ids)),
+        }
 
     def _node_lookup_for_experiment(self, experiment_id: str) -> dict[str, dict[str, Any]]:
         snapshot = self.store.graph_snapshot(experiment_id)

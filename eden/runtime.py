@@ -115,6 +115,8 @@ class EdenRuntime:
             exporter=self.exporter,
             runtime_log=self.runtime_log,
             export_root=EXPORT_DIR,
+            runtime_status_provider=self.observatory_runtime_status,
+            runtime_model_provider=self.observatory_model_status,
         )
         self.observatory_server = ObservatoryServer(
             EXPORT_DIR,
@@ -177,6 +179,29 @@ class EdenRuntime:
         status["active_backend"] = self.settings.model_backend.lower()
         status["active_model_path"] = self.settings.model_path or str(DEFAULT_MLX_MODEL_DIR)
         return status
+
+    def observatory_runtime_status(self) -> dict[str, Any]:
+        launch = self.runtime_launch_profile()
+        return {
+            "available": True,
+            "backend": self.settings.model_backend.lower(),
+            "host": self.settings.observatory_host,
+            "port": self.settings.observatory_port,
+            "launch_profile": launch,
+            "observatory_running": bool(self.observatory_server.running),
+        }
+
+    def observatory_model_status(self) -> dict[str, Any]:
+        backend = self.settings.model_backend.lower()
+        if backend == "mlx":
+            status = self.mlx_model_status()
+            status["available"] = True
+            return status
+        return {
+            "available": True,
+            "backend": backend,
+            "model_path": self.settings.model_path or "",
+        }
 
     def prepare_default_mlx_model(self) -> dict[str, Any]:
         token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
@@ -1033,6 +1058,8 @@ class EdenRuntime:
         selected_meme_ids = [item["node_id"] for item in active_set["items"] if item["node_kind"] == "meme"]
         selected_memode_ids = [item["node_id"] for item in active_set["items"] if item["node_kind"] == "memode"]
         self.store.touch_nodes("meme", selected_meme_ids + indexed_user["meme_ids"] + indexed_adam["meme_ids"])
+        if self.observatory_server.running:
+            self.observatory_server.publish_invalidation(experiment_id=experiment_id, session_id=session_id, kinds=["graph", "basin", "transcript", "runtime", "overview"], reason="turn_persisted")
         self.store.touch_nodes("memode", selected_memode_ids + indexed_user["memode_ids"] + indexed_adam["memode_ids"])
         self.store.record_trace_event(
             experiment_id=experiment_id,
@@ -1180,6 +1207,8 @@ class EdenRuntime:
             turn_id=turn_id,
             verdict=verdict,
         )
+        if self.observatory_server.running:
+            self.observatory_server.publish_invalidation(experiment_id=experiment_id, session_id=session_id, kinds=["graph", "transcript", "measurements", "overview"], reason="feedback_persisted")
         return feedback
 
     def ingest_document(

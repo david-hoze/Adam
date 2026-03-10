@@ -8,8 +8,18 @@ from typing import Any
 import networkx as nx
 import numpy as np
 
-from ..utils import now_utc, safe_excerpt
+from ..utils import now_utc, safe_excerpt, sha256_text
+from .contracts import (
+    ASSEMBLY_RENDER_MODES,
+    BASIN_LIFT_MODES,
+    GRAPH_UI_MODES,
+    MEMODE_SUPPORT_EDGE_ALLOWLIST,
+    OBSERVATORY_BASIN_SCHEMA_VERSION,
+    OBSERVATORY_GRAPH_SCHEMA_VERSION,
+)
+from .frontend_assets import copy_frontend_assets
 from .geometry import compute_ablation_report, compute_coordinate_sets, compute_geometry_metrics, compute_selection_geometry
+from .graph_planes import build_graph_planes
 
 
 NODE_TOPOLOGY_EXACT_LIMIT = 1200
@@ -24,6 +34,7 @@ class ObservatoryExporter:
 
     def export_all(self, *, experiment_id: str, session_id: str | None, out_dir: Path) -> dict[str, str]:
         out_dir.mkdir(parents=True, exist_ok=True)
+        copy_frontend_assets(out_dir)
         snapshot = self.store.graph_snapshot(experiment_id)
         basin_paths, basin_payload = self.export_behavioral_basin(
             experiment_id=experiment_id,
@@ -32,6 +43,14 @@ class ObservatoryExporter:
             snapshot=snapshot,
         )
         graph_model = self._build_graph_model(snapshot=snapshot, session_id=session_id, basin_payload=basin_payload)
+        basin_paths, basin_payload = self._enrich_basin_payload(
+            experiment_id=experiment_id,
+            session_id=session_id,
+            out_dir=out_dir,
+            basin_paths=basin_paths,
+            basin_payload=basin_payload,
+            graph_model=graph_model,
+        )
         graph_paths, graph_payload = self.export_graph_knowledge_base(
             experiment_id=experiment_id,
             session_id=session_id,
@@ -73,7 +92,10 @@ class ObservatoryExporter:
         graph_model: dict[str, Any],
     ) -> tuple[dict[str, str], dict[str, Any]]:
         _, health_metrics = self.retrieval_service.build_graph_metrics(experiment_id)
+        export_manifest_id = sha256_text(f"graph:{experiment_id}:{session_id}:{now_utc()}")[:12]
         payload = {
+            "schema_version": OBSERVATORY_GRAPH_SCHEMA_VERSION,
+            "export_manifest_id": export_manifest_id,
             "generated_at": now_utc(),
             "experiment_id": experiment_id,
             "session_id": session_id,
@@ -81,6 +103,14 @@ class ObservatoryExporter:
             "counts": self.store.graph_counts(experiment_id),
             "nodes": graph_model["nodes"],
             "edges": graph_model["edges"],
+            "semantic_nodes": graph_model["semantic_nodes"],
+            "semantic_edges": graph_model["semantic_edges"],
+            "runtime_nodes": graph_model["runtime_nodes"],
+            "runtime_edges": graph_model["runtime_edges"],
+            "assemblies": graph_model["assemblies"],
+            "cluster_summaries": graph_model["cluster_summaries"],
+            "active_set_slices": graph_model["active_set_slices"],
+            "source_graph_hash": graph_model["source_graph_hash"],
             "measurement_events": graph_model["measurement_events"],
             "latest_active_ids": graph_model["latest_active_ids"],
             "evidence_legend": {
@@ -92,11 +122,18 @@ class ObservatoryExporter:
                 "AUTO_DERIVED": "Graph fact produced by EDEN-side derivation or ingest.",
             },
             "interaction_modes": ["INSPECT", "MEASURE", "EDIT", "ABLATE", "COMPARE"],
+            "graph_modes": GRAPH_UI_MODES,
+            "assembly_render_modes": ASSEMBLY_RENDER_MODES,
             "live_api": {
                 "preview": f"/api/experiments/{experiment_id}/preview",
                 "commit": f"/api/experiments/{experiment_id}/commit",
                 "revert": f"/api/experiments/{experiment_id}/revert",
                 "measurements": f"/api/experiments/{experiment_id}/measurement-events",
+                "graph": f"/api/experiments/{experiment_id}/graph",
+                "basin": f"/api/experiments/{experiment_id}/basin",
+                "overview": f"/api/experiments/{experiment_id}/overview",
+                "sessions": f"/api/experiments/{experiment_id}/sessions",
+                "events": f"/api/experiments/{experiment_id}/events",
             },
             "view_modes": {
                 "force": "render_coords.force",
@@ -122,12 +159,26 @@ class ObservatoryExporter:
                     "counts": payload["counts"],
                     "health_metrics": payload["health_metrics"],
                     "view_modes": list(payload["view_modes"].keys()),
+                    "export_manifest_id": export_manifest_id,
+                    "source_graph_hash": graph_model["source_graph_hash"],
                 },
                 indent=2,
             ),
             encoding="utf-8",
         )
-        html_path.write_text(self._graph_html_v12(payload), encoding="utf-8")
+        html_path.write_text(
+            self._shell_html(
+                title="EDEN Observatory Graph",
+                bootstrap=self._shell_bootstrap(
+                    experiment_id=experiment_id,
+                    session_id=session_id,
+                    initial_surface="graph",
+                    export_manifest_id=export_manifest_id,
+                    source_graph_hash=graph_model["source_graph_hash"],
+                ),
+            ),
+            encoding="utf-8",
+        )
         self.store.record_export_artifact(experiment_id=experiment_id, session_id=session_id, artifact_type="graph_knowledge_base_html", path=html_path)
         self.store.record_export_artifact(experiment_id=experiment_id, session_id=session_id, artifact_type="graph_knowledge_base_json", path=json_path)
         self.runtime_log.emit("INFO", "export_graph", "Generated graph knowledge-base export.", experiment_id=experiment_id, path=str(html_path))
@@ -221,6 +272,13 @@ class ObservatoryExporter:
                     "feedback_balance": feedback_balance,
                     "dominant_label": dominant["label"],
                     "dominant_domain": dominant["domain"],
+                    "dominant_node_id": dominant.get("node_id", ""),
+                    "dominant_memode_id": dominant.get("node_id", "") if dominant.get("node_kind") == "memode" else "",
+                    "dominant_cluster_signature": "",
+                    "display_attractor_label": dominant["label"],
+                    "active_set_node_ids": [item.get("node_id") for item in active_set if item.get("node_id")],
+                    "sequence_z": 0.0,
+                    "transition_kind": "phase_transition" if phase_transition else "continuity",
                     "feedback_verdicts": feedback_verdicts,
                     "active_set_labels": sorted(active_labels),
                     "active_set_overlap": round(float(overlap), 4),
@@ -273,19 +331,36 @@ class ObservatoryExporter:
         transitions: Counter[tuple[str, str]] = Counter()
         for left, right in zip(rendered_turns, rendered_turns[1:], strict=False):
             transitions[(left["dominant_label"], right["dominant_label"])] += 1
+        export_manifest_id = sha256_text(f"basin:{experiment_id}:{session_id}:{now_utc()}")[:12]
         payload = {
+            "schema_version": OBSERVATORY_BASIN_SCHEMA_VERSION,
+            "export_manifest_id": export_manifest_id,
             "generated_at": now_utc(),
             "experiment_id": experiment_id,
             "session_id": session_id,
             "turn_count": len(rendered_turns),
+            "source_turn_count": len(turns),
+            "filtered_turn_count": len(rendered_turns),
             "session_count": len({turn["session_id"] for turn in rendered_turns}),
             "projection": projection,
+            "projection_method": projection["method"],
+            "projection_version": "svd_on_turn_features:v2",
+            "projection_input_hash": sha256_text(json.dumps(features, sort_keys=True))[:16] if features else "empty",
+            "feature_columns": ["knowledge_mass", "behavior_mass", "avg_regard", "avg_activation", "memode_fraction", "feedback_balance", "budget_pressure_ratio", "active_set_overlap"],
+            "lift_modes": BASIN_LIFT_MODES,
             "turns": rendered_turns,
             "attractors": sorted(attractors, key=lambda item: item["count"], reverse=True),
             "transitions": [
                 {"from": left, "to": right, "count": count}
                 for (left, right), count in transitions.most_common()
             ],
+            "diagnostics": {
+                "source_turn_count": len(turns),
+                "filtered_turn_count": len(rendered_turns),
+                "skipped_turn_count": max(0, len(turns) - len(rendered_turns)),
+                "empty_state": len(rendered_turns) < 2,
+                "reason": "Not enough turns with non-empty active sets for basin playback." if len(rendered_turns) < 2 else "ok",
+            },
             "continuity": {
                 "revisitation_ratio": float(
                     sum(count for count in Counter(turn["dominant_label"] for turn in rendered_turns).values() if count > 1)
@@ -318,12 +393,27 @@ class ObservatoryExporter:
                     "turn_count": payload["turn_count"],
                     "session_count": payload["session_count"],
                     "projection": payload["projection"],
+                    "export_manifest_id": export_manifest_id,
+                    "projection_method": payload["projection_method"],
                 },
                 indent=2,
             ),
             encoding="utf-8",
         )
-        html_path.write_text(self._basin_html(payload), encoding="utf-8")
+        html_path.write_text(
+            self._shell_html(
+                title="EDEN Observatory Basin",
+                bootstrap=self._shell_bootstrap(
+                    experiment_id=experiment_id,
+                    session_id=session_id,
+                    initial_surface="basin",
+                    export_manifest_id=export_manifest_id,
+                    source_graph_hash="",
+                    projection_method=payload["projection_method"],
+                ),
+            ),
+            encoding="utf-8",
+        )
         self.store.record_export_artifact(experiment_id=experiment_id, session_id=session_id, artifact_type="behavioral_attractor_basin_html", path=html_path)
         self.store.record_export_artifact(experiment_id=experiment_id, session_id=session_id, artifact_type="behavioral_attractor_basin_json", path=json_path)
         self.runtime_log.emit("INFO", "export_basin", "Generated behavioral attractor basin export.", experiment_id=experiment_id, path=str(html_path))
@@ -335,6 +425,73 @@ class ObservatoryExporter:
             },
             payload,
         )
+
+    def _enrich_basin_payload(
+        self,
+        *,
+        experiment_id: str,
+        session_id: str | None,
+        out_dir: Path,
+        basin_paths: dict[str, str],
+        basin_payload: dict[str, Any],
+        graph_model: dict[str, Any],
+    ) -> tuple[dict[str, str], dict[str, Any]]:
+        cluster_lookup = graph_model.get("cluster_lookup", {})
+        assembly_lookup = {assembly["id"]: assembly for assembly in graph_model.get("assemblies", [])}
+        label_by_cluster = {summary["cluster_signature"]: summary["display_label"] for summary in graph_model.get("cluster_summaries", [])}
+        for turn in basin_payload.get("turns", []):
+            dominant_node_id = str(turn.get("dominant_node_id") or "")
+            cluster_signature = cluster_lookup.get(dominant_node_id, {}).get("cluster_signature", "") if dominant_node_id else ""
+            dominant_memode_id = str(turn.get("dominant_memode_id") or "")
+            memode_label = assembly_lookup.get(dominant_memode_id, {}).get("label", "") if dominant_memode_id else ""
+            turn["dominant_cluster_signature"] = cluster_signature
+            if not dominant_memode_id and dominant_node_id in assembly_lookup:
+                turn["dominant_memode_id"] = dominant_node_id
+                dominant_memode_id = dominant_node_id
+                memode_label = assembly_lookup.get(dominant_memode_id, {}).get("label", "")
+            turn["display_attractor_label"] = label_by_cluster.get(cluster_signature) or memode_label or turn.get("dominant_label", "")
+        for attractor in basin_payload.get("attractors", []):
+            matching_turns = [turn for turn in basin_payload.get("turns", []) if turn.get("dominant_label") == attractor.get("label")]
+            cluster_counts = Counter(turn.get("dominant_cluster_signature", "") for turn in matching_turns if turn.get("dominant_cluster_signature"))
+            attractor["cluster_signature"] = cluster_counts.most_common(1)[0][0] if cluster_counts else ""
+            attractor["display_label"] = label_by_cluster.get(attractor["cluster_signature"], attractor.get("label", ""))
+            attractor["member_turn_ids"] = [turn.get("turn_id") for turn in matching_turns]
+        json_path = out_dir / "behavioral_attractor_basin.json"
+        html_path = out_dir / "behavioral_attractor_basin.html"
+        manifest_path = out_dir / "behavioral_attractor_basin.manifest.json"
+        json_path.write_text(json.dumps(basin_payload, indent=2), encoding="utf-8")
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "artifact_type": "behavioral_attractor_basin",
+                    "generated_at": basin_payload["generated_at"],
+                    "json_path": str(json_path),
+                    "html_path": str(html_path),
+                    "turn_count": basin_payload["turn_count"],
+                    "session_count": basin_payload["session_count"],
+                    "projection": basin_payload["projection"],
+                    "export_manifest_id": basin_payload.get("export_manifest_id"),
+                    "projection_method": basin_payload.get("projection_method"),
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        html_path.write_text(
+            self._shell_html(
+                title="EDEN Observatory Basin",
+                bootstrap=self._shell_bootstrap(
+                    experiment_id=experiment_id,
+                    session_id=session_id,
+                    initial_surface="basin",
+                    export_manifest_id=basin_payload.get("export_manifest_id"),
+                    source_graph_hash=graph_model.get("source_graph_hash", ""),
+                    projection_method=basin_payload.get("projection_method"),
+                ),
+            ),
+            encoding="utf-8",
+        )
+        return basin_paths, basin_payload
 
     def export_geometry_lab(
         self,
@@ -402,7 +559,17 @@ class ObservatoryExporter:
             ),
             encoding="utf-8",
         )
-        html_path.write_text(self._geometry_html_v12(payload), encoding="utf-8")
+        html_path.write_text(
+            self._shell_html(
+                title="EDEN Observatory Geometry",
+                bootstrap=self._shell_bootstrap(
+                    experiment_id=experiment_id,
+                    session_id=session_id,
+                    initial_surface="geometry",
+                ),
+            ),
+            encoding="utf-8",
+        )
         self.store.record_export_artifact(experiment_id=experiment_id, session_id=session_id, artifact_type="geometry_lab_html", path=html_path)
         self.store.record_export_artifact(experiment_id=experiment_id, session_id=session_id, artifact_type="geometry_diagnostics_json", path=json_path)
         self.runtime_log.emit("INFO", "export_geometry", "Generated geometry diagnostics export.", experiment_id=experiment_id, path=str(html_path))
@@ -451,7 +618,17 @@ class ObservatoryExporter:
             ),
             encoding="utf-8",
         )
-        html_path.write_text(self._measurement_html(payload), encoding="utf-8")
+        html_path.write_text(
+            self._shell_html(
+                title="EDEN Observatory Measurements",
+                bootstrap=self._shell_bootstrap(
+                    experiment_id=experiment_id,
+                    session_id=session_id,
+                    initial_surface="measurements",
+                ),
+            ),
+            encoding="utf-8",
+        )
         self.store.record_export_artifact(experiment_id=experiment_id, session_id=session_id, artifact_type="measurement_ledger_html", path=html_path)
         self.store.record_export_artifact(experiment_id=experiment_id, session_id=session_id, artifact_type="measurement_events_json", path=json_path)
         self.runtime_log.emit("INFO", "export_measurements", "Generated measurement ledger export.", experiment_id=experiment_id, path=str(html_path))
@@ -499,7 +676,17 @@ class ObservatoryExporter:
         html_path = out_dir / "observatory_index.html"
         json_path = out_dir / "observatory_index.json"
         json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        html_path.write_text(self._index_html_v12(payload), encoding="utf-8")
+        html_path.write_text(
+            self._shell_html(
+                title="EDEN Observatory",
+                bootstrap=self._shell_bootstrap(
+                    experiment_id=experiment_id,
+                    session_id=session_id,
+                    initial_surface="overview",
+                ),
+            ),
+            encoding="utf-8",
+        )
         self.store.record_export_artifact(experiment_id=experiment_id, session_id=session_id, artifact_type="observatory_index_html", path=html_path)
         return {
             "observatory_index_html": str(html_path),
@@ -646,6 +833,10 @@ class ObservatoryExporter:
                 usage_count=int(memode["usage_count"]),
                 feedback_count=int(memode["feedback_count"]),
                 member_ids=metadata.get("member_ids", []),
+                supporting_edge_ids=metadata.get("supporting_edge_ids", []),
+                invariance_summary=metadata.get("invariance_summary", memode["summary"]),
+                member_order=metadata.get("member_order", []),
+                occurrence_examples=metadata.get("occurrence_examples", []),
                 evidence_label=metadata.get("evidence_label", metadata.get("assertion_origin", "AUTO_DERIVED")),
                 operator_label=metadata.get("operator_label", ""),
                 confidence=float(metadata.get("confidence", 0.0) or 0.0),
@@ -771,6 +962,29 @@ class ObservatoryExporter:
             if turns:
                 latest_turn = sorted(turns, key=lambda item: item["turn_index"])[-1]
                 latest_active_ids = [item["node_id"] for item in json.loads(latest_turn["active_set_json"] or "[]")]
+        semantic_graph = nx.Graph()
+        semantic_node_order = sorted(node["id"] for node in nodes if node.get("kind") == "meme")
+        for node in nodes:
+            if node.get("kind") == "meme":
+                semantic_graph.add_node(node["id"], **node)
+        for edge in edges:
+            source = next((node for node in nodes if node["id"] == edge["source"]), None)
+            target = next((node for node in nodes if node["id"] == edge["target"]), None)
+            if source and target and source.get("kind") == "meme" and target.get("kind") == "meme" and edge.get("type") in MEMODE_SUPPORT_EDGE_ALLOWLIST:
+                semantic_graph.add_edge(edge["source"], edge["target"], **edge)
+        semantic_coords = compute_coordinate_sets(semantic_graph, node_order=semantic_node_order)
+        planes = build_graph_planes(
+            snapshot=snapshot,
+            nodes=nodes,
+            edges=edges,
+            measurement_events=measurement_events,
+            semantic_coord_lookup=semantic_coords.get("force", {}),
+        )
+        for node in nodes:
+            cluster = planes["cluster_lookup"].get(node["id"], {})
+            if cluster:
+                node["cluster_signature"] = cluster.get("cluster_signature", "")
+                node["cluster_label"] = cluster.get("display_label", "")
         return {
             "nodes": nodes,
             "edges": edges,
@@ -782,6 +996,15 @@ class ObservatoryExporter:
             "filters": filters,
             "latest_active_ids": latest_active_ids,
             "measurement_events": measurement_events,
+            "semantic_nodes": planes["semantic_nodes"],
+            "semantic_edges": planes["semantic_edges"],
+            "runtime_nodes": planes["runtime_nodes"],
+            "runtime_edges": planes["runtime_edges"],
+            "assemblies": planes["assemblies"],
+            "cluster_summaries": planes["cluster_summaries"],
+            "cluster_lookup": planes["cluster_lookup"],
+            "active_set_slices": planes["active_set_slices"],
+            "source_graph_hash": planes["cluster_summaries"][0]["source_graph_hash"] if planes["cluster_summaries"] else "empty",
         }
 
     def _geometry_slices(self, graph_model: dict[str, Any], *, session_id: str | None) -> dict[str, Any]:
@@ -1180,6 +1403,67 @@ class ObservatoryExporter:
   </script>
 </body>
 </html>"""
+
+    def _shell_html(self, *, title: str, bootstrap: dict[str, Any]) -> str:
+        bootstrap_json = json.dumps(bootstrap, ensure_ascii=True)
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{title}</title>
+  <link rel="stylesheet" href="{bootstrap.get('asset_base', './_observatory_app')}/style.css" />
+</head>
+<body>
+  <div id="observatory-root"></div>
+  <script>window.__EDEN_BOOTSTRAP__ = {bootstrap_json};</script>
+  <script type="module" src="{bootstrap.get('asset_base', './_observatory_app')}/index.js"></script>
+</body>
+</html>"""
+
+    def _shell_bootstrap(
+        self,
+        *,
+        experiment_id: str,
+        session_id: str | None,
+        initial_surface: str,
+        export_manifest_id: str | None = None,
+        source_graph_hash: str | None = None,
+        projection_method: str | None = None,
+    ) -> dict[str, Any]:
+        live_api = {
+            "status": "/api/status",
+            "runtime_status": "/api/runtime/status",
+            "runtime_model": "/api/runtime/model",
+            "events": f"/api/experiments/{experiment_id}/events",
+            "overview": f"/api/experiments/{experiment_id}/overview",
+            "graph": f"/api/experiments/{experiment_id}/graph",
+            "basin": f"/api/experiments/{experiment_id}/basin",
+            "measurements": f"/api/experiments/{experiment_id}/measurement-events",
+            "geometry": f"/api/experiments/{experiment_id}/geometry",
+            "sessions": f"/api/experiments/{experiment_id}/sessions",
+        }
+        if session_id:
+            live_api["session_turns"] = f"/api/sessions/{session_id}/turns"
+            live_api["session_active_set"] = f"/api/sessions/{session_id}/active-set"
+        return {
+            "mode": "hybrid",
+            "asset_base": "./_observatory_app",
+            "initial_surface": initial_surface,
+            "experiment_id": experiment_id,
+            "session_id": session_id,
+            "export_manifest_id": export_manifest_id,
+            "source_graph_hash": source_graph_hash,
+            "projection_method": projection_method,
+            "payload_urls": {
+                "graph": "./graph_knowledge_base.json",
+                "basin": "./behavioral_attractor_basin.json",
+                "measurements": "./measurement_events.json",
+                "overview": "./observatory_index.json",
+                "geometry": "./geometry_diagnostics.json",
+            },
+            "live_api": live_api,
+        }
 
     def _graph_html_v12(self, payload: dict[str, Any]) -> str:
         data = json.dumps(payload, ensure_ascii=True)

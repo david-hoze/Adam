@@ -1,0 +1,21 @@
+{
+  "projection_method": "svd_on_turn_features",
+  "projection_version": "svd_on_turn_features:v2",
+  "turns": [
+    {
+      "turn_id": "turn-1",
+      "session_id": "session-1",
+      "display_attractor_label": "Persistence cluster",
+      "dominant_label": "Persistence",
+      "dominant_domain": "knowledge"
+    }
+  ],
+  "attractors": [],
+  "filtered_turn_count": 1,
+  "source_turn_count": 3,
+  "diagnostics": {
+    "empty_state": true,
+    "skipped_turn_count": 2,
+    "reason": "Not enough turns with non-empty active sets for basin playback."
+  }
+}

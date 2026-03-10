@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import http.server
 import json
+import queue
 import socket
 import threading
 import urllib.error
@@ -12,10 +13,11 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..utils import now_utc
+from .frontend_assets import build_status
 
 
 SERVER_INFO_FILENAME = ".eden_observatory.json"
-API_VERSION = 2
+API_VERSION = 3
 
 
 class _ThreadingHTTPServer(http.server.ThreadingHTTPServer):
@@ -30,13 +32,19 @@ class _ObservatoryHandler(http.server.SimpleHTTPRequestHandler):
         directory: str,
         service: Any | None,
         status_provider: Callable[[], dict[str, Any]],
+        event_stream_factory: Callable[[str | None, str | None], queue.Queue],
+        event_stream_dispose: Callable[[queue.Queue], None],
+        event_publisher: Callable[[dict[str, Any]], None],
         **kwargs: Any,
     ) -> None:
         self._service = service
         self._status_provider = status_provider
+        self._event_stream_factory = event_stream_factory
+        self._event_stream_dispose = event_stream_dispose
+        self._event_publisher = event_publisher
         super().__init__(*args, directory=directory, **kwargs)
 
-    def log_message(self, format: str, *args: Any) -> None:  # pragma: no cover - noisy stdio suppression
+    def log_message(self, format: str, *args: Any) -> None:  # pragma: no cover
         return
 
     def do_GET(self) -> None:  # noqa: N802
@@ -46,6 +54,18 @@ class _ObservatoryHandler(http.server.SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/status":
             self._send_json({"ok": True, "status": self._status_provider()})
+            return
+        if parsed.path == "/api/experiments":
+            self._send_json(self._service.list_experiments() if self._service is not None else {"experiments": []})
+            return
+        if parsed.path == "/api/runtime/status":
+            self._send_json(self._service.runtime_status() if self._service is not None else {"available": False})
+            return
+        if parsed.path == "/api/runtime/model":
+            self._send_json(self._service.runtime_model() if self._service is not None else {"available": False})
+            return
+        if parsed.path.startswith("/api/sessions/"):
+            self._handle_session_get(parsed)
             return
         if parsed.path.startswith("/api/experiments/"):
             self._handle_api_get(parsed)
@@ -81,6 +101,12 @@ class _ObservatoryHandler(http.server.SimpleHTTPRequestHandler):
                     turn_id=body.get("turn_id"),
                     action=body.get("action", body),
                 )
+                self._event_publisher({
+                    "experiment_id": experiment_id,
+                    "session_id": body.get("session_id"),
+                    "kinds": ["graph", "basin", "measurements", "overview"],
+                    "reason": "measurement_committed",
+                })
             elif action_name == "revert":
                 result = self._service.revert_event(
                     experiment_id=experiment_id,
@@ -88,6 +114,12 @@ class _ObservatoryHandler(http.server.SimpleHTTPRequestHandler):
                     turn_id=body.get("turn_id"),
                     event_id=str(body.get("event_id", "")).strip(),
                 )
+                self._event_publisher({
+                    "experiment_id": experiment_id,
+                    "session_id": body.get("session_id"),
+                    "kinds": ["graph", "basin", "measurements", "overview"],
+                    "reason": "measurement_reverted",
+                })
             else:
                 self._send_json({"error": f"Unknown action '{action_name}'."}, status=404)
                 return
@@ -97,10 +129,27 @@ class _ObservatoryHandler(http.server.SimpleHTTPRequestHandler):
         except KeyError as exc:
             self._send_json({"error": str(exc)}, status=404)
             return
-        except Exception as exc:  # pragma: no cover - defensive API guard
+        except Exception as exc:  # pragma: no cover
             self._send_json({"error": f"Unhandled observatory API failure: {exc}"}, status=500)
             return
         self._send_json(result)
+
+    def _handle_session_get(self, parsed: urllib.parse.ParseResult) -> None:
+        if self._service is None:
+            self._send_json({"error": "Live observatory API unavailable."}, status=503)
+            return
+        parts = [part for part in parsed.path.split("/") if part]
+        if len(parts) < 4:
+            self._send_json({"error": "Malformed API path."}, status=404)
+            return
+        _, session_id, action_name = parts[1:4]
+        if action_name == "turns":
+            self._send_json(self._service.session_turns(session_id=session_id))
+            return
+        if action_name == "active-set":
+            self._send_json(self._service.session_active_set(session_id=session_id))
+            return
+        self._send_json({"error": f"Unknown action '{action_name}'."}, status=404)
 
     def _handle_api_get(self, parsed: urllib.parse.ParseResult) -> None:
         if self._service is None:
@@ -113,15 +162,60 @@ class _ObservatoryHandler(http.server.SimpleHTTPRequestHandler):
         _, _, experiment_id, action_name = parts[:4]
         query = urllib.parse.parse_qs(parsed.query)
         session_id = query.get("session_id", [None])[0]
+        if action_name == "events":
+            self._handle_sse(experiment_id=experiment_id, session_id=session_id)
+            return
         if action_name == "payload":
-            _, payload = self._service.refresh_exports(experiment_id=experiment_id, session_id=session_id)
-            self._send_json(payload)
+            self._send_json(self._service.experiment_payload(experiment_id=experiment_id, session_id=session_id))
+            return
+        if action_name == "overview":
+            self._send_json(self._service.experiment_overview(experiment_id=experiment_id, session_id=session_id))
+            return
+        if action_name == "graph":
+            self._send_json(self._service.graph_payload(experiment_id=experiment_id, session_id=session_id))
+            return
+        if action_name == "basin":
+            self._send_json(self._service.basin_payload(experiment_id=experiment_id, session_id=session_id))
+            return
+        if action_name == "geometry":
+            self._send_json(self._service.geometry_payload(experiment_id=experiment_id, session_id=session_id))
             return
         if action_name == "measurement-events":
-            _, payload = self._service.refresh_exports(experiment_id=experiment_id, session_id=session_id)
-            self._send_json(payload["measurements"])
+            self._send_json(self._service.measurement_payload(experiment_id=experiment_id, session_id=session_id))
+            return
+        if action_name == "sessions":
+            self._send_json(self._service.list_sessions(experiment_id=experiment_id))
+            return
+        if action_name == "jobs":
+            self._send_json({"jobs": []})
             return
         self._send_json({"error": f"Unknown action '{action_name}'."}, status=404)
+
+    def _handle_sse(self, *, experiment_id: str, session_id: str | None) -> None:
+        stream = self._event_stream_factory(experiment_id, session_id)
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Connection", "keep-alive")
+        self.end_headers()
+        try:
+            self.wfile.write(b": connected\n\n")
+            self.wfile.flush()
+            while True:
+                try:
+                    payload = stream.get(timeout=10.0)
+                except queue.Empty:
+                    self.wfile.write(b": heartbeat\n\n")
+                    self.wfile.flush()
+                    continue
+                encoded = json.dumps(payload, ensure_ascii=True).encode("utf-8")
+                self.wfile.write(b"event: observatory.invalidate\n")
+                self.wfile.write(b"data: " + encoded + b"\n\n")
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, OSError):  # pragma: no cover
+            return
+        finally:
+            self._event_stream_dispose(stream)
 
     def _read_json_body(self) -> dict[str, Any]:
         length = int(self.headers.get("Content-Length", "0") or 0)
@@ -156,6 +250,7 @@ class ObservatoryStatus:
     pid: int
     api_version: int = API_VERSION
     capabilities: dict[str, Any] = field(default_factory=dict)
+    frontend_build: dict[str, Any] = field(default_factory=dict)
 
 
 class ObservatoryServer:
@@ -176,6 +271,8 @@ class ObservatoryServer:
         self._thread: threading.Thread | None = None
         self._httpd: _ThreadingHTTPServer | None = None
         self._status: ObservatoryStatus | None = None
+        self._streams: list[dict[str, Any]] = []
+        self._stream_lock = threading.RLock()
 
     @property
     def info_path(self) -> Path:
@@ -229,7 +326,9 @@ class ObservatoryServer:
                 "commit": self.service is not None,
                 "revert": self.service is not None,
                 "measurement_events": self.service is not None,
+                "sse": self.service is not None,
             },
+            frontend_build=build_status(),
         )
         self._write_info_file(self._status)
         return self._status
@@ -243,6 +342,8 @@ class ObservatoryServer:
         if self._thread is not None:
             self._thread.join(timeout=2.0)
             self._thread = None
+        with self._stream_lock:
+            self._streams.clear()
         if was_owned and self.info_path.exists():
             try:
                 self.info_path.unlink()
@@ -256,25 +357,53 @@ class ObservatoryServer:
             return self._status
         return self._probe_from_info_file(expected_root=self.root)
 
+    def publish_invalidation(self, *, experiment_id: str, session_id: str | None, kinds: list[str], reason: str) -> None:
+        payload = {
+            "experiment_id": experiment_id,
+            "session_id": session_id,
+            "kinds": kinds,
+            "reason": reason,
+            "revision_id": now_utc(),
+            "generated_at": now_utc(),
+        }
+        with self._stream_lock:
+            for subscriber in list(self._streams):
+                if subscriber["experiment_id"] != experiment_id:
+                    continue
+                if subscriber["session_id"] not in {None, session_id}:
+                    continue
+                subscriber["queue"].put(payload)
+
+    def _register_stream(self, experiment_id: str | None, session_id: str | None) -> queue.Queue:
+        q: queue.Queue = queue.Queue()
+        with self._stream_lock:
+            self._streams.append({"experiment_id": experiment_id, "session_id": session_id, "queue": q})
+        return q
+
+    def _dispose_stream(self, stream: queue.Queue) -> None:
+        with self._stream_lock:
+            self._streams = [item for item in self._streams if item["queue"] is not stream]
+
     def _process_id(self) -> int:
         import os
 
         return os.getpid()
 
     def _status_payload(self) -> dict[str, Any]:
-        if self._status is None:
-            return {
-                "root": str(self.root),
-                "server_type": "eden_observatory",
-                "api_version": API_VERSION,
-                "capabilities": {
-                    "preview": self.service is not None,
-                    "commit": self.service is not None,
-                    "revert": self.service is not None,
-                    "measurement_events": self.service is not None,
-                },
-            }
-        return asdict(self._status)
+        payload = asdict(self._status) if self._status is not None else {
+            "root": str(self.root),
+            "server_type": "eden_observatory",
+            "api_version": API_VERSION,
+            "capabilities": {
+                "preview": self.service is not None,
+                "commit": self.service is not None,
+                "revert": self.service is not None,
+                "measurement_events": self.service is not None,
+                "sse": self.service is not None,
+            },
+        }
+        payload["frontend_build"] = build_status()
+        return payload
 
     def _make_handler(self, root: Path):
         def factory(*args: Any, **kwargs: Any):
@@ -283,6 +412,14 @@ class ObservatoryServer:
                 directory=str(root),
                 service=self.service,
                 status_provider=self._status_payload,
+                event_stream_factory=self._register_stream,
+                event_stream_dispose=self._dispose_stream,
+                event_publisher=lambda payload: self.publish_invalidation(
+                    experiment_id=str(payload.get("experiment_id") or ""),
+                    session_id=payload.get("session_id"),
+                    kinds=list(payload.get("kinds") or []),
+                    reason=str(payload.get("reason") or "update"),
+                ),
                 **kwargs,
             )
 
@@ -301,9 +438,7 @@ class ObservatoryServer:
         for candidate in range(preferred_port, preferred_port + self.port_span + 1):
             if self._is_port_available(host, candidate):
                 return candidate
-        raise RuntimeError(
-            f"No free observatory port found in {host}:{preferred_port}-{preferred_port + self.port_span}."
-        )
+        raise RuntimeError(f"No free observatory port found in {host}:{preferred_port}-{preferred_port + self.port_span}.")
 
     def _probe_same_root(self, *, host: str, port: int) -> ObservatoryStatus | None:
         return self._probe_remote_info(host=host, port=port, expected_root=self.root)
@@ -343,7 +478,8 @@ class ObservatoryServer:
             owned_by_process=False,
             pid=int(payload.get("pid", 0) or 0),
             api_version=int(payload.get("api_version", API_VERSION) or API_VERSION),
-            capabilities=dict(payload.get("capabilities", {})),
+            capabilities=dict(payload.get("capabilities") or {}),
+            frontend_build=dict(payload.get("frontend_build") or {}),
         )
 
     def _write_info_file(self, status: ObservatoryStatus) -> None:

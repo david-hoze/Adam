@@ -21,6 +21,16 @@ Measurement events are the persistence bridge between browser-side observation a
 - `created_at`
 - `reverted_from_event_id`
 
+For `motif_annotation` targeting a derived cluster instance, `committed_state_json.annotation` carries:
+
+- `target.kind = "cluster"`
+- `cluster_signature`
+- `source_graph_hash`
+- `algorithm_version`
+- `manual_label`
+- `manual_summary`
+- `transfer_policy`
+
 ## Action types
 
 Supported in v1.2:
@@ -40,6 +50,7 @@ Supported in v1.2:
 - Preview computes a candidate change and its metric deltas but does not persist an event.
 - Commit persists the event and, when applicable, mutates the graph.
 - Revert persists a new `revert` event. Reversion is itself part of the measurement ledger.
+- Browser view presets are never measurement events. They stay in browser-local state.
 
 ## Evidence handling
 

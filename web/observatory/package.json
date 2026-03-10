@@ -1,0 +1,32 @@
+{
+  "name": "eden-observatory-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build:app": "vite build",
+    "build": "node ./scripts/build.mjs",
+    "test": "vitest run --passWithNoTests",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "graphology": "^0.26.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "sigma": "^3.0.0-beta.24",
+    "three": "^0.176.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@testing-library/react": "^16.2.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.176.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^26.0.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.3",
+    "vitest": "^3.1.2"
+  }
+}
