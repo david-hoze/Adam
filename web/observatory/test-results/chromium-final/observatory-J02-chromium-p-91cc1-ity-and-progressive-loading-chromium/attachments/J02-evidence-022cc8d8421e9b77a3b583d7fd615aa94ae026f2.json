@@ -1,0 +1,134 @@
+{
+  "journeyId": "J02",
+  "screenshotPath": "/Users/brianray/Adam/web/observatory/test-results/chromium-final/observatory-J02-chromium-p-91cc1-ity-and-progressive-loading-chromium/J02.png",
+  "domPath": "/Users/brianray/Adam/web/observatory/test-results/chromium-final/observatory-J02-chromium-p-91cc1-ity-and-progressive-loading-chromium/J02.html",
+  "consoleMessages": [],
+  "network": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:4173/__e2e__/pages/live-normal.html",
+      "resourceType": "document",
+      "postData": null,
+      "startedAt": 1773244915314,
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:4173/eden/observatory/static/observatory_app/style.css",
+      "resourceType": "stylesheet",
+      "postData": null,
+      "startedAt": 1773244915318,
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:4173/eden/observatory/static/observatory_app/index.js",
+      "resourceType": "script",
+      "postData": null,
+      "startedAt": 1773244915318,
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:4173/__e2e__/api/normal/status",
+      "resourceType": "fetch",
+      "postData": null,
+      "startedAt": 1773244915339,
+      "status": 200,
+      "responseBodySnippet": "{\n  \"ok\": true,\n  \"status\": {\n    \"frontend_build\": {\n      \"warning\": false,\n      \"reason\": \"\"\n    },\n    \"capabilities\": {\n      \"preview\": true,\n      \"commit\": true,\n      \"revert\": true,\n      \"measurement_events\": true\n    }\n  }\n}"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:4173/__e2e__/api/normal/overview",
+      "resourceType": "fetch",
+      "postData": null,
+      "startedAt": 1773244915350,
+      "status": 200,
+      "responseBodySnippet": "{\n  \"graph_counts\": {\n    \"sessions\": 2,\n    \"turns\": 4,\n    \"documents\": 1,\n    \"memes\": 5,\n    \"memodes\": 1,\n    \"edges\": 3,\n    \"measurement_events\": 1\n  },\n  \"basin\": {\n    \"filtered_turn_count\": 4,\n    \"source_turn_count\": 6,\n    \"projection_method\": \"svd_on_turn_features\"\n  },\n  \"measurements\": {\n    \"events\": 1,\n    \"action_types\": {\n      \"geometry_measurement_run\": 1\n    },\n    \"evidence_labels\": {\n      \"DERIVED\": 1\n    }\n  }\n}"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:4173/__e2e__/api/normal/measurements",
+      "resourceType": "fetch",
+      "postData": null,
+      "startedAt": 1773244915350,
+      "status": 200,
+      "responseBodySnippet": "{\n  \"counts\": {\n    \"events\": 1,\n    \"action_types\": {\n      \"geometry_measurement_run\": 1\n    },\n    \"evidence_labels\": {\n      \"DERIVED\": 1\n    }\n  },\n  \"events\": [\n    {\n      \"id\": \"evt-baseline-001\",\n      \"action_type\": \"geometry_measurement_run\",\n      \"evidence_label\": \"DERIVED\",\n      \"operator_label\": \"baseline_probe\",\n      \"measurement_method\": \"selection_geometry\",\n      \"confidence\": 0.82,\n      \"rationale\": \"Baseline local geometry measurement for the persistence loop.\",\n      \"created_at\": \"2026-03-11T12:00:00Z\",\n      \"target_ids\": [\n        \"meme-persistence\",\n        \"meme-r"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:4173/__e2e__/api/normal/basin",
+      "resourceType": "fetch",
+      "postData": null,
+      "startedAt": 1773244915350,
+      "status": 200,
+      "responseBodySnippet": "{\n  \"projection_method\": \"svd_on_turn_features\",\n  \"projection_version\": \"2026.03\",\n  \"projection_input_hash\": \"proj-hash-normal-001\",\n  \"filtered_turn_count\": 4,\n  \"source_turn_count\": 6,\n  \"turns\": [\n    {\n      \"turn_id\": \"turn-001\",\n      \"turn_index\": 1,\n      \"session_id\": \"session-alpha\",\n      \"x\": -1.4,\n      \"y\": 0.3,\n      \"display_attractor_label\": \"Persistence Cluster\",\n      \"dominant_label\": \"Persistence Cluster\",\n      \"dominant_domain\": \"behavior\",\n      \"dominant_cluster_signature\": \"cluster-loop\",\n      \"active_set_node_ids\": [\n        \"meme-persistence\",\n        \"meme-retri"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:4173/__e2e__/api/normal/events?session_id=session-alpha",
+      "resourceType": "eventsource",
+      "postData": null,
+      "startedAt": 1773244915356,
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:4173/__e2e__/api/normal/graph",
+      "resourceType": "fetch",
+      "postData": null,
+      "startedAt": 1773244915357,
+      "status": 200,
+      "responseBodySnippet": "{\n  \"export_manifest_id\": \"manifest-graph-hash-normal-v1\",\n  \"source_graph_hash\": \"graph-hash-normal-v1\",\n  \"graph_modes\": [\n    \"Semantic Map\",\n    \"Assemblies\",\n    \"Runtime\",\n    \"Active Set\",\n    \"Compare\"\n  ],\n  \"assembly_render_modes\": [\n    \"hulls\",\n    \"collapsed-meta-node\",\n    \"hidden\"\n  ],\n  \"semantic_nodes\": [\n    {\n      \"id\": \"meme-persistence\",\n      \"label\": \"Persistence Loop\",\n      \"kind\": \"meme\",\n      \"domain\": \"behavior\",\n      \"source_kind\": \"operator_seed\",\n      \"summary\": \"Recurrence motif that keeps a claim active across turns.\",\n      \"created_at\": \"2026-03-10T09:00:"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:4173/__e2e__/api/normal/transcript",
+      "resourceType": "fetch",
+      "postData": null,
+      "startedAt": 1773244915357,
+      "status": 200,
+      "responseBodySnippet": "{\n  \"turns\": [\n    {\n      \"turn_id\": \"turn-001\",\n      \"turn_index\": 1,\n      \"user_text\": \"Discuss Persistence Cluster\",\n      \"active_set_node_ids\": [\n        \"meme-persistence\",\n        \"meme-retrieval\"\n      ],\n      \"active_set_labels\": [\n        \"Persistence Loop\",\n        \"Retrieval Bridge\"\n      ],\n      \"profile_name\": \"balanced\"\n    },\n    {\n      \"turn_id\": \"turn-002\",\n      \"turn_index\": 2,\n      \"user_text\": \"Discuss Persistence Cluster\",\n      \"active_set_node_ids\": [\n        \"meme-persistence\",\n        \"meme-retrieval\",\n        \"meme-membrane\"\n      ],\n      \"active_set_labels\""
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:4173/__e2e__/api/normal/runtime/status",
+      "resourceType": "fetch",
+      "postData": null,
+      "startedAt": 1773244915357,
+      "status": 200,
+      "responseBodySnippet": "{\n  \"available\": true,\n  \"mode\": \"local_mlx\"\n}"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:4173/__e2e__/api/normal/runtime/model",
+      "resourceType": "fetch",
+      "postData": null,
+      "startedAt": 1773244915357,
+      "status": 200,
+      "responseBodySnippet": "{\n  \"available\": true,\n  \"backend\": \"mlx\",\n  \"profile\": \"balanced\"\n}"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:4173/__e2e__/api/normal/geometry",
+      "resourceType": "fetch",
+      "postData": null,
+      "startedAt": 1773244915388,
+      "status": 200,
+      "responseBodySnippet": "{\n  \"generated_at\": \"2026-03-11T12:05:00Z\",\n  \"coordinate_modes\": [\n    \"force\",\n    \"spectral\"\n  ],\n  \"evidence_labels\": [\n    \"OBSERVED\",\n    \"DERIVED\",\n    \"SPECULATIVE\"\n  ],\n  \"operator_assertion_labels\": [\n    \"OPERATOR_ASSERTED\",\n    \"OPERATOR_REFINED\"\n  ],\n  \"slices\": [\n    {\n      \"slice_id\": \"slice-persistence\",\n      \"label\": \"Persistence loop selection\",\n      \"evidence_label\": \"OBSERVED\",\n      \"score\": 0.84\n    }\n  ],\n  \"basin_projection\": {\n    \"projection_method\": \"svd_on_turn_features\",\n    \"projection_version\": \"2026.03\",\n    \"derived_badge\": \"DERIVED\"\n  }\n}"
+    }
+  ],
+  "sseEvents": [],
+  "result": "pass",
+  "ledgerDiff": {
+    "beforeCount": 1,
+    "afterCount": 1,
+    "delta": 0,
+    "beforeActionTypes": {
+      "geometry_measurement_run": 1
+    },
+    "afterActionTypes": {
+      "geometry_measurement_run": 1
+    }
+  }
+}

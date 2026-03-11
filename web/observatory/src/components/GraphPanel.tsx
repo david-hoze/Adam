@@ -1,6 +1,6 @@
 import Graph from "graphology";
 import Sigma from "sigma";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type GraphMode = "Semantic Map" | "Assemblies" | "Runtime" | "Active Set" | "Compare";
 
@@ -39,6 +39,7 @@ function colorFor(value: string): string {
 export default function GraphPanel({ payload, mode, currentTurnNodeIds, selectedNodeId, selectedAssembly, onSelectNode }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sigmaRef = useRef<Sigma | null>(null);
+  const [renderError, setRenderError] = useState<string | null>(null);
 
   const clusterAnchors = useMemo(() => {
     const anchors = new Map<string, string>();
@@ -51,63 +52,81 @@ export default function GraphPanel({ payload, mode, currentTurnNodeIds, selected
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const graph = new Graph();
-    const activeSet = new Set(currentTurnNodeIds);
-    const assemblyMembers = new Set(selectedAssembly?.member_meme_ids ?? []);
-    const assemblyEdges = new Set(selectedAssembly?.supporting_edge_ids ?? []);
-    const semanticMode = mode === "Semantic Map" || mode === "Assemblies" || mode === "Active Set" || mode === "Compare";
-    const nodes = semanticMode ? payload.semantic_nodes : payload.runtime_nodes;
-    const edges = semanticMode ? payload.semantic_edges : payload.runtime_edges;
+    setRenderError(null);
+    let renderer: Sigma | null = null;
 
-    for (const node of nodes) {
-      const coords = node.render_coords?.force ?? node.derived_coords?.spectral ?? { x: 0, y: 0 };
-      const highlighted = activeSet.has(node.id) || selectedNodeId === node.id || assemblyMembers.has(node.id);
-      const isClusterAnchor = clusterAnchors.has(node.id);
-      const centralityLabel = Number(node.degree ?? 0) >= 3;
-      let label = "";
-      if (mode === "Semantic Map" && isClusterAnchor) label = clusterAnchors.get(node.id) ?? "";
-      if (!label && (highlighted || centralityLabel)) label = String(node.label ?? node.id);
-      graph.addNode(node.id, {
-        x: Number(coords.x ?? 0),
-        y: Number(coords.y ?? 0),
-        size: highlighted ? 10 : 6,
-        label,
-        color: assemblyMembers.has(node.id)
-          ? "#fff0a8"
-          : activeSet.has(node.id)
-            ? "#ffcb73"
-            : colorFor(String(node.cluster_signature ?? node.kind ?? node.id)),
+    try {
+      const graph = new Graph();
+      const activeSet = new Set(currentTurnNodeIds);
+      const assemblyMembers = new Set(selectedAssembly?.member_meme_ids ?? []);
+      const assemblyEdges = new Set(selectedAssembly?.supporting_edge_ids ?? []);
+      const semanticMode = mode === "Semantic Map" || mode === "Assemblies" || mode === "Active Set" || mode === "Compare";
+      const nodes = semanticMode ? payload.semantic_nodes : payload.runtime_nodes;
+      const edges = semanticMode ? payload.semantic_edges : payload.runtime_edges;
+
+      for (const node of nodes) {
+        const coords = node.render_coords?.force ?? node.derived_coords?.spectral ?? { x: 0, y: 0 };
+        const highlighted = activeSet.has(node.id) || selectedNodeId === node.id || assemblyMembers.has(node.id);
+        const isClusterAnchor = clusterAnchors.has(node.id);
+        const centralityLabel = Number(node.degree ?? 0) >= 3;
+        let label = "";
+        if (mode === "Semantic Map" && isClusterAnchor) label = clusterAnchors.get(node.id) ?? "";
+        if (!label && (highlighted || centralityLabel)) label = String(node.label ?? node.id);
+        graph.addNode(node.id, {
+          x: Number(coords.x ?? 0),
+          y: Number(coords.y ?? 0),
+          size: highlighted ? 10 : 6,
+          label,
+          color: assemblyMembers.has(node.id)
+            ? "#fff0a8"
+            : activeSet.has(node.id)
+              ? "#ffcb73"
+              : colorFor(String(node.cluster_signature ?? node.kind ?? node.id)),
+        });
+      }
+
+      for (const edge of edges) {
+        if (!graph.hasNode(edge.source) || !graph.hasNode(edge.target)) continue;
+        graph.addEdge(edge.source, edge.target, {
+          size: assemblyEdges.has(edge.id) ? 2.5 : 1.1,
+          color: assemblyEdges.has(edge.id) ? "#fff0a8" : "rgba(233, 177, 90, 0.38)",
+          label: selectedAssembly && assemblyEdges.has(edge.id) ? String(edge.type ?? "") : "",
+        });
+      }
+
+      renderer = new Sigma(graph, containerRef.current, {
+        renderEdgeLabels: Boolean(selectedAssembly),
+        labelRenderedSizeThreshold: 7,
+        labelDensity: 0.08,
+        allowInvalidContainer: true,
       });
-    }
-
-    for (const edge of edges) {
-      if (!graph.hasNode(edge.source) || !graph.hasNode(edge.target)) continue;
-      graph.addEdge(edge.source, edge.target, {
-        size: assemblyEdges.has(edge.id) ? 2.5 : 1.1,
-        color: assemblyEdges.has(edge.id) ? "#fff0a8" : "rgba(233, 177, 90, 0.38)",
-        label: selectedAssembly && assemblyEdges.has(edge.id) ? String(edge.type ?? "") : "",
+      sigmaRef.current = renderer;
+      renderer.on("clickNode", ({ node, event }) => {
+        const additive = Boolean((event.original as MouseEvent | undefined)?.shiftKey);
+        onSelectNode(String(node), additive);
       });
+      renderer.on("clickStage", () => onSelectNode("", false));
+      renderer.getCamera().animatedReset({ duration: 250 });
+    } catch (error) {
+      containerRef.current.innerHTML = "";
+      setRenderError(error instanceof Error ? error.message : "Graph renderer unavailable.");
     }
-
-    const renderer = new Sigma(graph, containerRef.current, {
-      renderEdgeLabels: Boolean(selectedAssembly),
-      labelRenderedSizeThreshold: 7,
-      labelDensity: 0.08,
-      allowInvalidContainer: true,
-    });
-    sigmaRef.current = renderer;
-    renderer.on("clickNode", ({ node, event }) => {
-      const additive = Boolean((event.original as MouseEvent | undefined)?.shiftKey);
-      onSelectNode(String(node), additive);
-    });
-    renderer.on("clickStage", () => onSelectNode("", false));
-    renderer.getCamera().animatedReset({ duration: 250 });
 
     return () => {
-      renderer.kill();
+      renderer?.kill();
       sigmaRef.current = null;
     };
   }, [payload, mode, currentTurnNodeIds, selectedNodeId, selectedAssembly, onSelectNode, clusterAnchors]);
 
-  return <div className="graph-panel" ref={containerRef} />;
+  if (renderError) {
+    return (
+      <div key="graph-fallback" className="empty-state" data-testid="graph-canvas-fallback" role="note">
+        <h2>Graph renderer unavailable</h2>
+        <p>{renderError}</p>
+        <p>Use Graph Entities, Relations, and inspector cards to keep read paths truthful.</p>
+      </div>
+    );
+  }
+
+  return <div key="graph-canvas" aria-label="Graph canvas" className="graph-panel" data-testid="graph-canvas" ref={containerRef} role="region" />;
 }

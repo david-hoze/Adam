@@ -1391,3 +1391,98 @@ Remaining uncertainties:
 - The Action Bus now makes the in-flight observatory path legible, but if the host browser ignores both `webbrowser.open(...)` and the OS fallback, EDEN can only report the attempted launch path and failure detail.
 Next shortest proof path:
 - Start the TUI, select `Open Browser Observatory`, and confirm the Action Bus shows the observatory phases plus elapsed time and that the menu returns to `Review Last Reply` after dispatch so a later Observatory selection re-runs cleanly.
+
+
+## [2026-03-11 11:15:00 EDT] PRE-FLIGHT
+Operator task:
+Build an observatory Playwright E2E audit from repo root that proves truthful browser-instrument behavior, adds deterministic browser fixtures/harness helpers, records per-journey evidence, and classifies absent browser mutation flows honestly.
+Task checksum:
+Requested journey battery J01-J17 with strict truth registers. Canonical contract slice: `docs/OBSERVATORY_SPEC.md`, `docs/OBSERVATORY_INTERACTION_SPEC.md`, `docs/OBSERVATORY_GEOMETRY_SPEC.md`, `docs/GEOMETRY_EVIDENCE_POLICY.md`, `docs/MEASUREMENT_EVENT_MODEL.md`, `docs/KNOWN_LIMITATIONS.md`, `docs/IMPLEMENTATION_TRUTH_TABLE.md`, plus current UI code in `web/observatory/src/App.tsx`, `web/observatory/src/components/GraphPanel.tsx`, `web/observatory/src/components/BasinPanel.tsx`, and existing Python observatory tests.
+Repo situation:
+Working tree already dirty before this turn with modified `.DS_Store` and untracked `docs.zip`. Existing Playwright config and a minimal E2E spec already exist under `web/observatory/`, but current React UI appears strongest on read/inspect behavior. Server-side preview/commit/revert contracts exist in Python; browser exposure is not yet proved.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`, `/Users/brianray/Adam/docs/OBSERVATORY_INTERACTION_SPEC.md`, `/Users/brianray/Adam/docs/OBSERVATORY_GEOMETRY_SPEC.md`, `/Users/brianray/Adam/docs/GEOMETRY_EVIDENCE_POLICY.md`, `/Users/brianray/Adam/docs/MEASUREMENT_EVENT_MODEL.md`, `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`, `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`, `/Users/brianray/Adam/AGENTS.md`.
+Natural-language contracts in force:
+The observatory is a live-first measurement instrument, not a generic graph IDE. Inspect is read-only. Layout, coordinate modes, basin lift modes, and browser-local presets must never masquerade as evidence or graph mutation. Preview is separate from commit. Revert is explicit and ledgered. Static versus live source mode must remain explicit. Browser-local presets stay non-authoritative and absent from the measurement ledger.
+Files/modules likely in scope:
+`/Users/brianray/Adam/web/observatory/src/App.tsx`, `/Users/brianray/Adam/web/observatory/src/components/GraphPanel.tsx`, `/Users/brianray/Adam/web/observatory/src/components/BasinPanel.tsx`, `/Users/brianray/Adam/web/observatory/playwright.config.ts`, `/Users/brianray/Adam/web/observatory/tests/e2e/**`, `/Users/brianray/Adam/web/observatory/tests/fixtures/**`, `/Users/brianray/Adam/docs/OBSERVATORY_E2E_AUDIT.md`, `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`, `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`, `/Users/brianray/Adam/codex_notes_garden.md`.
+Status register:
+- Implemented:
+  - React observatory shell exposes source-mode badge, stale-build warning, payload status, deferred geometry loading, graph/basin/measurement read surfaces, inspector cards/json toggle, browser-local view presets, and SSE refresh wiring in code.
+  - Python observatory server exposes live API, preview/commit/revert endpoints, measurement-events payloads, and compact SSE invalidation events under pytest.
+- Instrumented:
+  - Existing Playwright config and minimal static-fixture smoke tests.
+- Conceptual:
+  - Browser GUI preview/commit/revert/edit/memode mutation workflows until actual React controls are proved.
+  - Runtime-bridge causality in the browser until a visible runtime surface is proved.
+- Unknown:
+  - Whether current browser UI exposes any hidden mutation controls beyond the read surfaces already seen in `App.tsx`.
+  - Whether current fixtures are sufficient to prove cross-surface coherence, sparse honesty, payload degradation, and live/static parity without augmentation.
+Risks / invariants:
+Do not invent browser mutation workflows absent from the UI. Prefer public DOM/ARIA selectors; add narrow stable hooks only where canvas/custom rendering blocks observability. Keep browser-local preset state non-authoritative. Do not let static export mode silently fall back to live claims. Preserve exact repository vocabulary around meme, memode, observatory, and measurement event.
+Evidence plan:
+Inspect the existing E2E harness and export fixtures, add deterministic live/static/failure/SSE fixtures or a small local harness, add Playwright helpers for network/SSE/ledger/localStorage/source-mode assertions, patch UI with narrow test hooks only where public DOM is insufficient, run Chromium-first journeys plus smaller Firefox/WebKit smoke journeys, and write `docs/OBSERVATORY_E2E_AUDIT.md` with per-journey register/evidence/gap classification.
+Shortest proof path:
+Prove J01-J09 and J17 against deterministic browser fixtures/harnesses first, classify J10-J14 as pass only if a real GUI path exists, otherwise record exact GUI contract gaps with DOM/code proof, then add P2 parity/resilience coverage and rerun Playwright plus repo pytest.
+
+
+## [2026-03-11 12:00:20 EDT] POST-FLIGHT
+Files changed:
+- `/Users/brianray/Adam/web/observatory/src/App.tsx`
+- `/Users/brianray/Adam/web/observatory/src/components/GraphPanel.tsx`
+- `/Users/brianray/Adam/web/observatory/src/components/BasinPanel.tsx`
+- `/Users/brianray/Adam/web/observatory/playwright.config.ts`
+- `/Users/brianray/Adam/web/observatory/tests/e2e/harness/fixtures.mjs`
+- `/Users/brianray/Adam/web/observatory/tests/e2e/harness/server.mjs`
+- `/Users/brianray/Adam/web/observatory/tests/e2e/helpers.ts`
+- `/Users/brianray/Adam/web/observatory/tests/e2e/observatory.spec.ts`
+- `/Users/brianray/Adam/docs/OBSERVATORY_E2E_AUDIT.md`
+- `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+- `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+- `/Users/brianray/Adam/eden/observatory/static/observatory_app/build-meta.json`
+- `/Users/brianray/Adam/eden/observatory/static/observatory_app/index.js`
+Specs changed:
+- `/Users/brianray/Adam/docs/OBSERVATORY_E2E_AUDIT.md`
+- `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+- `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+Natural-language contracts added/revised/preserved:
+- Added the browser-proof audit surface with per-journey register/evidence/gap classification.
+- Revised truth surfaces so browser-local presets, read/inspect journeys, and GUI mutation gaps are stated honestly.
+- Preserved the normative observatory contract while downgrading absent React mutation/runtime surfaces to browser UI gaps instead of overclaiming implementation.
+Behavior implemented or modified:
+- Added deterministic Playwright harness fixtures for live/static/stale/unavailable/partial/heavy/hash-mismatch scenarios plus SSE invalidation control.
+- Added browser E2E helpers for source-mode checks, payload-status checks, ledger diffs, localStorage diffs, SSE capture, and artifact persistence.
+- Added accessible text-access controls for graph entities, relations, basin turns, transcript turns, and inspector cross-surface state.
+- Fixed Graph/Basin renderer fallback so headless or no-WebGL contexts show explicit renderer-unavailable notes instead of blank panels.
+- Fixed browser-local preset hydration so reload restores the saved graph view without leaking into the wrong manifest hash.
+- Fixed Geometry error handling so real HTTP failures surface as scoped in-panel diagnostics instead of generic deferred copy.
+Evidence produced (tests / traces / commands / exports):
+- `npm --prefix web/observatory test`
+- `npm --prefix web/observatory run build`
+- `npm --prefix web/observatory run test:e2e -- --project=chromium --output=test-results/chromium-final`
+- `npm --prefix web/observatory run test:e2e -- --project=firefox --output=test-results/firefox-final`
+- `npm --prefix web/observatory run test:e2e -- --project=webkit --output=test-results/webkit-final`
+- `npx playwright install firefox webkit`
+- `./.venv/bin/pytest -q` -> `48 passed in 26.20s`
+- Durable browser evidence bundles under `/Users/brianray/Adam/web/observatory/test-results/chromium-final`, `/Users/brianray/Adam/web/observatory/test-results/firefox-final`, and `/Users/brianray/Adam/web/observatory/test-results/webkit-final` with `Jxx.json`, `Jxx.png`, and `Jxx.html` artifacts.
+Status register changes:
+- Implemented:
+  - Chromium browser proof for J01-J05, J07-J09, J15-J17.
+  - Firefox/WebKit smoke proof for J01, J05, and J17.
+  - Honest Graph/Basin renderer fallback, scoped Geometry failure diagnostics, and browser-local preset restore.
+- Instrumented:
+  - Stable accessible names and persisted Playwright journey evidence with network/SSE/ledger/localStorage traces.
+- Conceptual:
+  - J06 coordinate-mode compare surface in the current React UI.
+  - J10-J14 measure/edit/memode/revert/runtime-causality flows in the current React UI.
+- Unknown:
+  - No additional browser observatory unknowns remain in the audited journey set; remaining gaps are classified as conceptual GUI absences rather than unknown behavior.
+Truth-table / limitations updates:
+- Added the Playwright browser audit row to `IMPLEMENTATION_TRUTH_TABLE.md`.
+- Replaced overclaimed browser interaction rows with server-side/browser-gap distinctions.
+- Updated `KNOWN_LIMITATIONS.md` with the current read/inspect-first React posture and the explicit WebGL fallback boundary.
+Remaining uncertainties:
+- Server-side preview/commit/revert and runtime-bridge contracts are still not browser-proved because the current React bundle does not surface those controls.
+- Firefox/WebKit coverage remains intentionally smoke-scoped to J01, J05, and J17 rather than the full Chromium journey battery.
+Next shortest proof path:
+- If browser mutation work is in scope next, surface explicit MEASURE/EDIT/REVERT/runtime-causality controls in the React UI and then replace the J06/J10-J14 gap proofs with browser mutation evidence in the same harness.

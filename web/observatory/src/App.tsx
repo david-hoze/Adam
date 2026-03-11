@@ -111,6 +111,7 @@ const SURFACES: Surface[] = ["overview", "graph", "basin", "geometry", "measurem
 const DEFAULT_GRAPH_MODE: GraphMode = "Semantic Map";
 const DEFAULT_ASSEMBLY_RENDER_MODE: AssemblyRenderMode = "hulls";
 const DEFAULT_LIFT_MODE: LiftMode = "flat";
+const TEXT_ACCESS_LIMIT = 12;
 const ESSENTIAL_PAYLOADS: PayloadKey[] = ["overview", "measurements", "basin"];
 const PAYLOAD_ORDER: PayloadKey[] = ["overview", "measurements", "basin", "graph", "geometry", "transcript", "runtimeStatus", "runtimeModel"];
 
@@ -203,6 +204,24 @@ function formatValue(value: unknown): string {
   return String(value);
 }
 
+function cappedItems<T>(items: T[], limit = TEXT_ACCESS_LIMIT): { items: T[]; capped: boolean; total: number } {
+  return {
+    items: items.slice(0, limit),
+    capped: items.length > limit,
+    total: items.length,
+  };
+}
+
+function nodeLabel(node: any): string {
+  return String(node?.label ?? node?.id ?? "unknown node");
+}
+
+function edgeLabel(edge: any, nodeLookup: Map<string, any>): string {
+  const sourceLabel = nodeLabel(nodeLookup.get(edge?.source) ?? { id: edge?.source });
+  const targetLabel = nodeLabel(nodeLookup.get(edge?.target) ?? { id: edge?.target });
+  return `${String(edge?.type ?? "EDGE")}: ${sourceLabel} -> ${targetLabel}`;
+}
+
 function initializePayloadStatuses(sources: Partial<Record<PayloadKey, string>>, liveEnabled: boolean): Record<PayloadKey, PayloadStatus> {
   const next = structuredClone(EMPTY_STATUS);
   for (const key of PAYLOAD_ORDER) {
@@ -253,8 +272,10 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
   const [liftMode, setLiftMode] = useState<LiftMode>(DEFAULT_LIFT_MODE);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("cards");
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [selectedAssemblyId, setSelectedAssemblyId] = useState<string | null>(null);
   const [selectedTurnId, setSelectedTurnId] = useState<string | null>(null);
+  const [loadedPresetKey, setLoadedPresetKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<DataBundle>(EMPTY_DATA);
@@ -264,6 +285,26 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
   const presetStorageKey = useMemo(() => storageKey({ bootstrap, graph: data.graph, surface }), [bootstrap, data.graph, surface]);
 
   const selectedNodeId = selectedNodeIds[0] ?? null;
+  const nodeLookup = useMemo(
+    () =>
+      new Map<string, any>([
+        ...(data.graph?.semantic_nodes ?? []),
+        ...(data.graph?.runtime_nodes ?? []),
+      ].map((node: any) => [String(node.id), node])),
+    [data.graph],
+  );
+  const graphNodes = useMemo(
+    () => (data.graph?.semantic_nodes?.length ? data.graph.semantic_nodes : data.graph?.runtime_nodes ?? []),
+    [data.graph],
+  );
+  const graphEdges = useMemo(
+    () => (data.graph?.semantic_edges?.length ? data.graph.semantic_edges : data.graph?.runtime_edges ?? []),
+    [data.graph],
+  );
+  const selectedEdge = useMemo(
+    () => graphEdges.find((edge: any) => edge.id === selectedEdgeId) ?? null,
+    [graphEdges, selectedEdgeId],
+  );
   const selectedAssembly = useMemo(
     () => data.graph?.assemblies?.find((assembly: any) => assembly.id === selectedAssemblyId) ?? null,
     [data.graph, selectedAssemblyId],
@@ -285,24 +326,39 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
     () => currentTurnNodeIds(data.graph, data.transcript, selectedTurn?.turn_id ?? null),
     [data.graph, data.transcript, selectedTurn],
   );
+  const selectedEdgeSource = selectedEdge ? nodeLookup.get(String(selectedEdge.source)) ?? null : null;
+  const selectedEdgeTarget = selectedEdge ? nodeLookup.get(String(selectedEdge.target)) ?? null : null;
+  const visibleGraphNodes = useMemo(() => cappedItems(graphNodes), [graphNodes]);
+  const visibleGraphEdges = useMemo(() => cappedItems(graphEdges), [graphEdges]);
+  const visibleBasinTurns = useMemo(() => cappedItems(data.basin?.turns ?? []), [data.basin]);
+  const visibleAssemblies = useMemo(() => cappedItems(data.graph?.assemblies ?? []), [data.graph]);
 
   useEffect(() => {
+    let nextGraphMode = DEFAULT_GRAPH_MODE;
+    let nextAssemblyRenderMode = DEFAULT_ASSEMBLY_RENDER_MODE;
+    let nextLiftMode = DEFAULT_LIFT_MODE;
     try {
       const raw = window.localStorage.getItem(presetStorageKey);
-      if (!raw) return;
-      const preset = JSON.parse(raw) as Partial<{ graphMode: GraphMode; assemblyRenderMode: AssemblyRenderMode; liftMode: LiftMode }>;
-      if (preset.graphMode) setGraphMode(preset.graphMode);
-      if (preset.assemblyRenderMode) setAssemblyRenderMode(preset.assemblyRenderMode);
-      if (preset.liftMode) setLiftMode(preset.liftMode);
+      if (raw) {
+        const preset = JSON.parse(raw) as Partial<{ graphMode: GraphMode; assemblyRenderMode: AssemblyRenderMode; liftMode: LiftMode }>;
+        nextGraphMode = preset.graphMode ?? DEFAULT_GRAPH_MODE;
+        nextAssemblyRenderMode = preset.assemblyRenderMode ?? DEFAULT_ASSEMBLY_RENDER_MODE;
+        nextLiftMode = preset.liftMode ?? DEFAULT_LIFT_MODE;
+      }
     } catch {
       // ignore corrupt local view presets
     }
+    setGraphMode(nextGraphMode);
+    setAssemblyRenderMode(nextAssemblyRenderMode);
+    setLiftMode(nextLiftMode);
+    setLoadedPresetKey(presetStorageKey);
   }, [presetStorageKey]);
 
   useEffect(() => {
+    if (loadedPresetKey !== presetStorageKey) return;
     const payload = JSON.stringify({ graphMode, assemblyRenderMode, liftMode });
     window.localStorage.setItem(presetStorageKey, payload);
-  }, [assemblyRenderMode, graphMode, liftMode, presetStorageKey]);
+  }, [assemblyRenderMode, graphMode, liftMode, loadedPresetKey, presetStorageKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -544,6 +600,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
   }, [data.geometry, resolvedSources, surface]);
 
   function handleSelectNode(nodeId: string, additive: boolean) {
+    setSelectedEdgeId(null);
     if (!nodeId) {
       setSelectedNodeIds([]);
       return;
@@ -552,6 +609,29 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
       if (!additive) return [nodeId];
       return current.includes(nodeId) ? current.filter((item) => item !== nodeId) : [...current, nodeId];
     });
+  }
+
+  function handleSelectAssembly(assemblyId: string) {
+    setSelectedAssemblyId(assemblyId);
+    setSelectedEdgeId(null);
+    setSelectedNodeIds([]);
+  }
+
+  function handleSelectEdge(edgeId: string) {
+    setSelectedEdgeId(edgeId);
+    setSelectedNodeIds([]);
+  }
+
+  function handleSelectTurn(turnId: string) {
+    setSelectedTurnId(turnId);
+    setSelectedAssemblyId(null);
+    setSelectedEdgeId(null);
+    setSelectedNodeIds([]);
+  }
+
+  function handleFocusNode(nodeId: string) {
+    setSelectedNodeIds([nodeId]);
+    setSelectedEdgeId(null);
   }
 
   function renderOverview() {
@@ -695,9 +775,69 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
   }
 
   function renderInspector() {
-    const rawTarget = selectedAssembly ?? selectedNode ?? selectedTurn ?? data.overview ?? {};
-    const measurementHistory = selectedNode?.measurement_history ?? selectedAssembly?.measurement_history ?? [];
-    const provenance = selectedNode?.provenance ?? selectedAssembly?.operator_label ?? selectedTurn?.profile_name ?? "";
+    const rawTarget = selectedEdge ?? selectedNode ?? selectedAssembly ?? selectedTurn ?? data.overview ?? {};
+    const measurementHistory = selectedEdge?.measurement_history ?? selectedNode?.measurement_history ?? selectedAssembly?.measurement_history ?? [];
+    const provenance =
+      selectedEdge?.operator_label ??
+      selectedEdge?.provenance?.assertion_origin ??
+      selectedNode?.provenance ??
+      selectedAssembly?.operator_label ??
+      selectedTurn?.profile_name ??
+      "";
+    const identityLabel = selectedEdge
+      ? edgeLabel(selectedEdge, nodeLookup)
+      : rawTarget?.label ?? rawTarget?.display_attractor_label ?? rawTarget?.display_label;
+    const ontologyKind = rawTarget?.kind ?? (selectedEdge ? "edge" : selectedAssembly ? "memode" : selectedTurn ? "turn" : "overview");
+    const ontologyDomain = selectedEdge
+      ? `${selectedEdgeSource?.domain ?? "unknown"} -> ${selectedEdgeTarget?.domain ?? "unknown"}`
+      : rawTarget?.domain ?? rawTarget?.dominant_domain;
+    const ontologySource = selectedEdge?.assertion_origin ?? selectedEdge?.provenance?.assertion_origin ?? rawTarget?.source_kind ?? "observatory";
+    const clusterDisplay = selectedEdge
+      ? `${selectedEdgeSource?.cluster_label ?? selectedEdgeSource?.cluster_signature ?? "unknown"} -> ${selectedEdgeTarget?.cluster_label ?? selectedEdgeTarget?.cluster_signature ?? "unknown"}`
+      : rawTarget?.cluster_label ?? rawTarget?.display_label ?? selectedTurn?.display_attractor_label;
+    const supportingRelations = selectedEdge
+      ? [
+          ["Source", nodeLabel(selectedEdgeSource ?? { id: selectedEdge?.source })],
+          ["Target", nodeLabel(selectedEdgeTarget ?? { id: selectedEdge?.target })],
+          ["Relation type", selectedEdge?.type],
+        ]
+      : selectedNode
+        ? [
+            [
+              "Connected relations",
+              graphEdges
+                .filter((edge: any) => edge.source === selectedNode.id || edge.target === selectedNode.id)
+                .slice(0, 4)
+                .map((edge: any) => edgeLabel(edge, nodeLookup)),
+            ],
+            ["Current turn", selectedTurn?.turn_id],
+            ["Attractor", selectedTurn?.display_attractor_label],
+          ]
+        : [
+            ["Active set nodes", selectedTurn?.active_set_node_ids],
+            ["Transition", selectedTurn?.transition_kind],
+            ["Attractor", selectedTurn?.display_attractor_label],
+          ];
+    const activeSetPresence = selectedEdge
+      ? [
+          ["Source presence", selectedEdgeSource?.recent_active_set_presence],
+          ["Target presence", selectedEdgeTarget?.recent_active_set_presence],
+          ["Highlighted nodes", highlightedNodeIds.length],
+        ]
+      : selectedAssembly
+        ? [
+            [
+              "Members in active set",
+              (selectedAssembly.member_meme_ids ?? []).filter((id: string) => highlightedNodeIds.includes(id)),
+            ],
+            ["Highlighted nodes", highlightedNodeIds.length],
+            ["Selected turn", selectedTurn?.turn_id],
+          ]
+        : [
+            ["Recent presence", rawTarget?.recent_active_set_presence ?? selectedTurn?.active_set_summary?.size],
+            ["Selected turn", selectedTurn?.turn_id],
+            ["Highlighted nodes", highlightedNodeIds.length],
+          ];
     return (
       <aside className="inspector">
         <div className="inspector-tabs">
@@ -716,7 +856,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
               <MetricList
                 items={[
                   ["ID", rawTarget?.id ?? rawTarget?.turn_id ?? rawTarget?.cluster_signature],
-                  ["Label", rawTarget?.label ?? rawTarget?.display_attractor_label ?? rawTarget?.display_label],
+                  ["Label", identityLabel],
                   ["Created", rawTarget?.created_at],
                 ]}
               />
@@ -724,9 +864,9 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
             <Card title="Ontology">
               <MetricList
                 items={[
-                  ["Kind", rawTarget?.kind ?? (selectedAssembly ? "memode" : selectedTurn ? "turn" : "overview")],
-                  ["Domain", rawTarget?.domain ?? rawTarget?.dominant_domain],
-                  ["Source", rawTarget?.source_kind ?? "observatory"],
+                  ["Kind", ontologyKind],
+                  ["Domain", ontologyDomain],
+                  ["Source", ontologySource],
                 ]}
               />
             </Card>
@@ -743,16 +883,16 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
               <MetricList
                 items={[
                   ["Operator/Source", provenance],
-                  ["Evidence label", rawTarget?.evidence_label ?? selectedAssembly?.evidence_label],
-                  ["Confidence", rawTarget?.confidence ?? selectedAssembly?.confidence],
+                  ["Evidence label", rawTarget?.evidence_label ?? selectedAssembly?.evidence_label ?? selectedEdge?.evidence_label],
+                  ["Confidence", rawTarget?.confidence ?? selectedAssembly?.confidence ?? selectedEdge?.confidence],
                 ]}
               />
             </Card>
             <Card title="Cluster Membership">
               <MetricList
                 items={[
-                  ["Cluster", rawTarget?.cluster_signature ?? selectedTurn?.dominant_cluster_signature],
-                  ["Display label", rawTarget?.cluster_label ?? rawTarget?.display_label ?? selectedTurn?.display_attractor_label],
+                  ["Cluster", selectedEdge ? `${selectedEdgeSource?.cluster_signature ?? "unknown"} -> ${selectedEdgeTarget?.cluster_signature ?? "unknown"}` : rawTarget?.cluster_signature ?? selectedTurn?.dominant_cluster_signature],
+                  ["Display label", clusterDisplay],
                   ["Domain mix", rawTarget?.domain_mix],
                 ]}
               />
@@ -760,20 +900,25 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
             <Card title="Memode Membership">
               <MetricList
                 items={[
-                  ["Assemblies", rawTarget?.memode_membership ?? selectedAssembly?.member_meme_ids],
+                  [
+                    "Assemblies",
+                    selectedEdge
+                      ? [
+                          ...(selectedEdgeSource?.memode_membership ?? []),
+                          ...(selectedEdgeTarget?.memode_membership ?? []),
+                        ]
+                      : rawTarget?.memode_membership ?? selectedAssembly?.member_meme_ids,
+                  ],
                   ["Supporting edges", selectedAssembly?.supporting_edge_ids],
                   ["Member order", selectedAssembly?.member_order],
                 ]}
               />
             </Card>
             <Card title="Supporting Relations">
-              <MetricList
-                items={[
-                  ["Active set nodes", selectedTurn?.active_set_node_ids],
-                  ["Transition", selectedTurn?.transition_kind],
-                  ["Attractor", selectedTurn?.display_attractor_label],
-                ]}
-              />
+              <MetricList items={supportingRelations} />
+            </Card>
+            <Card title="Active Set Presence">
+              <MetricList items={activeSetPresence} />
             </Card>
             <Card title="Measurement History">
               <MetricList
@@ -795,20 +940,75 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
       <aside className="sidebar">
         <Card title="Assemblies">
           {data.graph ? (
-            <div className="chip-list">
-              {(data.graph?.assemblies ?? []).slice(0, 12).map((assembly: any) => (
-                <button
-                  key={assembly.id}
-                  className={assembly.id === selectedAssemblyId ? "chip is-active" : "chip"}
-                  onClick={() => setSelectedAssemblyId(assembly.id)}
-                  type="button"
-                >
-                  {assembly.label}
-                </button>
-              ))}
-            </div>
+            <>
+              {visibleAssemblies.capped ? (
+                <p className="placeholder-copy">Showing first {TEXT_ACCESS_LIMIT} of {visibleAssemblies.total} assemblies. This browser list is capped and not exhaustive.</p>
+              ) : null}
+              <div className="chip-list">
+                {visibleAssemblies.items.map((assembly: any) => (
+                  <button
+                    aria-label={`Assembly ${assembly.label}`}
+                    key={assembly.id}
+                    className={assembly.id === selectedAssemblyId ? "chip is-active" : "chip"}
+                    onClick={() => handleSelectAssembly(assembly.id)}
+                    type="button"
+                  >
+                    {assembly.label}
+                  </button>
+                ))}
+              </div>
+            </>
           ) : (
             <p className="placeholder-copy">Graph payload {payloadStatuses.graph.status}. Assemblies appear after the semantic graph bundle arrives.</p>
+          )}
+        </Card>
+        <Card title="Graph Entities">
+          {data.graph ? (
+            <>
+              {visibleGraphNodes.capped ? (
+                <p className="placeholder-copy">Showing first {TEXT_ACCESS_LIMIT} of {visibleGraphNodes.total} graph entities. This browser list is capped and not exhaustive.</p>
+              ) : null}
+              <div className="chip-list">
+                {visibleGraphNodes.items.map((node: any) => (
+                  <button
+                    aria-label={`Graph entity ${nodeLabel(node)}`}
+                    key={node.id}
+                    className={node.id === selectedNodeId ? "chip is-active" : "chip"}
+                    onClick={() => handleFocusNode(node.id)}
+                    type="button"
+                  >
+                    {nodeLabel(node)}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="placeholder-copy">Graph payload {payloadStatuses.graph.status}. Text selection becomes available once the graph bundle is ready.</p>
+          )}
+        </Card>
+        <Card title="Relations">
+          {data.graph ? (
+            <>
+              {visibleGraphEdges.capped ? (
+                <p className="placeholder-copy">Showing first {TEXT_ACCESS_LIMIT} of {visibleGraphEdges.total} relations. This browser list is capped and not exhaustive.</p>
+              ) : null}
+              <div className="transcript-list">
+                {visibleGraphEdges.items.map((edge: any) => (
+                  <button
+                    aria-label={`Graph relation ${edgeLabel(edge, nodeLookup)}`}
+                    key={edge.id}
+                    className={edge.id === selectedEdgeId ? "transcript-turn is-active" : "transcript-turn"}
+                    onClick={() => handleSelectEdge(edge.id)}
+                    type="button"
+                  >
+                    <span>{edge.type}</span>
+                    <span>{edgeLabel(edge, nodeLookup)}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="placeholder-copy">Relations stay unavailable until the graph payload is ready.</p>
           )}
         </Card>
         <Card title="Semantic Clusters">
@@ -825,14 +1025,40 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
             <p className="placeholder-copy">Cluster summaries depend on the graph payload and are loaded separately from the overview.</p>
           )}
         </Card>
+        <Card title="Basin Turns">
+          {data.basin?.turns?.length ? (
+            <>
+              {visibleBasinTurns.capped ? (
+                <p className="placeholder-copy">Showing first {TEXT_ACCESS_LIMIT} of {visibleBasinTurns.total} basin turns. This browser list is capped and not exhaustive.</p>
+              ) : null}
+              <div className="transcript-list">
+                {visibleBasinTurns.items.map((turn: any) => (
+                  <button
+                    aria-label={`Basin turn T${turn.turn_index ?? "?"} ${turn.turn_id} ${turn.display_attractor_label ?? turn.dominant_label ?? turn.turn_id}`}
+                    key={turn.turn_id}
+                    className={turn.turn_id === selectedTurn?.turn_id ? "transcript-turn is-active" : "transcript-turn"}
+                    onClick={() => handleSelectTurn(turn.turn_id)}
+                    type="button"
+                  >
+                    <span>T{turn.turn_index ?? "?"}</span>
+                    <span>{turn.display_attractor_label ?? turn.dominant_label ?? turn.turn_id}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="placeholder-copy">Basin turns become selectable when filtered trajectory data is available.</p>
+          )}
+        </Card>
         <Card title="Transcript">
           {data.transcript ? (
             <div className="transcript-list">
               {(data.transcript?.turns ?? []).slice(0, 10).map((turn: any) => (
                 <button
+                  aria-label={`Transcript turn T${turn.turn_index} ${turn.turn_id}`}
                   key={turn.turn_id}
                   className={turn.turn_id === selectedTurn?.turn_id ? "transcript-turn is-active" : "transcript-turn"}
-                  onClick={() => setSelectedTurnId(turn.turn_id)}
+                  onClick={() => handleSelectTurn(turn.turn_id)}
                   type="button"
                 >
                   <span>T{turn.turn_index}</span>
@@ -899,7 +1125,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
             payload={data.basin}
             currentTurnId={selectedTurn?.turn_id ?? null}
             liftMode={liftMode}
-            onSelectTurn={setSelectedTurnId}
+            onSelectTurn={handleSelectTurn}
           />
         </>
       );
@@ -910,8 +1136,11 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
           <div className="empty-state">
             <h2>Geometry payload {payloadStatuses.geometry.status}</h2>
             <p>
-              The geometry bundle is intentionally deferred until you open this tab because it can be very large on seeded experiments.
+              {payloadStatuses.geometry.status === "error"
+                ? "Geometry diagnostics are unavailable for this surface."
+                : "The geometry bundle is intentionally deferred until you open this tab because it can be very large on seeded experiments."}
             </p>
+            {payloadStatuses.geometry.error ? <p>{payloadStatuses.geometry.error}</p> : null}
           </div>
         );
       }
