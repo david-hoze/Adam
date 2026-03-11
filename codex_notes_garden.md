@@ -1121,3 +1121,71 @@ Remaining uncertainties:
 - Large exported graph bundles are still large. This turn improves transparency and staging, not payload size reduction or server-side pagination.
 Next shortest proof path:
 - Re-open Browser Observatory on the current large export and confirm the Overview appears immediately with per-payload status cards, deferred Geometry, and background Graph readiness instead of an opaque loading banner.
+
+## [2026-03-11 09:53:01 EDT] PRE-FLIGHT
+Operator task:
+Repair Browser Observatory launch from the TUI. Current operator report: selecting `Open Browser Observatory` now does nothing.
+Task checksum:
+The current TUI path still calls `webbrowser.open(target_url)` directly and assumes success. No fallback or failure reporting exists if the platform launcher returns false or raises.
+Repo situation:
+Working tree already contains the earlier observatory open-path target fix plus the frontend payload-status refactor. Full pytest was green after the loading-transparency change.
+Relevant spec surfaces read:
+`docs/TUI_SPEC.md`, `docs/OBSERVATORY_SPEC.md`, repo `AGENTS.md`.
+Natural-language contracts in force:
+`Open Browser Observatory` should ensure the local observatory is running and open the current experiment index page. Failure to launch must not be silent.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/eden/app.py`, `/Users/brianray/Adam/tests/test_tui_smoke.py`, and `/Users/brianray/Adam/codex_notes_garden.md`.
+Status register:
+- Implemented:
+  - Observatory export generation, local observatory server, experiment-specific `observatory_index.html` targeting.
+- Instrumented:
+  - TUI feedback/status text for successful observatory launch target.
+- Conceptual:
+  - Robust browser-launch fallback and explicit launch-failure reporting.
+- Unknown:
+  - Whether the operator-visible failure is a `webbrowser.open` false-return path, an exception path, or a menu-action routing issue.
+Risks / invariants:
+Do not break the now-correct experiment-specific target URL. Preserve CLI and TUI launch semantics. Keep the fix bounded to launcher robustness and evidence it with tests.
+Evidence plan:
+Add a browser-launch helper with verified success/fallback/error reporting, route TUI and CLI observatory opens through it, add focused tests for fallback and failure visibility, then rerun targeted and full verification.
+Shortest proof path:
+Patch the launcher helper, prove fallback behavior with a monkeypatched test, then rerun `tests/test_tui_smoke.py`, observatory server tests, and full pytest.
+
+## [2026-03-11 09:53:01 EDT] POST-FLIGHT
+Files changed:
+- `/Users/brianray/Adam/eden/browser.py`
+- `/Users/brianray/Adam/eden/tui/app.py`
+- `/Users/brianray/Adam/eden/app.py`
+- `/Users/brianray/Adam/tests/test_tui_smoke.py`
+- `/Users/brianray/Adam/tests/test_browser_open.py`
+- `/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+- None. Existing TUI/observatory contracts already required that the menu action open the current experiment shell; this turn made launcher failure explicit and added OS fallback.
+Natural-language contracts added/revised/preserved:
+- Preserved that `Open Browser Observatory` targets the current experiment's `observatory_index.html`.
+- Preserved that the TUI is responsible for ensuring the local observatory is running before trying to open the browser.
+- Revised the effective runtime behavior so browser-launch failure is not silent: the operator now gets explicit status feedback when the URL could not be opened.
+Behavior implemented or modified:
+- Added shared browser-launch helper `open_browser_url(...)` with `webbrowser.open(...)` first, platform fallback (`open` on macOS, `xdg-open` on Linux), and structured success/failure result.
+- Routed TUI observatory open, startup observatory open, transcript-log open, and CLI `eden observatory --open` through the helper.
+- TUI observatory action now records either a success trace with the launcher method or a failure message that includes the target URL and launcher error detail.
+- CLI observatory open now prints a structured warning to stderr if the browser launcher fails instead of failing silently.
+Evidence produced (tests / traces / commands / exports):
+- `./.venv/bin/pytest -q /Users/brianray/Adam/tests/test_browser_open.py /Users/brianray/Adam/tests/test_tui_smoke.py /Users/brianray/Adam/tests/test_observatory_server.py` -> `13 passed in 18.71s`
+- `python -m compileall /Users/brianray/Adam/eden/browser.py /Users/brianray/Adam/eden/tui/app.py /Users/brianray/Adam/eden/app.py` -> success
+- `./.venv/bin/pytest -q` -> `45 passed in 20.51s`
+Status register changes:
+- Implemented:
+  - Observatory browser launch now has verified success/failure handling with OS fallback instead of a blind `webbrowser.open(...)` call.
+- Instrumented:
+  - TUI/CLI status surfaces now expose browser-launch failure details instead of silently assuming success.
+- Conceptual:
+  - No new conceptual behavior introduced.
+- Unknown:
+  - No remaining unknown about the silent-launch path itself; if the browser still does not appear, the TUI will now surface the exact launcher failure detail.
+Truth-table / limitations updates:
+- None; this was a robustness repair to an already-implemented capability.
+Remaining uncertainties:
+- Browser launch still depends on host OS handlers. The difference now is that fallback is attempted and failure is surfaced explicitly.
+Next shortest proof path:
+- Trigger `Open Browser Observatory` from the TUI and verify either that the browser opens or that the TUI status line now reports the exact launcher failure with the observatory URL.

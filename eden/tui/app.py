@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import math
-import webbrowser
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
@@ -19,6 +18,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, DataTable, Footer, Header, Input, RichLog, Select, Static, TextArea
 
+from ..browser import open_browser_url
 from ..runtime import EdenRuntime
 from ..utils import safe_excerpt
 
@@ -727,7 +727,7 @@ class ConversationAtlasModal(ModalScreen[dict[str, str] | None]):
         app = self.app
         assert isinstance(app, EdenTuiApp)
         path = await asyncio.to_thread(partial(app.runtime.write_conversation_log, self._selected_session_id))
-        webbrowser.open(path.as_uri())
+        open_browser_url(path.as_uri())
         self._status_message = f"Opened transcript {path.name}."
         self._records = await asyncio.to_thread(app.runtime.conversation_archive_records)
         self._selected_preview = await asyncio.to_thread(partial(app.runtime.conversation_archive_preview, self._selected_session_id))
@@ -1592,10 +1592,15 @@ class StartupScreen(Screen):
         if latest_experiment_id:
             await asyncio.to_thread(partial(app.runtime.export_observability, experiment_id=latest_experiment_id, session_id=None))
         target_url = _observatory_target_url(app.runtime, status, latest_experiment_id)
-        webbrowser.open(target_url)
-        self.query_one("#startup_log", RichLog).write(
-            f"[INFO] Observatory {'reused' if status['reused_existing'] else 'started'} :: {target_url}"
-        )
+        launch = await asyncio.to_thread(partial(open_browser_url, target_url))
+        if launch.ok:
+            self.query_one("#startup_log", RichLog).write(
+                f"[INFO] Observatory {'reused' if status['reused_existing'] else 'started'} :: {target_url} via {launch.method}"
+            )
+        else:
+            self.query_one("#startup_log", RichLog).write(
+                f"[WARN] Observatory ready but browser launch failed :: {target_url} :: {launch.detail}"
+            )
         self._refresh_panels()
 
     def handle_startup_export(self) -> None:
@@ -3073,13 +3078,21 @@ class ChatScreen(Screen):
         if experiment_id is not None:
             await asyncio.to_thread(partial(app.runtime.export_observability, experiment_id=experiment_id, session_id=session_id))
         target_url = _observatory_target_url(app.runtime, status, experiment_id)
-        webbrowser.open(target_url)
-        app.ui_state.last_feedback = (
-            f"Observatory {'reused' if status['reused_existing'] else 'started'} at {target_url}"
-        )
-        self._write_forensic(
-            f"[INFO] Observatory {'reused' if status['reused_existing'] else 'started'} :: {target_url}"
-        )
+        launch = await asyncio.to_thread(partial(open_browser_url, target_url))
+        if launch.ok:
+            app.ui_state.last_feedback = (
+                f"Observatory {'reused' if status['reused_existing'] else 'started'} at {target_url}"
+            )
+            self._write_forensic(
+                f"[INFO] Observatory {'reused' if status['reused_existing'] else 'started'} :: {target_url} via {launch.method}"
+            )
+        else:
+            app.ui_state.last_feedback = (
+                f"Observatory ready at {target_url}, but browser launch failed: {launch.detail}"
+            )
+            self._write_forensic(
+                f"[WARN] Observatory ready but browser launch failed :: {target_url} :: {launch.detail}"
+            )
         self.refresh_panels()
 
     async def handle_conversation_log(self) -> None:
@@ -3091,7 +3104,7 @@ class ChatScreen(Screen):
             return
         path = await asyncio.to_thread(partial(app.runtime.write_conversation_log, app.ui_state.session_id))
         app.ui_state.conversation_log_path = str(path)
-        webbrowser.open(path.as_uri())
+        open_browser_url(path.as_uri())
         app.ui_state.last_feedback = f"Opened transcript log at {path}"
         self.refresh_panels()
 

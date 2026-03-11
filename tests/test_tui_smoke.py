@@ -6,6 +6,7 @@ import pytest
 
 from textual.widgets import Button, Input, Select, TextArea
 
+from eden.browser import BrowserOpenResult
 from eden.tui.app import ChatScreen, ConversationAtlasModal, EdenTuiApp
 
 
@@ -193,14 +194,15 @@ async def test_open_browser_observatory_refreshes_current_export_and_targets_ind
     export_calls: list[tuple[str, str | None]] = []
     original_export = runtime.export_observability
 
-    def capture_open(url: str) -> None:
+    def capture_open(url: str) -> BrowserOpenResult:
         opened_urls.append(url)
+        return BrowserOpenResult(ok=True, method="mock")
 
     def capture_export(*, experiment_id: str, session_id: str | None = None):
         export_calls.append((experiment_id, session_id))
         return original_export(experiment_id=experiment_id, session_id=session_id)
 
-    monkeypatch.setattr("eden.tui.app.webbrowser.open", capture_open)
+    monkeypatch.setattr("eden.tui.app.open_browser_url", capture_open)
     monkeypatch.setattr(runtime, "export_observability", capture_export)
 
     app = EdenTuiApp(runtime)
@@ -216,6 +218,34 @@ async def test_open_browser_observatory_refreshes_current_export_and_targets_ind
         assert export_calls == [(app.ui_state.experiment_id, app.ui_state.session_id)]
         assert opened_urls
         assert opened_urls[0].endswith(f"{app.ui_state.experiment_id}/observatory_index.html")
+        assert "observatory_index.html" in app.ui_state.last_feedback
+
+    runtime.stop_observatory()
+
+
+@pytest.mark.asyncio
+async def test_open_browser_observatory_reports_launch_failure(runtime, monkeypatch) -> None:
+    original_export = runtime.export_observability
+
+    def capture_export(*, experiment_id: str, session_id: str | None = None):
+        return original_export(experiment_id=experiment_id, session_id=session_id)
+
+    def fail_open(url: str) -> BrowserOpenResult:
+        return BrowserOpenResult(ok=False, method="mock", detail=f"launcher unavailable for {url}")
+
+    monkeypatch.setattr("eden.tui.app.open_browser_url", fail_open)
+    monkeypatch.setattr(runtime, "export_observability", capture_export)
+
+    app = EdenTuiApp(runtime)
+    async with app.run_test() as pilot:
+        await pilot.pause(1.0)
+        assert isinstance(app.screen, ChatScreen)
+        assert app.ui_state.experiment_id is not None
+
+        await app.screen.handle_observatory()
+        await pilot.pause(0.8)
+
+        assert "browser launch failed" in app.ui_state.last_feedback
         assert "observatory_index.html" in app.ui_state.last_feedback
 
     runtime.stop_observatory()

@@ -4,9 +4,9 @@ import argparse
 import json
 import sys
 import time
-import webbrowser
 from pathlib import Path
 
+from .browser import open_browser_url
 from .config import DB_PATH, DEFAULT_MLX_MODEL_DIR, RUNTIME_LOG_PATH, RuntimeSettings
 from .logging import RuntimeLog
 from .runtime import EdenRuntime
@@ -91,7 +91,19 @@ def cmd_observatory(args) -> int:
         if latest is not None:
             runtime.export_observability(experiment_id=latest["id"], session_id=None)
             target_url = f"{status['url']}{latest['id']}/observatory_index.html"
-        webbrowser.open(target_url)
+        launch = open_browser_url(target_url)
+        if not launch.ok:
+            print(
+                json.dumps(
+                    {
+                        "warning": "browser_launch_failed",
+                        "target_url": target_url,
+                        "detail": launch.detail,
+                    },
+                    indent=2,
+                ),
+                file=sys.stderr,
+            )
     try:
         while True:
             time.sleep(1)
