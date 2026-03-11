@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import math
+from time import monotonic
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
@@ -1299,6 +1300,7 @@ class StartupScreen(Screen):
     def __init__(self) -> None:
         super().__init__()
         self._seen_log_count = 0
+        self._last_startup_action_dispatch: tuple[str, float] | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -1442,6 +1444,7 @@ class StartupScreen(Screen):
 
     def _execute_startup_action(self, action: str) -> None:
         normalized = (action or "blank").strip().lower()
+        self._last_startup_action_dispatch = (normalized, monotonic())
         if normalized == "blank":
             self.begin_launch_session("blank")
         elif normalized == "seeded":
@@ -1626,11 +1629,23 @@ class StartupScreen(Screen):
     @on(Select.Changed, "#startup_action_menu")
     def handle_startup_action_changed(self, _event: Select.Changed) -> None:
         self.query_one("#startup_menu_hint", Static).update(self._menu_hint_panel())
+        action = str(self.query_one("#startup_action_menu", Select).value or "blank")
+        if self._recent_startup_action_dispatch(action):
+            return
+        self._execute_startup_action(action)
+
+    def _recent_startup_action_dispatch(self, action: str) -> bool:
+        normalized = (action or "blank").strip().lower()
+        if self._last_startup_action_dispatch is None:
+            return False
+        last_action, dispatched_at = self._last_startup_action_dispatch
+        return last_action == normalized and (monotonic() - dispatched_at) < 0.6
 
     def on_key(self, event) -> None:
         if event.key == "enter" and self.app.focused and getattr(self.app.focused, "id", None) == "startup_action_menu":
             action = str(self.query_one("#startup_action_menu", Select).value or "blank")
-            self._execute_startup_action(action)
+            if not self._recent_startup_action_dispatch(action):
+                self._execute_startup_action(action)
             event.stop()
 
 
@@ -1646,6 +1661,7 @@ class ChatScreen(Screen):
         self._transcript_cache_panels: tuple[Panel, ...] = ()
         self._graph_health_dirty = True
         self._event_lines: list[str] = []
+        self._last_runtime_action_dispatch: tuple[str, float] | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -3372,6 +3388,7 @@ class ChatScreen(Screen):
 
     def _execute_runtime_action(self, action: str) -> None:
         normalized = (action or "review").strip().lower()
+        self._last_runtime_action_dispatch = (normalized, monotonic())
         if normalized in {"blank", "seeded", "resume"}:
             self.begin_surface_launch(normalized)
         elif normalized == "new_session":
@@ -3403,6 +3420,17 @@ class ChatScreen(Screen):
     def handle_runtime_action_changed(self, _event: Select.Changed) -> None:
         self.query_one("#action_bus_panel", Static).update(self.main_action_bus_panel())
         self.query_one("#runtime_status_strip", Static).update(self.main_action_status_panel())
+        action = str(self.query_one("#runtime_action_menu", Select).value or "review")
+        if self._recent_runtime_action_dispatch(action):
+            return
+        self._execute_runtime_action(action)
+
+    def _recent_runtime_action_dispatch(self, action: str) -> bool:
+        normalized = (action or "review").strip().lower()
+        if self._last_runtime_action_dispatch is None:
+            return False
+        last_action, dispatched_at = self._last_runtime_action_dispatch
+        return last_action == normalized and (monotonic() - dispatched_at) < 0.6
 
     @on(events.DescendantFocus)
     @on(events.DescendantBlur)
@@ -3453,7 +3481,8 @@ class ChatScreen(Screen):
             return
         if event.key == "enter" and self.app.focused and getattr(self.app.focused, "id", None) == "runtime_action_menu":
             action = str(self.query_one("#runtime_action_menu", Select).value or "review")
-            self._execute_runtime_action(action)
+            if not self._recent_runtime_action_dispatch(action):
+                self._execute_runtime_action(action)
             event.stop()
 
     @on(Button.Pressed, "#header_ingest_btn")

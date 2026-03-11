@@ -249,3 +249,29 @@ async def test_open_browser_observatory_reports_launch_failure(runtime, monkeypa
         assert "observatory_index.html" in app.ui_state.last_feedback
 
     runtime.stop_observatory()
+
+
+@pytest.mark.asyncio
+async def test_runtime_action_menu_selection_executes_observatory(runtime, monkeypatch) -> None:
+    opened_urls: list[str] = []
+
+    def capture_open(url: str) -> BrowserOpenResult:
+        opened_urls.append(url)
+        return BrowserOpenResult(ok=True, method="mock")
+
+    monkeypatch.setattr("eden.tui.app.open_browser_url", capture_open)
+
+    app = EdenTuiApp(runtime)
+    async with app.run_test() as pilot:
+        await pilot.pause(1.0)
+        assert isinstance(app.screen, ChatScreen)
+        menu = app.screen.query_one("#runtime_action_menu", Select)
+
+        menu.value = "observatory"
+        await pilot.pause(0.8)
+
+        assert opened_urls
+        assert opened_urls[0].endswith(f"{app.ui_state.experiment_id}/observatory_index.html")
+        assert "observatory_index.html" in app.ui_state.last_feedback
+
+    runtime.stop_observatory()

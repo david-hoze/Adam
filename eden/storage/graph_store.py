@@ -54,6 +54,14 @@ class GraphStore:
             else:
                 self._conn.commit()
 
+    def _fetchone(self, sql: str, params: tuple[Any, ...] = ()) -> sqlite3.Row | None:
+        with self._lock:
+            return self._conn.execute(sql, params).fetchone()
+
+    def _fetchall(self, sql: str, params: tuple[Any, ...] = ()) -> list[sqlite3.Row]:
+        with self._lock:
+            return self._conn.execute(sql, params).fetchall()
+
     def close(self) -> None:
         with self._lock:
             self._conn.close()
@@ -70,13 +78,13 @@ class GraphStore:
             )
 
     def read_config(self, key: str) -> dict[str, Any] | None:
-        row = self._conn.execute("SELECT value_json FROM config_store WHERE key = ?", (key,)).fetchone()
+        row = self._fetchone("SELECT value_json FROM config_store WHERE key = ?", (key,))
         if not row:
             return None
         return json.loads(row["value_json"])
 
     def upsert_agent(self, slug: str, name: str, profile: dict[str, Any]) -> str:
-        existing = self._conn.execute("SELECT id FROM agents WHERE slug = ?", (slug,)).fetchone()
+        existing = self._fetchone("SELECT id FROM agents WHERE slug = ?", (slug,))
         if existing:
             return str(existing["id"])
         agent_id = str(uuid4())
@@ -124,19 +132,19 @@ class GraphStore:
                 )
 
     def list_experiments(self) -> list[dict[str, Any]]:
-        rows = self._conn.execute(
+        rows = self._fetchall(
             "SELECT * FROM experiments ORDER BY created_at DESC LIMIT 25"
-        ).fetchall()
+        )
         return [_row_to_dict(row) for row in rows if row is not None]
 
     def get_experiment(self, experiment_id: str) -> dict[str, Any]:
-        row = self._conn.execute("SELECT * FROM experiments WHERE id = ?", (experiment_id,)).fetchone()
+        row = self._fetchone("SELECT * FROM experiments WHERE id = ?", (experiment_id,))
         if row is None:
             raise KeyError(f"Unknown experiment: {experiment_id}")
         return _row_to_dict(row) or {}
 
     def get_latest_experiment(self) -> dict[str, Any] | None:
-        row = self._conn.execute("SELECT * FROM experiments ORDER BY created_at DESC LIMIT 1").fetchone()
+        row = self._fetchone("SELECT * FROM experiments ORDER BY created_at DESC LIMIT 1")
         return _row_to_dict(row)
 
     def create_session(self, experiment_id: str, agent_id: str, title: str, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -164,16 +172,16 @@ class GraphStore:
         return self.get_session(session_id)
 
     def get_session(self, session_id: str) -> dict[str, Any]:
-        row = self._conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
+        row = self._fetchone("SELECT * FROM sessions WHERE id = ?", (session_id,))
         if row is None:
             raise KeyError(f"Unknown session: {session_id}")
         return _row_to_dict(row) or {}
 
     def get_latest_session(self, experiment_id: str) -> dict[str, Any] | None:
-        row = self._conn.execute(
+        row = self._fetchone(
             "SELECT * FROM sessions WHERE experiment_id = ? ORDER BY created_at DESC LIMIT 1",
             (experiment_id,),
-        ).fetchone()
+        )
         return _row_to_dict(row)
 
     def list_session_catalog(self, *, limit: int | None = None) -> list[dict[str, Any]]:
@@ -223,14 +231,14 @@ class GraphStore:
         if limit is not None:
             sql += " LIMIT ?"
             params.append(int(limit))
-        rows = self._conn.execute(sql, tuple(params)).fetchall()
+        rows = self._fetchall(sql, tuple(params))
         return [_row_to_dict(row) for row in rows if row is not None]
 
     def get_next_turn_index(self, session_id: str) -> int:
-        row = self._conn.execute(
+        row = self._fetchone(
             "SELECT COALESCE(MAX(turn_index), -1) + 1 AS turn_index FROM turns WHERE session_id = ?",
             (session_id,),
-        ).fetchone()
+        )
         return int(row["turn_index"]) if row is not None else 0
 
     def record_turn(
@@ -280,23 +288,23 @@ class GraphStore:
         return self.get_turn(turn_id)
 
     def get_turn(self, turn_id: str) -> dict[str, Any]:
-        row = self._conn.execute("SELECT * FROM turns WHERE id = ?", (turn_id,)).fetchone()
+        row = self._fetchone("SELECT * FROM turns WHERE id = ?", (turn_id,))
         if row is None:
             raise KeyError(f"Unknown turn: {turn_id}")
         return _row_to_dict(row) or {}
 
     def list_turns(self, session_id: str, *, limit: int = 20) -> list[dict[str, Any]]:
-        rows = self._conn.execute(
+        rows = self._fetchall(
             "SELECT * FROM turns WHERE session_id = ? ORDER BY turn_index DESC LIMIT ?",
             (session_id, limit),
-        ).fetchall()
+        )
         return [_row_to_dict(row) for row in rows if row is not None]
 
     def list_all_turns(self, session_id: str) -> list[dict[str, Any]]:
-        rows = self._conn.execute(
+        rows = self._fetchall(
             "SELECT * FROM turns WHERE session_id = ? ORDER BY turn_index ASC",
             (session_id,),
-        ).fetchall()
+        )
         return [_row_to_dict(row) for row in rows if row is not None]
 
     def record_feedback(
@@ -334,16 +342,16 @@ class GraphStore:
         return self.get_feedback(feedback_id)
 
     def get_feedback(self, feedback_id: str) -> dict[str, Any]:
-        row = self._conn.execute("SELECT * FROM feedback_events WHERE id = ?", (feedback_id,)).fetchone()
+        row = self._fetchone("SELECT * FROM feedback_events WHERE id = ?", (feedback_id,))
         if row is None:
             raise KeyError(f"Unknown feedback event: {feedback_id}")
         return _row_to_dict(row) or {}
 
     def list_feedback_for_turn(self, turn_id: str) -> list[dict[str, Any]]:
-        rows = self._conn.execute(
+        rows = self._fetchall(
             "SELECT * FROM feedback_events WHERE turn_id = ? ORDER BY created_at ASC",
             (turn_id,),
-        ).fetchall()
+        )
         return [_row_to_dict(row) for row in rows if row is not None]
 
     def upsert_document(
@@ -357,10 +365,10 @@ class GraphStore:
         metadata: dict[str, Any],
     ) -> dict[str, Any]:
         digest = sha256_file(path)
-        row = self._conn.execute(
+        row = self._fetchone(
             "SELECT id FROM documents WHERE experiment_id = ? AND sha256 = ?",
             (experiment_id, digest),
-        ).fetchone()
+        )
         if row is not None:
             doc_id = str(row["id"])
             with self.transaction() as conn:
@@ -395,7 +403,7 @@ class GraphStore:
         return self.get_document(doc_id)
 
     def get_document(self, document_id: str) -> dict[str, Any]:
-        row = self._conn.execute("SELECT * FROM documents WHERE id = ?", (document_id,)).fetchone()
+        row = self._fetchone("SELECT * FROM documents WHERE id = ?", (document_id,))
         if row is None:
             raise KeyError(f"Unknown document: {document_id}")
         return _row_to_dict(row) or {}
@@ -441,12 +449,12 @@ class GraphStore:
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         canonical_label = slugify(label)
-        existing = self._conn.execute(
+        existing = self._fetchone(
             """
             SELECT * FROM memes WHERE experiment_id = ? AND canonical_label = ? AND domain = ?
             """,
             (experiment_id, canonical_label, domain),
-        ).fetchone()
+        )
         if existing is not None:
             meme_id = str(existing["id"])
             merged_metadata = json.loads(existing["metadata_json"] or "{}")
@@ -500,16 +508,16 @@ class GraphStore:
         return self.get_meme(meme_id)
 
     def get_meme(self, meme_id: str) -> dict[str, Any]:
-        row = self._conn.execute("SELECT * FROM memes WHERE id = ?", (meme_id,)).fetchone()
+        row = self._fetchone("SELECT * FROM memes WHERE id = ?", (meme_id,))
         if row is None:
             raise KeyError(f"Unknown meme: {meme_id}")
         return _row_to_dict(row) or {}
 
     def list_memes(self, experiment_id: str) -> list[dict[str, Any]]:
-        rows = self._conn.execute(
+        rows = self._fetchall(
             "SELECT * FROM memes WHERE experiment_id = ? ORDER BY evidence_n DESC, updated_at DESC",
             (experiment_id,),
-        ).fetchall()
+        )
         return [_row_to_dict(row) for row in rows if row is not None]
 
     def upsert_memode(
@@ -528,10 +536,10 @@ class GraphStore:
         if len(member_ids) < 2:
             raise ValueError("Memodes require at least two member memes.")
         member_hash = slugify("-".join(member_ids))
-        existing = self._conn.execute(
+        existing = self._fetchone(
             "SELECT * FROM memodes WHERE experiment_id = ? AND member_hash = ? AND domain = ?",
             (experiment_id, member_hash, domain),
-        ).fetchone()
+        )
         if existing is not None:
             memode_id = str(existing["id"])
             merged_metadata = json.loads(existing["metadata_json"] or "{}")
@@ -587,16 +595,16 @@ class GraphStore:
         return self.get_memode(memode_id)
 
     def get_memode(self, memode_id: str) -> dict[str, Any]:
-        row = self._conn.execute("SELECT * FROM memodes WHERE id = ?", (memode_id,)).fetchone()
+        row = self._fetchone("SELECT * FROM memodes WHERE id = ?", (memode_id,))
         if row is None:
             raise KeyError(f"Unknown memode: {memode_id}")
         return _row_to_dict(row) or {}
 
     def list_memodes(self, experiment_id: str) -> list[dict[str, Any]]:
-        rows = self._conn.execute(
+        rows = self._fetchall(
             "SELECT * FROM memodes WHERE experiment_id = ? ORDER BY evidence_n DESC, updated_at DESC",
             (experiment_id,),
-        ).fetchall()
+        )
         return [_row_to_dict(row) for row in rows if row is not None]
 
     def update_memode(
@@ -618,13 +626,13 @@ class GraphStore:
             raise ValueError("Memodes require at least two member memes.")
         next_domain = domain or existing["domain"]
         next_member_hash = slugify("-".join(next_member_ids))
-        duplicate = self._conn.execute(
+        duplicate = self._fetchone(
             """
             SELECT id FROM memodes
             WHERE experiment_id = ? AND member_hash = ? AND domain = ? AND id != ?
             """,
             (existing["experiment_id"], next_member_hash, next_domain, memode_id),
-        ).fetchone()
+        )
         if duplicate is not None:
             raise ValueError("A memode with the requested membership already exists.")
         metadata["member_ids"] = next_member_ids
@@ -787,13 +795,13 @@ class GraphStore:
         dst_id: str,
         edge_type: str,
     ) -> dict[str, Any] | None:
-        row = self._conn.execute(
+        row = self._fetchone(
             """
             SELECT * FROM edges
             WHERE experiment_id = ? AND src_kind = ? AND src_id = ? AND dst_kind = ? AND dst_id = ? AND edge_type = ?
             """,
             (experiment_id, src_kind, src_id, dst_kind, dst_id, edge_type),
-        ).fetchone()
+        )
         return _row_to_dict(row)
 
     def delete_edge(
@@ -827,10 +835,10 @@ class GraphStore:
         return existing
 
     def list_edges(self, experiment_id: str) -> list[dict[str, Any]]:
-        rows = self._conn.execute(
+        rows = self._fetchall(
             "SELECT * FROM edges WHERE experiment_id = ? ORDER BY weight DESC, updated_at DESC",
             (experiment_id,),
-        ).fetchall()
+        )
         return [_row_to_dict(row) for row in rows if row is not None]
 
     def list_edges_for_node(
@@ -842,7 +850,7 @@ class GraphStore:
         edge_type: str | None = None,
     ) -> list[dict[str, Any]]:
         if edge_type:
-            rows = self._conn.execute(
+            rows = self._fetchall(
                 """
                 SELECT * FROM edges
                 WHERE experiment_id = ?
@@ -851,9 +859,9 @@ class GraphStore:
                 ORDER BY updated_at DESC
                 """,
                 (experiment_id, node_kind, node_id, node_kind, node_id, edge_type),
-            ).fetchall()
+            )
         else:
-            rows = self._conn.execute(
+            rows = self._fetchall(
                 """
                 SELECT * FROM edges
                 WHERE experiment_id = ?
@@ -861,7 +869,7 @@ class GraphStore:
                 ORDER BY updated_at DESC
                 """,
                 (experiment_id, node_kind, node_id, node_kind, node_id),
-            ).fetchall()
+            )
         return [_row_to_dict(row) for row in rows if row is not None]
 
     def touch_nodes(self, node_kind: str, node_ids: list[str]) -> None:
@@ -981,36 +989,36 @@ class GraphStore:
 
     def list_trace_events(self, experiment_id: str, *, limit: int = 100, session_id: str | None = None) -> list[dict[str, Any]]:
         if session_id:
-            rows = self._conn.execute(
+            rows = self._fetchall(
                 """
                 SELECT * FROM trace_events
                 WHERE experiment_id = ? AND session_id = ?
                 ORDER BY created_at DESC LIMIT ?
                 """,
                 (experiment_id, session_id, limit),
-            ).fetchall()
+            )
         else:
-            rows = self._conn.execute(
+            rows = self._fetchall(
                 "SELECT * FROM trace_events WHERE experiment_id = ? ORDER BY created_at DESC LIMIT ?",
                 (experiment_id, limit),
-            ).fetchall()
+            )
         return [_row_to_dict(row) for row in rows if row is not None]
 
     def list_membrane_events(self, experiment_id: str, *, limit: int = 60, session_id: str | None = None) -> list[dict[str, Any]]:
         if session_id:
-            rows = self._conn.execute(
+            rows = self._fetchall(
                 """
                 SELECT * FROM membrane_events
                 WHERE experiment_id = ? AND session_id = ?
                 ORDER BY created_at DESC LIMIT ?
                 """,
                 (experiment_id, session_id, limit),
-            ).fetchall()
+            )
         else:
-            rows = self._conn.execute(
+            rows = self._fetchall(
                 "SELECT * FROM membrane_events WHERE experiment_id = ? ORDER BY created_at DESC LIMIT ?",
                 (experiment_id, limit),
-            ).fetchall()
+            )
         return [_row_to_dict(row) for row in rows if row is not None]
 
     def record_export_artifact(
@@ -1084,7 +1092,7 @@ class GraphStore:
         return self.get_measurement_event(event_id)
 
     def get_measurement_event(self, event_id: str) -> dict[str, Any]:
-        row = self._conn.execute("SELECT * FROM measurement_events WHERE id = ?", (event_id,)).fetchone()
+        row = self._fetchone("SELECT * FROM measurement_events WHERE id = ?", (event_id,))
         if row is None:
             raise KeyError(f"Unknown measurement event: {event_id}")
         return _row_to_dict(row) or {}
@@ -1097,26 +1105,26 @@ class GraphStore:
         session_id: str | None = None,
     ) -> list[dict[str, Any]]:
         if session_id:
-            rows = self._conn.execute(
+            rows = self._fetchall(
                 """
                 SELECT * FROM measurement_events
                 WHERE experiment_id = ? AND session_id = ?
                 ORDER BY created_at DESC LIMIT ?
                 """,
                 (experiment_id, session_id, limit),
-            ).fetchall()
+            )
         else:
-            rows = self._conn.execute(
+            rows = self._fetchall(
                 "SELECT * FROM measurement_events WHERE experiment_id = ? ORDER BY created_at DESC LIMIT ?",
                 (experiment_id, limit),
-            ).fetchall()
+            )
         return [_row_to_dict(row) for row in rows if row is not None]
 
     def list_export_artifacts(self, experiment_id: str) -> list[dict[str, Any]]:
-        rows = self._conn.execute(
+        rows = self._fetchall(
             "SELECT * FROM export_artifacts WHERE experiment_id = ? ORDER BY created_at DESC",
             (experiment_id,),
-        ).fetchall()
+        )
         return [_row_to_dict(row) for row in rows if row is not None]
 
     def search_memes(self, experiment_id: str, query: str, *, limit: int = 20) -> list[dict[str, Any]]:
@@ -1124,7 +1132,7 @@ class GraphStore:
         if not tokens:
             return []
         safe_query = " OR ".join(f'"{token}"' for token in tokens)
-        rows = self._conn.execute(
+        rows = self._fetchall(
             """
             SELECT m.*, bm25(meme_fts) AS bm25_score
             FROM meme_fts
@@ -1133,7 +1141,7 @@ class GraphStore:
             ORDER BY bm25_score LIMIT ?
             """,
             (experiment_id, safe_query, limit),
-        ).fetchall()
+        )
         return [_row_to_dict(row) for row in rows if row is not None]
 
     def search_memodes(self, experiment_id: str, query: str, *, limit: int = 20) -> list[dict[str, Any]]:
@@ -1141,7 +1149,7 @@ class GraphStore:
         if not tokens:
             return []
         safe_query = " OR ".join(f'"{token}"' for token in tokens)
-        rows = self._conn.execute(
+        rows = self._fetchall(
             """
             SELECT md.*, bm25(memode_fts) AS bm25_score
             FROM memode_fts
@@ -1150,11 +1158,11 @@ class GraphStore:
             ORDER BY bm25_score LIMIT ?
             """,
             (experiment_id, safe_query, limit),
-        ).fetchall()
+        )
         return [_row_to_dict(row) for row in rows if row is not None]
 
     def recent_feedback(self, session_id: str, *, limit: int = 8) -> list[dict[str, Any]]:
-        rows = self._conn.execute(
+        rows = self._fetchall(
             """
             SELECT f.*, t.turn_index, t.user_text, t.response_text
             FROM feedback_events f
@@ -1163,26 +1171,46 @@ class GraphStore:
             ORDER BY f.created_at DESC LIMIT ?
             """,
             (session_id, limit),
-        ).fetchall()
+        )
         return [_row_to_dict(row) for row in rows if row is not None]
 
     def graph_snapshot(self, experiment_id: str) -> dict[str, Any]:
         memes = self.list_memes(experiment_id)
         memodes = self.list_memodes(experiment_id)
         edges = self.list_edges(experiment_id)
-        agents = self._conn.execute("SELECT * FROM agents ORDER BY created_at ASC").fetchall()
-        sessions = self._conn.execute(
+        agents = self._fetchall("SELECT * FROM agents ORDER BY created_at ASC")
+        sessions = self._fetchall(
             "SELECT * FROM sessions WHERE experiment_id = ? ORDER BY created_at DESC",
             (experiment_id,),
-        ).fetchall()
-        turns = self._conn.execute(
+        )
+        turns = self._fetchall(
             "SELECT * FROM turns WHERE experiment_id = ? ORDER BY created_at ASC",
             (experiment_id,),
-        ).fetchall()
-        docs = self._conn.execute(
+        )
+        docs = self._fetchall(
             "SELECT * FROM documents WHERE experiment_id = ? ORDER BY created_at ASC",
             (experiment_id,),
-        ).fetchall()
+        )
+        feedback_rows = self._fetchall(
+            "SELECT * FROM feedback_events WHERE experiment_id = ? ORDER BY created_at ASC",
+            (experiment_id,),
+        )
+        trace_rows = self._fetchall(
+            "SELECT * FROM trace_events WHERE experiment_id = ? ORDER BY created_at ASC",
+            (experiment_id,),
+        )
+        membrane_rows = self._fetchall(
+            "SELECT * FROM membrane_events WHERE experiment_id = ? ORDER BY created_at ASC",
+            (experiment_id,),
+        )
+        export_rows = self._fetchall(
+            "SELECT * FROM export_artifacts WHERE experiment_id = ? ORDER BY created_at ASC",
+            (experiment_id,),
+        )
+        measurement_rows = self._fetchall(
+            "SELECT * FROM measurement_events WHERE experiment_id = ? ORDER BY created_at ASC",
+            (experiment_id,),
+        )
         return {
             "agents": [_row_to_dict(row) for row in agents if row is not None],
             "memes": memes,
@@ -1191,51 +1219,16 @@ class GraphStore:
             "sessions": [_row_to_dict(row) for row in sessions if row is not None],
             "turns": [_row_to_dict(row) for row in turns if row is not None],
             "documents": [_row_to_dict(row) for row in docs if row is not None],
-            "feedback": [
-                _row_to_dict(row)
-                for row in self._conn.execute(
-                "SELECT * FROM feedback_events WHERE experiment_id = ? ORDER BY created_at ASC",
-                (experiment_id,),
-            ).fetchall()
-                if row is not None
-            ],
-            "trace_events": [
-                _row_to_dict(row)
-                for row in self._conn.execute(
-                    "SELECT * FROM trace_events WHERE experiment_id = ? ORDER BY created_at ASC",
-                    (experiment_id,),
-                ).fetchall()
-                if row is not None
-            ],
-            "membrane_events": [
-                _row_to_dict(row)
-                for row in self._conn.execute(
-                    "SELECT * FROM membrane_events WHERE experiment_id = ? ORDER BY created_at ASC",
-                    (experiment_id,),
-                ).fetchall()
-                if row is not None
-            ],
-            "export_artifacts": [
-                _row_to_dict(row)
-                for row in self._conn.execute(
-                    "SELECT * FROM export_artifacts WHERE experiment_id = ? ORDER BY created_at ASC",
-                    (experiment_id,),
-                ).fetchall()
-                if row is not None
-            ],
-            "measurement_events": [
-                _row_to_dict(row)
-                for row in self._conn.execute(
-                    "SELECT * FROM measurement_events WHERE experiment_id = ? ORDER BY created_at ASC",
-                    (experiment_id,),
-                ).fetchall()
-                if row is not None
-            ],
+            "feedback": [_row_to_dict(row) for row in feedback_rows if row is not None],
+            "trace_events": [_row_to_dict(row) for row in trace_rows if row is not None],
+            "membrane_events": [_row_to_dict(row) for row in membrane_rows if row is not None],
+            "export_artifacts": [_row_to_dict(row) for row in export_rows if row is not None],
+            "measurement_events": [_row_to_dict(row) for row in measurement_rows if row is not None],
         }
 
     def graph_counts(self, experiment_id: str) -> dict[str, int]:
         def count(table: str) -> int:
-            row = self._conn.execute(f"SELECT COUNT(*) AS n FROM {table} WHERE experiment_id = ?", (experiment_id,)).fetchone()
+            row = self._fetchone(f"SELECT COUNT(*) AS n FROM {table} WHERE experiment_id = ?", (experiment_id,))
             return int(row["n"]) if row is not None else 0
 
         return {

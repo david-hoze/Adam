@@ -1189,3 +1189,132 @@ Remaining uncertainties:
 - Browser launch still depends on host OS handlers. The difference now is that fallback is attempted and failure is surfaced explicitly.
 Next shortest proof path:
 - Trigger `Open Browser Observatory` from the TUI and verify either that the browser opens or that the TUI status line now reports the exact launcher failure with the observatory URL.
+
+## [2026-03-11 10:05:09 EDT] PRE-FLIGHT
+Operator task:
+Repair the actual TUI action-menu path for `Open Browser Observatory`. Operator report after the launcher fallback fix: selecting the menu item still does nothing.
+Task checksum:
+Current code inspection shows the runtime action `Select` only updates the action/status panels on `Select.Changed`; it does not dispatch the selected action. Execution only occurs on `Enter` while the menu is focused.
+Repo situation:
+The browser-launch helper and failure reporting fix are already in the working tree and were previously verified. The remaining symptom points to menu wiring, not the launcher.
+Relevant spec surfaces read:
+`docs/TUI_SPEC.md`, repo `AGENTS.md`.
+Natural-language contracts in force:
+Choosing `Open Browser Observatory` from the top action bus should actually launch the observatory. The action menu must not require hidden extra steps when the operator selects an item.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/tests/test_tui_smoke.py`, `/Users/brianray/Adam/docs/TUI_SPEC.md`, and `/Users/brianray/Adam/codex_notes_garden.md`.
+Status register:
+- Implemented:
+  - Browser launcher fallback and explicit launch-failure reporting.
+- Instrumented:
+  - TUI status surfaces for launch result.
+- Conceptual:
+  - Immediate action dispatch on menu selection.
+- Unknown:
+  - Whether `Select.Changed` on the Textual action menu can be used directly without introducing duplicate dispatch alongside the existing `Enter` path.
+Risks / invariants:
+Do not break keyboard execution of the action menu. Avoid duplicate execution if a change event is followed by Enter. Keep the observatory target URL and export refresh behavior intact.
+Evidence plan:
+Patch the action-menu change handlers to dispatch immediately with a short duplicate-suppression window, add a regression test that drives the actual menu selection path, update the TUI spec line, then rerun targeted and full pytest.
+Shortest proof path:
+Use `Select.Changed` to call `_execute_runtime_action("observatory")`, suppress immediate duplicate `Enter`, then prove with a real action-menu test plus full pytest.
+
+## [2026-03-11 10:05:09 EDT] POST-FLIGHT
+Files changed:
+- `/Users/brianray/Adam/eden/tui/app.py`
+- `/Users/brianray/Adam/tests/test_tui_smoke.py`
+- `/Users/brianray/Adam/docs/TUI_SPEC.md`
+- `/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+- `/Users/brianray/Adam/docs/TUI_SPEC.md`
+Natural-language contracts added/revised/preserved:
+- Revised the TUI contract so choosing an item from the top action `Select` executes it immediately.
+- Preserved keyboard execution: `Enter` on a focused action menu still executes the current value, with duplicate dispatch suppression.
+- Preserved the observatory launcher contract itself: current experiment shell, export refresh, and launcher fallback behavior remain unchanged.
+Behavior implemented or modified:
+- Startup and runtime action menus now dispatch on `Select.Changed` instead of acting as passive selectors.
+- Added duplicate-suppression windows so a just-dispatched selection does not fire again if the operator immediately presses `Enter`.
+- Added regression coverage for the real runtime action-menu observatory path rather than only direct `handle_observatory()` calls.
+Evidence produced (tests / traces / commands / exports):
+- `./.venv/bin/pytest -q /Users/brianray/Adam/tests/test_tui_smoke.py /Users/brianray/Adam/tests/test_browser_open.py` -> `8 passed in 17.63s`
+- `python -m compileall /Users/brianray/Adam/eden/tui/app.py` -> success
+- `./.venv/bin/pytest -q` -> `46 passed in 23.39s`
+Status register changes:
+- Implemented:
+  - Action-menu selection now executes the chosen observatory action directly.
+- Instrumented:
+  - No new instrumentation beyond the already-landed launcher status reporting.
+- Conceptual:
+  - None remaining for this path.
+- Unknown:
+  - No remaining unknown on the TUI action-menu route; the prior “nothing happens” path was caused by non-dispatching `Select.Changed` handlers.
+Truth-table / limitations updates:
+- None beyond the synchronized TUI spec sentence.
+Remaining uncertainties:
+- None specific to the menu route; repeated browser-open success still depends on host OS launch handling, which is now separately surfaced if it fails.
+Next shortest proof path:
+- Select `Open Browser Observatory` directly from the TUI action menu and confirm the browser opens without requiring an extra `Enter`.
+
+## [2026-03-11 10:10:30 EDT] PRE-FLIGHT
+Operator task:
+Repair the TUI crash triggered while selecting `Open Browser Observatory`.
+Task checksum:
+Observed crash path: `ChatScreen.handle_focus_surface_change -> main_action_status_panel -> _conversation_stage -> _recent_turns -> GraphStore.list_turns`, raising `sqlite3.InterfaceError: bad parameter or other API misuse` while an observatory worker thread was also active. Current store code uses one shared SQLite connection with `check_same_thread=False`, locks writes, but leaves many read paths unlocked.
+Repo situation:
+Working tree already contains the action-menu immediate-dispatch change and launcher fallback/reporting fixes. The crash appears after that dispatch because background observatory work now overlaps with focus-triggered UI reads.
+Relevant spec surfaces read:
+`docs/TUI_SPEC.md`, repo `AGENTS.md`.
+Natural-language contracts in force:
+Selecting an action must not crash the TUI. The shared graph store must remain safe under the TUI's main-thread reads plus background worker usage.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/storage/graph_store.py`, possibly tests under `/Users/brianray/Adam/tests/`, and `/Users/brianray/Adam/codex_notes_garden.md`.
+Status register:
+- Implemented:
+  - Immediate menu dispatch for the observatory action.
+- Instrumented:
+  - Launcher success/failure reporting.
+- Conceptual:
+  - Store-level read serialization across worker/UI concurrency.
+- Unknown:
+  - Whether all read paths need locking or only the turn/session reads exercised by the TUI stack.
+Risks / invariants:
+Do not change graph semantics or persistence shape. Preserve current runtime behavior while serializing access to the shared SQLite connection. Keep the fix minimal and provable.
+Evidence plan:
+Add locked `_fetchone` / `_fetchall` helpers to `GraphStore`, route read queries through them, add a deterministic regression test that asserts SELECTs happen under the store lock, then rerun focused and full pytest.
+Shortest proof path:
+Patch store read methods onto locked helpers, add a proxy-based lock assertion test, then rerun the TUI/browser/store tests and full pytest.
+
+## [2026-03-11 10:11:58 EDT] POST-FLIGHT
+Files changed:
+- `/Users/brianray/Adam/eden/storage/graph_store.py`
+- `/Users/brianray/Adam/tests/test_graph_store.py`
+- `/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+- None. The fix preserves the existing TUI/runtime contract and hardens the persistence layer under concurrent UI/worker access.
+Natural-language contracts added/revised/preserved:
+- Preserved that selecting an action must not crash the TUI.
+- Preserved that the graph store is the shared durable substrate across UI and worker operations.
+- Revised the effective implementation so shared SQLite reads are serialized just like writes.
+Behavior implemented or modified:
+- Added locked `_fetchone(...)` / `_fetchall(...)` helpers to `GraphStore`.
+- Routed store read paths through the same re-entrant lock already used by transactions, including turn/session, observatory snapshot, measurement, feedback, and search reads.
+- This removes the shared-connection race between focus-triggered TUI reads and background observatory worker operations.
+Evidence produced (tests / traces / commands / exports):
+- `./.venv/bin/pytest -q /Users/brianray/Adam/tests/test_graph_store.py /Users/brianray/Adam/tests/test_tui_smoke.py /Users/brianray/Adam/tests/test_browser_open.py` -> `9 passed in 16.93s`
+- `python -m compileall /Users/brianray/Adam/eden/storage/graph_store.py /Users/brianray/Adam/eden/tui/app.py` -> success
+- `./.venv/bin/pytest -q` -> `47 passed in 22.82s`
+Status register changes:
+- Implemented:
+  - Shared SQLite read access is now serialized under the store lock, eliminating the action-menu observatory crash path.
+- Instrumented:
+  - Added deterministic regression coverage that asserts SELECT queries run while the store lock is held.
+- Conceptual:
+  - None remaining for this crash path.
+- Unknown:
+  - No remaining unknown on the observed crash: it was caused by unlocked reads on a shared SQLite connection while background worker activity was in flight.
+Truth-table / limitations updates:
+- None; this was a runtime-hardening repair, not a change in feature scope.
+Remaining uncertainties:
+- None specific to this crash path. Future concurrency work should continue to treat the single shared SQLite connection as a serialized resource.
+Next shortest proof path:
+- Start the TUI, select `Open Browser Observatory`, and confirm the menu selection no longer crashes while the observatory starts/exports in the background.

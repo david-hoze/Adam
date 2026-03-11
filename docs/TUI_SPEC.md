@@ -125,6 +125,7 @@ Secondary surfaces:
 - normal entry path is `.venv/bin/python -m eden` or `.venv/bin/python -m eden app`
 - shell flags remain optional overrides; the normal runtime contract is repo-local MLX
 - the action bus exposes keyboard-focusable menu + quick buttons, while Live Contract reports model readiness, active session, and focus state
+- choosing an action from the top action `Select` executes it immediately; `Enter` on a focused action menu executes the currently selected action and duplicate dispatch is suppressed
 - multiline composition is first-class
 - `Esc` returns focus to the composer, and printable keys pressed outside editable widgets are routed back into the composer automatically
 - the dialogue tape is scrollable and can be navigated by focusing it, then using `Up`, `Down`, `PageUp`, `PageDown`, `Home`, or `End`
