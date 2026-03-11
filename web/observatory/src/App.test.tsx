@@ -112,6 +112,8 @@ describe("EDEN Observatory App", () => {
     );
 
     expect((await screen.findByTestId("graph-panel")).textContent).toContain("graph:Semantic Map");
+    expect(screen.getByText("Large semantic graph bundle")).toBeTruthy();
+    expect(screen.getByText("Large diagnostics bundle")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Assemblies" })).toBeTruthy();
     expect(screen.getByText("Identity")).toBeTruthy();
     expect(screen.getByText("Ontology")).toBeTruthy();
@@ -123,6 +125,77 @@ describe("EDEN Observatory App", () => {
     await waitFor(() => {
       expect(window.localStorage.getItem("eden.observatory.view_presets.v1::exp-1::graph::manifest-graph")).not.toBeNull();
     });
+  });
+
+  it("surfaces payload-status copy and defers geometry until the tab opens", async () => {
+    let geometryRequests = 0;
+    const fetchMock = vi.fn((url: string) => {
+      if (url.endsWith("graph.json")) {
+        return response({
+          export_manifest_id: "manifest-overview",
+          source_graph_hash: "graph-hash-overview",
+          semantic_nodes: [],
+          semantic_edges: [],
+          runtime_nodes: [],
+          runtime_edges: [],
+          assemblies: [],
+          cluster_summaries: [],
+          active_set_slices: [],
+          counts: { memes: 0, edges: 0 },
+        });
+      }
+      if (url.endsWith("basin.json")) {
+        return response({
+          turns: [],
+          attractors: [],
+          filtered_turn_count: 0,
+          source_turn_count: 0,
+          diagnostics: { empty_state: true },
+        });
+      }
+      if (url.endsWith("overview.json")) {
+        return response({ graph_counts: { memes: 0, edges: 0 }, basin: { filtered_turn_count: 0 }, measurements: { events: 0 } });
+      }
+      if (url.endsWith("measurements.json")) {
+        return response({ counts: { events: 0 }, events: [] });
+      }
+      if (url.endsWith("geometry.json")) {
+        geometryRequests += 1;
+        return response({ slice_count: 3, projection_count: 2 });
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <App
+        bootstrap={{
+          initial_surface: "overview",
+          experiment_id: "exp-3",
+          payload_urls: {
+            graph: "/graph.json",
+            basin: "/basin.json",
+            overview: "/overview.json",
+            measurements: "/measurements.json",
+            geometry: "/geometry.json",
+          },
+        }}
+      />,
+    );
+
+    expect(await screen.findByText(/Static export mode reads adjacent JSON artifacts/)).toBeTruthy();
+    expect(screen.getByText("Large diagnostics bundle")).toBeTruthy();
+
+    await waitFor(() => {
+      expect(geometryRequests).toBe(0);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Geometry" }));
+
+    await waitFor(() => {
+      expect(geometryRequests).toBe(1);
+    });
+    expect(await screen.findByText(/"slice_count": 3/)).toBeTruthy();
   });
 
   it("shows sparse basin diagnostics, derived badges, and graph-hash preset fallback in live mode", async () => {

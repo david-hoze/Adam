@@ -83,11 +83,7 @@ ARCHIVE_GROUP_OPTIONS = [
 def _observatory_target_url(runtime: EdenRuntime, status: dict[str, Any], experiment_id: str | None) -> str:
     if not experiment_id:
         return status["url"]
-    out_dir = runtime.export_dir_for_experiment(experiment_id)
-    for name in ("observatory_index.html", "geometry_lab.html", "graph_knowledge_base.html"):
-        if (out_dir / name).exists():
-            return status["url"] + f"{experiment_id}/{name}"
-    return status["url"]
+    return status["url"] + f"{experiment_id}/observatory_index.html"
 
 
 @dataclass(slots=True)
@@ -1592,7 +1588,10 @@ class StartupScreen(Screen):
         status = await asyncio.to_thread(partial(app.runtime.start_observatory, reuse_existing=True))
         app.ui_state.observatory_status = status
         latest = app.runtime.store.get_latest_experiment()
-        target_url = _observatory_target_url(app.runtime, status, latest["id"] if latest is not None else None)
+        latest_experiment_id = latest["id"] if latest is not None else None
+        if latest_experiment_id:
+            await asyncio.to_thread(partial(app.runtime.export_observability, experiment_id=latest_experiment_id, session_id=None))
+        target_url = _observatory_target_url(app.runtime, status, latest_experiment_id)
         webbrowser.open(target_url)
         self.query_one("#startup_log", RichLog).write(
             f"[INFO] Observatory {'reused' if status['reused_existing'] else 'started'} :: {target_url}"
@@ -3065,7 +3064,15 @@ class ChatScreen(Screen):
         assert isinstance(app, EdenTuiApp)
         status = await asyncio.to_thread(partial(app.runtime.start_observatory, reuse_existing=True))
         app.ui_state.observatory_status = status
-        target_url = _observatory_target_url(app.runtime, status, app.ui_state.experiment_id)
+        experiment_id = app.ui_state.experiment_id
+        session_id = app.ui_state.session_id
+        if experiment_id is None:
+            latest = app.runtime.store.get_latest_experiment()
+            experiment_id = latest["id"] if latest is not None else None
+            session_id = None
+        if experiment_id is not None:
+            await asyncio.to_thread(partial(app.runtime.export_observability, experiment_id=experiment_id, session_id=session_id))
+        target_url = _observatory_target_url(app.runtime, status, experiment_id)
         webbrowser.open(target_url)
         app.ui_state.last_feedback = (
             f"Observatory {'reused' if status['reused_existing'] else 'started'} at {target_url}"

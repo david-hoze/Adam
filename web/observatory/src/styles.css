@@ -223,6 +223,111 @@ button {
   border: 1px solid var(--border);
 }
 
+.status-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(39, 24, 12, 0.96), rgba(24, 15, 9, 0.98));
+  box-shadow: var(--shadow);
+}
+
+.status-panel-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.status-panel-copy strong {
+  color: var(--amber-hot);
+  font-size: 1.05rem;
+}
+
+.status-panel-copy span {
+  color: var(--muted);
+}
+
+.payload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.payload-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: rgba(61, 39, 21, 0.62);
+}
+
+.payload-card p,
+.payload-card small {
+  margin: 0;
+}
+
+.payload-card p {
+  color: var(--ink);
+}
+
+.payload-card small {
+  color: var(--muted);
+}
+
+.payload-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.payload-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 78px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.78rem;
+  line-height: 1;
+  text-transform: capitalize;
+}
+
+.payload-idle {
+  border-color: rgba(205, 178, 138, 0.32);
+  color: var(--muted);
+  background: rgba(125, 98, 67, 0.18);
+}
+
+.payload-loading {
+  border-color: rgba(239, 177, 95, 0.42);
+  color: var(--amber-hot);
+  background: rgba(239, 177, 95, 0.16);
+}
+
+.payload-ready {
+  border-color: rgba(121, 206, 165, 0.4);
+  color: #b8f2d4;
+  background: rgba(86, 158, 126, 0.16);
+}
+
+.payload-error {
+  color: var(--warning);
+}
+
+.payload-chip.payload-error {
+  border-color: rgba(255, 159, 104, 0.42);
+  background: rgba(255, 159, 104, 0.15);
+}
+
+.payload-deferred {
+  border-color: rgba(180, 222, 255, 0.34);
+  color: #b4deff;
+  background: rgba(100, 151, 197, 0.16);
+}
+
 .inspector-tabs {
   display: flex;
   gap: 10px;
@@ -280,6 +385,12 @@ button {
 
 .status-error {
   color: var(--warning);
+}
+
+.placeholder-copy {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 @media (max-width: 1180px) {

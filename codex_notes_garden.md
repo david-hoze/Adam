@@ -987,3 +987,137 @@ Remaining uncertainties:
 - Figure job persistence and a full View Studio control surface remain deferred.
 Next shortest proof path:
 - Exercise the new observatory shell against a heavier seeded experiment, then implement server-side analytics job persistence plus the View Studio / figure-generation path on top of the now-stable payload and shell contracts.
+
+## [2026-03-11 09:41:10 EDT] PRE-FLIGHT
+Operator task:
+Fix the browser observatory open path so it opens a coherent experiment shell instead of the export-root directory listing, and ensure the linked observatory materials refresh before opening.
+Task checksum:
+Observed on 2026-03-11: TUI/CLI observatory open path lands on root directory listing and appears stale; approved observatory refactor already landed, so the open-target/export-refresh path is now the likely fault line.
+Repo situation:
+Working tree already contains the large observatory refactor from the prior turn and is dirty by design. Full repo pytest and frontend verification were green at the end of the previous turn.
+Relevant spec surfaces read:
+`docs/OBSERVATORY_SPEC.md`, `docs/IMPLEMENTATION_TRUTH_TABLE.md`, `docs/KNOWN_LIMITATIONS.md`, repo `AGENTS.md`, and current TUI/runtime observatory open-path code in `eden/tui/app.py`, `eden/runtime.py`, and `eden/app.py`.
+Natural-language contracts in force:
+Open Browser Observatory should open the current experiment's observatory shell, not a filesystem-style export root. Browser observatory remains export/observability work, with Python authoritative for refreshed payloads.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/eden/app.py`, possibly `/Users/brianray/Adam/eden/runtime.py`, observatory docs/status surfaces if behavior status changes, and `/Users/brianray/Adam/codex_notes_garden.md`.
+Status register:
+- Implemented:
+  - Observability export generation, local observatory server, shell-page frontend bundle, and live API.
+- Instrumented:
+  - Runtime observatory status and frontend build freshness reporting.
+- Conceptual:
+  - None required for this bug fix.
+- Unknown:
+  - Whether the open path is stale because exports are not refreshed, because target URL selection falls back to server root, or both.
+Risks / invariants:
+Do not break the now-green observatory/test path. Preserve TUI-primary runtime behavior. Keep browser open path bounded to current/latest experiment export. Avoid loosening server root semantics.
+Evidence plan:
+Trace `_observatory_target_url`, TUI/CLI observatory open handlers, patch them to refresh exports and target `observatory_index.html`, then rerun the relevant observatory/TUI tests plus a focused smoke proof.
+Shortest proof path:
+Patch TUI and CLI observatory open handlers to regenerate exports before opening and to target an experiment-specific shell page, then prove with targeted pytest and a direct URL/target assertion if feasible.
+
+## [2026-03-11 09:44:55 EDT] POST-FLIGHT
+Files changed:
+- `/Users/brianray/Adam/eden/tui/app.py`
+- `/Users/brianray/Adam/eden/app.py`
+- `/Users/brianray/Adam/tests/test_tui_smoke.py`
+- `/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+- None; this turn repaired an implemented observatory-open behavior to match the existing contract.
+Natural-language contracts added/revised/preserved:
+- Preserved the contract that Browser Observatory opens an experiment-specific observatory shell, not a raw exports root listing.
+- Preserved Python-authoritative export refresh before browser observation.
+Behavior implemented or modified:
+- TUI observatory open now refreshes the current/latest experiment export before opening and targets `observatory_index.html` directly.
+- CLI `python -m eden observatory --open` now does the same for the latest experiment when one exists.
+Evidence produced (tests / traces / commands / exports):
+- `./.venv/bin/pytest -q tests/test_tui_smoke.py tests/test_observatory_server.py` -> `10 passed in 16.48s`
+- `./.venv/bin/pytest -q` -> `42 passed in 18.13s`
+- Manual code trace confirmed the previous root-listing fallback came from `_observatory_target_url(...)->status["url"]` when no fresh export target existed.
+Status register changes:
+- Implemented:
+  - Observability open path now regenerates the experiment shell before opening, eliminating the export-root directory-listing failure mode.
+- Instrumented: None
+- Conceptual: None
+- Unknown:
+  - No remaining unknown on the target URL/open-refresh path itself; broader observatory UX quality remains governed by the prior refactor state.
+Truth-table / limitations updates:
+- None; capability remained implemented, this turn repaired the open-path bug.
+Remaining uncertainties:
+- None specific to this bug beyond normal browser/open behavior on the host machine.
+Next shortest proof path:
+- Re-open Browser Observatory from the TUI and confirm the browser lands on `.../<experiment_id>/observatory_index.html` with freshly regenerated JSON-backed content.
+
+## [2026-03-11 09:49:30 EDT] PRE-FLIGHT
+Operator task:
+Improve observatory loading transparency so the browser explains which payloads are loading, which are deferred, and why the page can appear stuck while large static exports are fetched.
+Task checksum:
+Observed on 2026-03-11: current experiment export pulls very large static payloads (`graph_knowledge_base.json` ~92 MB, `geometry_diagnostics.json` ~52 MB) while the UI only shows a generic loading banner.
+Repo situation:
+Working tree already contains the observatory open-path repair from earlier this morning. Targeted and full pytest were green after that fix.
+Relevant spec surfaces read:
+`docs/OBSERVATORY_SPEC.md`, repo `AGENTS.md`, and current frontend loader in `web/observatory/src/App.tsx`.
+Natural-language contracts in force:
+Browser observatory should remain coherent while payloads load. Loading state must keep render/evidence boundaries visible and should not hide which payload class is blocking or deferred.
+Files/modules likely in scope:
+`/Users/brianray/Adam/web/observatory/src/App.tsx`, `/Users/brianray/Adam/web/observatory/src/styles.css`, `/Users/brianray/Adam/web/observatory/src/App.test.tsx`, possibly observatory specs/limitations if the loading contract changes materially, and `/Users/brianray/Adam/codex_notes_garden.md`.
+Status register:
+- Implemented:
+  - Observatory shell, static/live bootstrap, and coarse loading banner.
+- Instrumented:
+  - Build freshness and runtime observatory status.
+- Conceptual:
+  - Fine-grained payload loading diagnostics and staged/lazy loading behavior.
+- Unknown:
+  - Whether the best immediate fix is staged loading, better diagnostics, or both.
+Risks / invariants:
+Do not break the now-working observatory shell or live/static bootstrap. Preserve browser-local presets. Keep overview usable before graph/geometry finish.
+Evidence plan:
+Patch the frontend to track per-payload status, stage the heavy payloads, surface current/deferred/error states in the UI, then rerun frontend tests/build and the full pytest suite.
+Shortest proof path:
+Add payload status state + diagnostics banner, avoid blocking overview on heavy graph/geometry fetches, add frontend assertions for the new status surface, then rerun frontend and repo verification.
+
+## [2026-03-11 09:49:59 EDT] POST-FLIGHT
+Files changed:
+- `/Users/brianray/Adam/web/observatory/src/App.tsx`
+- `/Users/brianray/Adam/web/observatory/src/styles.css`
+- `/Users/brianray/Adam/web/observatory/src/App.test.tsx`
+- `/Users/brianray/Adam/web/observatory/vite.config.ts`
+- `/Users/brianray/Adam/eden/observatory/static/observatory_app/index.js`
+- `/Users/brianray/Adam/eden/observatory/static/observatory_app/style.css`
+- `/Users/brianray/Adam/eden/observatory/static/observatory_app/build-meta.json`
+- `/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+- None. Existing observatory contracts already required explicit graph/basin payload provenance and HTTP-served static exports; this turn made the loader surface legible and staged heavy payload fetches accordingly.
+Natural-language contracts added/revised/preserved:
+- Preserved that Overview should remain usable before the large graph payload finishes.
+- Preserved that geometry is a distinct derived payload and can be deferred until the operator actually opens the Geometry surface.
+- Preserved that static-export mode is HTTP-served and may incur noticeable load time for large JSON artifacts, which now needs to be shown explicitly in the UI.
+Behavior implemented or modified:
+- Replaced the single opaque loading banner with per-payload status cards covering overview, measurements, basin, graph, geometry, transcript, and runtime payloads.
+- Overview/measurement/basin now load first; graph loads in the background; geometry is deferred until the Geometry tab is opened.
+- Overview cards now show payload readiness/source so the operator can tell whether graph counts are missing because the payload is still loading versus absent.
+- Added placeholder copy in sidebar/surfaces so blank cards explain what is pending instead of appearing broken.
+- Tightened frontend test config so `npm run test` excludes Playwright e2e specs and remains a unit-test gate.
+Evidence produced (tests / traces / commands / exports):
+- `npm --prefix /Users/brianray/Adam/web/observatory run test` -> `1 passed (3 tests)`.
+- `npm --prefix /Users/brianray/Adam/web/observatory run test:e2e` -> `2 passed`.
+- `npm --prefix /Users/brianray/Adam/web/observatory run build` -> success; rebuilt checked-in assets under `/Users/brianray/Adam/eden/observatory/static/observatory_app/`.
+- `./.venv/bin/python /Users/brianray/Adam/scripts/check_observatory_build_meta.py` -> `ok: true`, source/build hashes match.
+- `./.venv/bin/pytest -q` -> `42 passed in 18.37s`.
+Status register changes:
+- Implemented:
+  - Observability loader now surfaces payload-level readiness/deferred/error state and stages heavy payload fetches instead of blocking the whole shell behind a generic banner.
+- Instrumented:
+  - Static/live payload source visibility is now exposed directly in the Overview/status surface.
+- Conceptual:
+  - No new conceptual observatory capability introduced in this turn.
+- Unknown:
+  - No remaining unknown about why the page can appear stalled on large exports; the heavy graph/geometry payload size remains real, but it is now surfaced explicitly instead of hidden.
+Truth-table / limitations updates:
+- None; this turn improved an implemented frontend behavior without changing the documented contract surface.
+Remaining uncertainties:
+- Large exported graph bundles are still large. This turn improves transparency and staging, not payload size reduction or server-side pagination.
+Next shortest proof path:
+- Re-open Browser Observatory on the current large export and confirm the Overview appears immediately with per-payload status cards, deferred Geometry, and background Graph readiness instead of an opaque loading banner.

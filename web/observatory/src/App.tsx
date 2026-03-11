@@ -9,6 +9,8 @@ type GraphMode = "Semantic Map" | "Assemblies" | "Runtime" | "Active Set" | "Com
 type AssemblyRenderMode = "hulls" | "collapsed-meta-node" | "hidden";
 type LiftMode = "flat" | "time_lift" | "density_lift" | "session_offset";
 type InspectorTab = "cards" | "json";
+type PayloadKey = "overview" | "measurements" | "basin" | "graph" | "geometry" | "transcript" | "runtimeStatus" | "runtimeModel";
+type PayloadStatusKind = "idle" | "loading" | "ready" | "error" | "deferred";
 
 type Bootstrap = {
   mode?: string;
@@ -84,10 +86,33 @@ type DataBundle = {
   staleBuildWarning: string | null;
 };
 
+type ResolvedSources = {
+  graph?: string;
+  basin?: string;
+  overview?: string;
+  measurements?: string;
+  geometry?: string;
+  transcript?: string;
+  runtimeStatus?: string;
+  runtimeModel?: string;
+  liveEnabled: boolean;
+  staleBuildWarning: string | null;
+};
+
+type PayloadStatus = {
+  label: string;
+  detail: string;
+  status: PayloadStatusKind;
+  source: "live_api" | "static_export" | "none";
+  error?: string;
+};
+
 const SURFACES: Surface[] = ["overview", "graph", "basin", "geometry", "measurements"];
 const DEFAULT_GRAPH_MODE: GraphMode = "Semantic Map";
 const DEFAULT_ASSEMBLY_RENDER_MODE: AssemblyRenderMode = "hulls";
 const DEFAULT_LIFT_MODE: LiftMode = "flat";
+const ESSENTIAL_PAYLOADS: PayloadKey[] = ["overview", "measurements", "basin"];
+const PAYLOAD_ORDER: PayloadKey[] = ["overview", "measurements", "basin", "graph", "geometry", "transcript", "runtimeStatus", "runtimeModel"];
 
 const EMPTY_DATA: DataBundle = {
   graph: null,
@@ -100,6 +125,17 @@ const EMPTY_DATA: DataBundle = {
   runtimeModel: null,
   liveEnabled: false,
   staleBuildWarning: null,
+};
+
+const EMPTY_STATUS: Record<PayloadKey, PayloadStatus> = {
+  overview: { label: "Overview", detail: "Index summary and artifact counts", status: "idle", source: "none" },
+  measurements: { label: "Measurements", detail: "Measurement ledger and attribution counts", status: "idle", source: "none" },
+  basin: { label: "Basin", detail: "Trajectory summary and attractor metadata", status: "idle", source: "none" },
+  graph: { label: "Graph", detail: "Large semantic graph bundle", status: "idle", source: "none" },
+  geometry: { label: "Geometry", detail: "Large diagnostics bundle", status: "idle", source: "none" },
+  transcript: { label: "Transcript", detail: "Turn history and active-set cross-links", status: "idle", source: "none" },
+  runtimeStatus: { label: "Runtime status", detail: "Live backend status", status: "idle", source: "none" },
+  runtimeModel: { label: "Runtime model", detail: "Live model metadata", status: "idle", source: "none" },
 };
 
 function labelForSurface(surface: Surface): string {
@@ -167,6 +203,31 @@ function formatValue(value: unknown): string {
   return String(value);
 }
 
+function initializePayloadStatuses(sources: Partial<Record<PayloadKey, string>>, liveEnabled: boolean): Record<PayloadKey, PayloadStatus> {
+  const next = structuredClone(EMPTY_STATUS);
+  for (const key of PAYLOAD_ORDER) {
+    if (sources[key]) {
+      next[key].source = liveEnabled ? "live_api" : "static_export";
+      next[key].status = ESSENTIAL_PAYLOADS.includes(key)
+        ? "loading"
+        : key === "geometry"
+          ? "deferred"
+          : "idle";
+    }
+  }
+  return next;
+}
+
+function payloadStatusClass(status: PayloadStatusKind): string {
+  return `payload-chip payload-${status}`;
+}
+
+function sourceLabel(source: PayloadStatus["source"]): string {
+  if (source === "live_api") return "live API";
+  if (source === "static_export") return "static export";
+  return "unavailable";
+}
+
 function Card({
   title,
   children,
@@ -197,6 +258,8 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<DataBundle>(EMPTY_DATA);
+  const [resolvedSources, setResolvedSources] = useState<ResolvedSources | null>(null);
+  const [payloadStatuses, setPayloadStatuses] = useState<Record<PayloadKey, PayloadStatus>>(EMPTY_STATUS);
 
   const presetStorageKey = useMemo(() => storageKey({ bootstrap, graph: data.graph, surface }), [bootstrap, data.graph, surface]);
 
@@ -247,6 +310,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
     async function load() {
       setLoading(true);
       setError(null);
+      setPayloadStatuses(EMPTY_STATUS);
       try {
         const statusUrl = bootstrap.live_api?.status;
         let liveEnabled = false;
@@ -284,37 +348,108 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
               runtimeStatus: undefined,
               runtimeModel: undefined,
             };
-
-        const next: DataBundle = {
-          graph: sources.graph ? await fetchJson<GraphPayload>(sources.graph) : null,
-          basin: sources.basin ? await fetchJson<BasinPayload>(sources.basin) : null,
-          overview: sources.overview ? await fetchJson<OverviewPayload>(sources.overview) : null,
-          measurements: sources.measurements ? await fetchJson<MeasurementsPayload>(sources.measurements) : null,
-          geometry: sources.geometry ? await fetchJson<Record<string, any>>(sources.geometry) : null,
-          transcript: sources.transcript ? await fetchJson<TranscriptPayload>(sources.transcript) : null,
-          runtimeStatus: sources.runtimeStatus ? await fetchJson<Record<string, any>>(sources.runtimeStatus) : null,
-          runtimeModel: sources.runtimeModel ? await fetchJson<Record<string, any>>(sources.runtimeModel) : null,
+        const nextSources: ResolvedSources = {
+          ...sources,
           liveEnabled,
           staleBuildWarning,
         };
-
         if (!cancelled) {
-          startTransition(() => {
-            setData(next);
-            if (!selectedTurnId && next.basin?.turns?.length) {
-              setSelectedTurnId(next.basin.turns[0].turn_id);
-            }
-            if (!selectedAssemblyId && next.graph?.assemblies?.length) {
-              setSelectedAssemblyId(next.graph.assemblies[0].id);
-            }
-          });
+          setResolvedSources(nextSources);
+          setPayloadStatuses(initializePayloadStatuses(sources, liveEnabled));
+          setData((current) => ({
+            ...current,
+            liveEnabled,
+            staleBuildWarning,
+          }));
         }
+
+        const loadPayload = async <T,>(key: PayloadKey, url: string, assign: (payload: T) => void): Promise<T | null> => {
+          if (cancelled) return null;
+          setPayloadStatuses((current) => ({
+            ...current,
+            [key]: {
+              ...current[key],
+              status: "loading",
+              error: undefined,
+            },
+          }));
+          try {
+            const payload = await fetchJson<T>(url);
+            if (cancelled) return null;
+            startTransition(() => {
+              assign(payload);
+            });
+            setPayloadStatuses((current) => ({
+              ...current,
+              [key]: {
+                ...current[key],
+                status: "ready",
+              },
+            }));
+            return payload;
+          } catch (payloadError) {
+            if (cancelled) return null;
+            const message = payloadError instanceof Error ? payloadError.message : `Failed to load ${key}.`;
+            setPayloadStatuses((current) => ({
+              ...current,
+              [key]: {
+                ...current[key],
+                status: "error",
+                error: message,
+              },
+            }));
+            throw payloadError;
+          }
+        };
+
+        const essentialTasks: Array<Promise<unknown>> = [];
+        if (nextSources.overview) {
+          essentialTasks.push(loadPayload("overview", nextSources.overview, (payload) => setData((current) => ({ ...current, overview: payload as OverviewPayload }))));
+        }
+        if (nextSources.measurements) {
+          essentialTasks.push(loadPayload("measurements", nextSources.measurements, (payload) => setData((current) => ({ ...current, measurements: payload as MeasurementsPayload }))));
+        }
+        if (nextSources.basin) {
+          essentialTasks.push(
+            loadPayload("basin", nextSources.basin, (payload) => {
+              const basin = payload as BasinPayload;
+              setData((current) => ({ ...current, basin }));
+              if (!selectedTurnId && basin.turns?.length) {
+                setSelectedTurnId(basin.turns[0].turn_id);
+              }
+            }),
+          );
+        }
+        await Promise.allSettled(essentialTasks);
+        if (!cancelled) {
+          setLoading(false);
+        }
+
+        const backgroundTasks: Array<Promise<unknown>> = [];
+        if (nextSources.graph) {
+          backgroundTasks.push(
+            loadPayload("graph", nextSources.graph, (payload) => {
+              const graph = payload as GraphPayload;
+              setData((current) => ({ ...current, graph }));
+              if (!selectedAssemblyId && graph.assemblies?.length) {
+                setSelectedAssemblyId(graph.assemblies[0].id);
+              }
+            }),
+          );
+        }
+        if (nextSources.transcript) {
+          backgroundTasks.push(loadPayload("transcript", nextSources.transcript, (payload) => setData((current) => ({ ...current, transcript: payload as TranscriptPayload }))));
+        }
+        if (nextSources.runtimeStatus) {
+          backgroundTasks.push(loadPayload("runtimeStatus", nextSources.runtimeStatus, (payload) => setData((current) => ({ ...current, runtimeStatus: payload as Record<string, any> }))));
+        }
+        if (nextSources.runtimeModel) {
+          backgroundTasks.push(loadPayload("runtimeModel", nextSources.runtimeModel, (payload) => setData((current) => ({ ...current, runtimeModel: payload as Record<string, any> }))));
+        }
+        void Promise.allSettled(backgroundTasks);
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : "Failed to load observatory payloads.");
-        }
-      } finally {
-        if (!cancelled) {
           setLoading(false);
         }
       }
@@ -366,6 +501,48 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
     };
   }, [bootstrap.live_api, bootstrap.session_id, data.liveEnabled]);
 
+  useEffect(() => {
+    if (surface !== "geometry" || data.geometry || !resolvedSources?.geometry) return;
+    let cancelled = false;
+    const url = resolvedSources.geometry;
+    setPayloadStatuses((current) => ({
+      ...current,
+      geometry: {
+        ...current.geometry,
+        status: "loading",
+        source: resolvedSources.liveEnabled ? "live_api" : "static_export",
+        error: undefined,
+      },
+    }));
+    void fetchJson<Record<string, any>>(url)
+      .then((geometry) => {
+        if (cancelled) return;
+        setData((current) => ({ ...current, geometry }));
+        setPayloadStatuses((current) => ({
+          ...current,
+          geometry: {
+            ...current.geometry,
+            status: "ready",
+          },
+        }));
+      })
+      .catch((loadError) => {
+        if (cancelled) return;
+        const message = loadError instanceof Error ? loadError.message : "Failed to load geometry payload.";
+        setPayloadStatuses((current) => ({
+          ...current,
+          geometry: {
+            ...current.geometry,
+            status: "error",
+            error: message,
+          },
+        }));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [data.geometry, resolvedSources, surface]);
+
   function handleSelectNode(nodeId: string, additive: boolean) {
     if (!nodeId) {
       setSelectedNodeIds([]);
@@ -378,6 +555,8 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
   }
 
   function renderOverview() {
+    const graphCounts = data.overview?.graph_counts ?? data.graph?.counts ?? {};
+    const measurementCounts = data.measurements?.counts ?? {};
     return (
       <div className="overview-grid">
         <Card title="Identity">
@@ -391,11 +570,20 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
           />
         </Card>
         <Card title="Graph">
-          <MetricList items={Object.entries(data.overview?.graph_counts ?? data.graph?.counts ?? {})} />
+          <MetricList
+            items={[
+              ["Payload", payloadStatuses.graph.status],
+              ["Source", sourceLabel(payloadStatuses.graph.source)],
+              ["Assemblies", data.graph?.assemblies?.length],
+              ["Clusters", data.graph?.cluster_summaries?.length],
+              ...Object.entries(graphCounts),
+            ]}
+          />
         </Card>
         <Card title="Basin">
           <MetricList
             items={[
+              ["Payload", payloadStatuses.basin.status],
               ["Projection", data.basin?.projection_method ?? bootstrap.projection_method],
               ["Filtered turns", data.basin?.filtered_turn_count],
               ["Source turns", data.basin?.source_turn_count],
@@ -404,9 +592,48 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
           />
         </Card>
         <Card title="Measurements">
-          <MetricList items={Object.entries(data.measurements?.counts ?? {})} />
+          <MetricList items={[["Payload", payloadStatuses.measurements.status], ...Object.entries(measurementCounts)]} />
         </Card>
       </div>
+    );
+  }
+
+  function renderPayloadStatus() {
+    const entries = PAYLOAD_ORDER.filter((key) => payloadStatuses[key].source !== "none").map((key) => [key, payloadStatuses[key]] as const);
+    if (!entries.length) return null;
+    const activeLoads = entries.filter(([, item]) => item.status === "loading").length;
+    const deferredLoads = entries.filter(([, item]) => item.status === "deferred").length;
+    return (
+      <section className="status-panel">
+        <div className="status-panel-copy">
+          <strong>{loading ? "Loading observatory payloads" : activeLoads ? "Background payload activity" : "Payload status"}</strong>
+          <span>
+            {data.liveEnabled
+              ? "Live mode prefers API payloads and refresh invalidations."
+              : "Static export mode reads adjacent JSON artifacts; large graph and geometry bundles can take noticeable time."}
+          </span>
+          <span>
+            {activeLoads
+              ? `${activeLoads} payload${activeLoads === 1 ? "" : "s"} still loading.`
+              : deferredLoads
+                ? `${deferredLoads} payload${deferredLoads === 1 ? "" : "s"} deferred until needed.`
+                : "All requested payloads are ready."}
+          </span>
+        </div>
+        <div className="payload-grid">
+          {entries.map(([key, item]) => (
+            <div key={key} className="payload-card">
+              <div className="payload-card-header">
+                <strong>{item.label}</strong>
+                <span className={payloadStatusClass(item.status)}>{item.status}</span>
+              </div>
+              <p>{item.detail}</p>
+              <small>{sourceLabel(item.source)}</small>
+              {item.error ? <small className="payload-error">{item.error}</small> : null}
+            </div>
+          ))}
+        </div>
+      </section>
     );
   }
 
@@ -567,43 +794,57 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
     return (
       <aside className="sidebar">
         <Card title="Assemblies">
-          <div className="chip-list">
-            {(data.graph?.assemblies ?? []).slice(0, 12).map((assembly: any) => (
-              <button
-                key={assembly.id}
-                className={assembly.id === selectedAssemblyId ? "chip is-active" : "chip"}
-                onClick={() => setSelectedAssemblyId(assembly.id)}
-                type="button"
-              >
-                {assembly.label}
-              </button>
-            ))}
-          </div>
+          {data.graph ? (
+            <div className="chip-list">
+              {(data.graph?.assemblies ?? []).slice(0, 12).map((assembly: any) => (
+                <button
+                  key={assembly.id}
+                  className={assembly.id === selectedAssemblyId ? "chip is-active" : "chip"}
+                  onClick={() => setSelectedAssemblyId(assembly.id)}
+                  type="button"
+                >
+                  {assembly.label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="placeholder-copy">Graph payload {payloadStatuses.graph.status}. Assemblies appear after the semantic graph bundle arrives.</p>
+          )}
         </Card>
         <Card title="Semantic Clusters">
-          <div className="chip-list">
-            {(data.graph?.cluster_summaries ?? []).slice(0, 12).map((cluster: any) => (
-              <div key={cluster.cluster_signature} className="cluster-pill">
-                <strong>{cluster.display_label}</strong>
-                <span>{cluster.member_meme_ids.length} memes</span>
-              </div>
-            ))}
-          </div>
+          {data.graph ? (
+            <div className="chip-list">
+              {(data.graph?.cluster_summaries ?? []).slice(0, 12).map((cluster: any) => (
+                <div key={cluster.cluster_signature} className="cluster-pill">
+                  <strong>{cluster.display_label}</strong>
+                  <span>{cluster.member_meme_ids.length} memes</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="placeholder-copy">Cluster summaries depend on the graph payload and are loaded separately from the overview.</p>
+          )}
         </Card>
         <Card title="Transcript">
-          <div className="transcript-list">
-            {(data.transcript?.turns ?? []).slice(0, 10).map((turn: any) => (
-              <button
-                key={turn.turn_id}
-                className={turn.turn_id === selectedTurn?.turn_id ? "transcript-turn is-active" : "transcript-turn"}
-                onClick={() => setSelectedTurnId(turn.turn_id)}
-                type="button"
-              >
-                <span>T{turn.turn_index}</span>
-                <span>{turn.user_text}</span>
-              </button>
-            ))}
-          </div>
+          {data.transcript ? (
+            <div className="transcript-list">
+              {(data.transcript?.turns ?? []).slice(0, 10).map((turn: any) => (
+                <button
+                  key={turn.turn_id}
+                  className={turn.turn_id === selectedTurn?.turn_id ? "transcript-turn is-active" : "transcript-turn"}
+                  onClick={() => setSelectedTurnId(turn.turn_id)}
+                  type="button"
+                >
+                  <span>T{turn.turn_index}</span>
+                  <span>{turn.user_text}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="placeholder-copy">
+              {data.liveEnabled ? `Transcript payload ${payloadStatuses.transcript.status}.` : "Transcript is only available from the live API in v1."}
+            </p>
+          )}
         </Card>
       </aside>
     );
@@ -611,6 +852,9 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
 
   function renderMainSurface() {
     if (surface === "overview") return renderOverview();
+    if (surface === "graph" && !data.graph) {
+      return <div className="empty-state"><h2>Graph payload not ready</h2><p>Current status: {payloadStatuses.graph.status}. This semantic bundle is large and loads separately from the overview.</p></div>;
+    }
     if (surface === "graph" && data.graph) {
       return (
         <>
@@ -625,6 +869,9 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
           />
         </>
       );
+    }
+    if (surface === "basin" && !data.basin) {
+      return <div className="empty-state"><h2>Basin payload not ready</h2><p>Current status: {payloadStatuses.basin.status}.</p></div>;
     }
     if (surface === "basin" && data.basin) {
       if ((data.basin.filtered_turn_count ?? 0) < 2) {
@@ -658,6 +905,16 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
       );
     }
     if (surface === "geometry") {
+      if (!data.geometry) {
+        return (
+          <div className="empty-state">
+            <h2>Geometry payload {payloadStatuses.geometry.status}</h2>
+            <p>
+              The geometry bundle is intentionally deferred until you open this tab because it can be very large on seeded experiments.
+            </p>
+          </div>
+        );
+      }
       return <pre className="debug-json">{JSON.stringify(data.geometry ?? {}, null, 2)}</pre>;
     }
     return <pre className="debug-json">{JSON.stringify(data.measurements ?? {}, null, 2)}</pre>;
@@ -685,7 +942,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
         ))}
       </nav>
 
-      {loading ? <div className="status-banner">Loading observatory payloads…</div> : null}
+      {renderPayloadStatus()}
       {error ? <div className="status-banner status-error">{error}</div> : null}
 
       <main className="layout">

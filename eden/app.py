@@ -86,7 +86,12 @@ def cmd_observatory(args) -> int:
     status = runtime.start_observatory(host=args.host, port=args.port, reuse_existing=args.reuse_existing)
     print(json.dumps(status, indent=2))
     if args.open:
-        webbrowser.open(status["url"])
+        latest = runtime.store.get_latest_experiment()
+        target_url = status["url"]
+        if latest is not None:
+            runtime.export_observability(experiment_id=latest["id"], session_id=None)
+            target_url = f"{status['url']}{latest['id']}/observatory_index.html"
+        webbrowser.open(target_url)
     try:
         while True:
             time.sleep(1)
