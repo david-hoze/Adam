@@ -46,6 +46,10 @@
 | Measurement ledger export | Implemented | `measurement_ledger.html` + `measurement_events.json` |
 | Observatory index page | Implemented | `observatory_index.html` |
 | React observatory shell | Implemented | checked-in Vite bundle served by Python shells and copied into static exports |
+| Tanach.us UXLC fetch / verify / index substrate | Implemented | `scripts/sync_tanakh_uxlc.py`; manifest/index sidecars and pytest fixture proof |
+| Deterministic Tanakh analyzers and merkavah scene compiler | Implemented | `eden/tanakh/service.py`; analyzer hash determinism + scene replay determinism covered in `tests/test_tanakh_tools.py` |
+| Tanakh observatory sidecar surface | Implemented | React observatory now exposes canonical reader, derived analyzer cards, provenance badges, JSON debug, and Three-derived scene panel via `tanakh_surface.json` |
+| Tanakh render-validation harness | Instrumented | `tanakh_render_validation.json` + `.html` automate oracle capture and manual-review artifacts; glyph-placement comparison is not yet machine-scored |
 | Layered observatory graph payload | Implemented | authoritative `semantic_*`, `runtime_*`, `assemblies`, `cluster_summaries`, and `active_set_slices` planes |
 | Deterministic semantic clustering | Implemented | meme-only Louvain clustering with fixed seed, canonical node ordering, and versioned label/token inputs |
 | Manual cluster annotation | Implemented | `motif_annotation` now supports `target.kind=\"cluster\"` with exact/transfer/detached cluster label semantics |

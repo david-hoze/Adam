@@ -13,13 +13,14 @@ from .geometry import compute_geometry_metrics, compute_selection_geometry, metr
 
 
 class ObservatoryService:
-    def __init__(self, *, store, exporter, runtime_log, export_root: Path, runtime_status_provider=None, runtime_model_provider=None) -> None:
+    def __init__(self, *, store, exporter, runtime_log, export_root: Path, runtime_status_provider=None, runtime_model_provider=None, tanakh_service=None) -> None:
         self.store = store
         self.exporter = exporter
         self.runtime_log = runtime_log
         self.export_root = export_root
         self.runtime_status_provider = runtime_status_provider
         self.runtime_model_provider = runtime_model_provider
+        self.tanakh_service = tanakh_service
 
     def refresh_exports(self, *, experiment_id: str, session_id: str | None) -> tuple[dict[str, str], dict[str, Any]]:
         out_dir = self.export_root / experiment_id
@@ -32,6 +33,9 @@ class ObservatoryService:
             "measurements": json.loads((out_dir / "measurement_events.json").read_text(encoding="utf-8")),
             "index": json.loads((out_dir / "observatory_index.json").read_text(encoding="utf-8")),
         }
+        tanakh_path = out_dir / "tanakh_surface.json"
+        if tanakh_path.exists():
+            payload["tanakh"] = json.loads(tanakh_path.read_text(encoding="utf-8"))
         return paths, payload
 
     def experiment_payload(self, *, experiment_id: str, session_id: str | None) -> dict[str, Any]:
@@ -40,7 +44,7 @@ class ObservatoryService:
 
     def experiment_overview(self, *, experiment_id: str, session_id: str | None) -> dict[str, Any]:
         payload = self.experiment_payload(experiment_id=experiment_id, session_id=session_id)
-        return {
+        overview = {
             "index": payload["index"],
             "graph_counts": payload["graph"].get("counts", {}),
             "basin": {
@@ -50,6 +54,12 @@ class ObservatoryService:
             },
             "measurements": payload["measurements"].get("counts", {}),
         }
+        if "tanakh" in payload:
+            overview["tanakh"] = {
+                "current_ref": payload["tanakh"].get("current_ref"),
+                "bundle_hash": payload["tanakh"].get("bundle_hash"),
+            }
+        return overview
 
     def graph_payload(self, *, experiment_id: str, session_id: str | None) -> dict[str, Any]:
         return self.experiment_payload(experiment_id=experiment_id, session_id=session_id)["graph"]
@@ -62,6 +72,40 @@ class ObservatoryService:
 
     def measurement_payload(self, *, experiment_id: str, session_id: str | None) -> dict[str, Any]:
         return self.experiment_payload(experiment_id=experiment_id, session_id=session_id)["measurements"]
+
+    def tanakh_payload(self, *, experiment_id: str, session_id: str | None) -> dict[str, Any]:
+        payload = self.experiment_payload(experiment_id=experiment_id, session_id=session_id)
+        return payload.get("tanakh", {})
+
+    def run_tanakh(
+        self,
+        *,
+        experiment_id: str,
+        session_id: str | None,
+        ref: str,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        if self.tanakh_service is None:
+            raise ValueError("Tanakh service is unavailable.")
+        out_dir = self.export_root / experiment_id
+        out_dir.mkdir(parents=True, exist_ok=True)
+        _, payload = self.exporter.export_tanakh_surface(
+            experiment_id=experiment_id,
+            session_id=session_id,
+            out_dir=out_dir,
+            ref=ref,
+            params=params,
+        )
+        self.runtime_log.emit(
+            "INFO",
+            "tanakh_run",
+            "Generated Tanakh tool-surface run.",
+            experiment_id=experiment_id,
+            session_id=session_id,
+            ref=payload.get("current_ref"),
+            bundle_hash=payload.get("bundle_hash"),
+        )
+        return payload
 
     def list_experiments(self) -> dict[str, Any]:
         return {"experiments": self.store.list_experiments()}

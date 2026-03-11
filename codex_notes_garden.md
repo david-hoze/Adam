@@ -1486,3 +1486,170 @@ Remaining uncertainties:
 - Firefox/WebKit coverage remains intentionally smoke-scoped to J01, J05, and J17 rather than the full Chromium journey battery.
 Next shortest proof path:
 - If browser mutation work is in scope next, surface explicit MEASURE/EDIT/REVERT/runtime-causality controls in the React UI and then replace the J06/J10-J14 gap proofs with browser mutation evidence in the same harness.
+## [2026-03-11 12:07:07 EDT] PRE-FLIGHT
+Operator task:
+Instantiate a first truthful Tanakh tool-surface vertical slice inside the existing EDEN observatory, using the attached PDF plus the observatory/spec stack as requirements.
+Task checksum:
+e47b6eae4afece2219c010e922ab1c0ea5613c18b5e855eb46b7eddffbc45f98
+Repo situation:
+Root `AGENTS.md` is in force. Working tree is dirty only at `.DS_Store`. Existing observatory stack is already live: Python exporter/service/server plus checked-in React+Vite bundle under `web/observatory`.
+Relevant spec surfaces read:
+`docs/OBSERVATORY_SPEC.md`, `docs/OBSERVATORY_INTERACTION_SPEC.md`, `docs/MEASUREMENT_EVENT_MODEL.md`, `docs/GEOMETRY_EVIDENCE_POLICY.md`, `docs/OBSERVATORY_GEOMETRY_SPEC.md`, `docs/IMPLEMENTATION_TRUTH_TABLE.md`, `docs/TUI_SPEC.md`, `docs/KNOWN_LIMITATIONS.md`, `docs/CANONICAL_ONTOLOGY.md`, `docs/PROJECT_CHARTER.md`.
+Natural-language contracts in force:
+TUI remains primary. Browser observatory is additive and measurement-facing. Observation must not silently mutate the graph. Layout/rendering is never evidence. Memes remain first-class and memodes remain derived. New Tanakh outputs must carry provenance and derived-status labels.
+Files/modules likely in scope:
+`eden/runtime.py`, `eden/observatory/service.py`, `eden/observatory/server.py`, `eden/observatory/exporters.py`, `web/observatory/src/App.tsx`, `web/observatory/src/components/BasinPanel.tsx`, `web/observatory/src/styles.css`, new `eden/tanakh/*`, new tests/harness files, relevant docs truth surfaces, and observatory frontend build artifacts.
+Status register:
+- Implemented:
+  - Observatory export/service/server path with live API and sidecar export artifacts.
+  - React observatory shell with existing graph/basin/geometry/measurement surfaces.
+  - Measurement-event persistence and preview/commit/revert semantics server-side.
+- Instrumented:
+  - Browser SSE refresh, checked-in bundle build metadata, Playwright browser proof for current observatory surfaces.
+- Conceptual:
+  - Tanakh tool-surface, Tanakh artifact family, Hebrew render validation harness, Tanakh-specific observatory UI.
+- Unknown:
+  - No repo evidence yet for Tanakh substrate tooling, deterministic Tanakh analyzers, scene compiler, or Hebrew render validation.
+Risks / invariants:
+Do not overclaim Hebrew rendering. Do not force whole Tanakh text into Three geometry. Avoid unlicensed dependencies. Keep Python authoritative for provenance/export paths. Prefer sidecar artifacts over fake first-class measurement integration if schema/UI extension grows non-trivial.
+Evidence plan:
+Primary-source research memo with official URLs. Deterministic Tanakh tool tests. Scene hash determinism test. Render-validation artifact JSON plus screenshots. Frontend build proof. Repo pytest proof path. Exported Tanakh artifacts under the existing observatory export root.
+Shortest proof path:
+Build Tanach.us fetch/verify/index tooling and local analyzers first; compile one deterministic scene for Ezekiel 1; expose it through observatory sidecar payloads plus one live API; render canonical text in DOM and derived scene in Three; prove determinism and render artifact generation with tests/harnesses; then update docs/truth surfaces.
+## [2026-03-11 12:37:45 EDT] POST-FLIGHT
+Files changed:
+- `/Users/brianray/Adam/eden/tanakh/__init__.py`
+- `/Users/brianray/Adam/eden/tanakh/service.py`
+- `/Users/brianray/Adam/eden/config.py`
+- `/Users/brianray/Adam/eden/runtime.py`
+- `/Users/brianray/Adam/eden/observatory/exporters.py`
+- `/Users/brianray/Adam/eden/observatory/service.py`
+- `/Users/brianray/Adam/eden/observatory/server.py`
+- `/Users/brianray/Adam/scripts/sync_tanakh_uxlc.py`
+- `/Users/brianray/Adam/scripts/run_tanakh_render_validation.py`
+- `/Users/brianray/Adam/web/observatory/src/App.tsx`
+- `/Users/brianray/Adam/web/observatory/src/components/TanakhPanel.tsx`
+- `/Users/brianray/Adam/web/observatory/src/components/TanakhScenePanel.tsx`
+- `/Users/brianray/Adam/web/observatory/src/styles.css`
+- `/Users/brianray/Adam/tests/conftest.py`
+- `/Users/brianray/Adam/tests/test_tanakh_tools.py`
+- `/Users/brianray/Adam/tests/test_observatory_server.py`
+- `/Users/brianray/Adam/tests/test_runtime_e2e.py`
+- `/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`
+- `/Users/brianray/Adam/docs/MEASUREMENT_EVENT_MODEL.md`
+- `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+- `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+- `/Users/brianray/Adam/eden/observatory/static/observatory_app/build-meta.json`
+- `/Users/brianray/Adam/eden/observatory/static/observatory_app/index.js`
+- `/Users/brianray/Adam/eden/observatory/static/observatory_app/style.css`
+Specs changed:
+- `/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`
+- `/Users/brianray/Adam/docs/MEASUREMENT_EVENT_MODEL.md`
+- `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+- `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+Natural-language contracts added/revised/preserved:
+- Added a Tanakh observatory sidecar contract with explicit artifact families, live read/run endpoints, provenance payload requirements, and the boundary that Tanakh runs are not first-class measurement events yet.
+- Preserved the TUI-primary / browser-additive contract and the rule that layout/rendering is not evidence.
+- Preserved the measurement-event model by keeping Tanakh runs in dedicated sidecars instead of silently mutating the measurement schema.
+Behavior implemented or modified:
+- Added Tanach.us UXLC substrate sync, manifest, and index generation with version/build/hash/source metadata and truthful fetch-timestamp handling.
+- Added deterministic Tanakh tool functions for passage retrieval, gematria, notarikon, temurah, and a replayable merkavah scene compiler with scene-node citation linkage.
+- Added Tanakh observatory export sidecars, live API endpoints, overview integration, and a React surface with canonical reader, analyzer cards, provenance/debug panes, and a derived Three scene.
+- Added a Hebrew render-validation harness that emits oracle/HTML/JSON artifacts and requires explicit manual glyph-order/mark-placement review.
+- Added offline Tanakh test fixtures plus deterministic service/runtime/server proofs.
+Evidence produced (tests / traces / commands / exports):
+- `./.venv/bin/python -m compileall eden tests`
+- `./.venv/bin/pytest -q tests/test_tanakh_tools.py tests/test_observatory_server.py tests/test_runtime_e2e.py` -> `13 passed`
+- `./.venv/bin/pytest -q` -> `51 passed in 26.90s`
+- `npm --prefix web/observatory run build`
+- `npm --prefix web/observatory run test`
+- `./.venv/bin/python scripts/sync_tanakh_uxlc.py --force`
+- `./.venv/bin/python scripts/run_tanakh_render_validation.py --ref 'Ezek 1:1-5'`
+- Artifact paths:
+  - `/Users/brianray/Adam/data/tanakh_cache/tanakh_manifest.json`
+  - `/Users/brianray/Adam/data/tanakh_cache/tanakh_index.json`
+  - `/Users/brianray/Adam/exports/tanakh_validation/tanakh_surface.json`
+  - `/Users/brianray/Adam/exports/tanakh_validation/tanakh_render_validation.json`
+  - `/Users/brianray/Adam/exports/tanakh_validation/tanakh_render_validation.html`
+Status register changes:
+- Implemented:
+  - Tanach.us substrate sync/index/manifest pipeline.
+  - Deterministic Tanakh analyzers and merkavah scene compiler.
+  - Tanakh observatory sidecar surface and live run/read API wiring.
+- Instrumented:
+  - Hebrew render-validation harness with oracle capture and manual-review HTML/JSON artifacts.
+- Conceptual:
+  - HarfBuzz-backed Hebrew shaping integration.
+  - First-class Tanakh measurement-event schema participation and preview/commit/revert semantics.
+- Unknown:
+  - No unknowns remain in the implemented vertical slice; 3D Hebrew glyph correctness beyond the manual-review harness remains intentionally unclaimed rather than unknown.
+Truth-table / limitations updates:
+- Added Tanakh substrate/tool-surface/render-validation rows to `IMPLEMENTATION_TRUTH_TABLE.md`.
+- Added Tanakh render and measurement-sidecar boundaries to `KNOWN_LIMITATIONS.md`.
+- Added Tanakh artifact/live-endpoint contract text to `OBSERVATORY_SPEC.md`.
+- Added Tanakh non-event sidecar boundary to `MEASUREMENT_EVENT_MODEL.md`.
+Remaining uncertainties:
+- The render-validation harness proves artifact generation and oracle capture, but not automatic glyph-placement correctness for niqqud/cantillation in 3D or worker-shaped text.
+- The fetched Tanakh cache under `/Users/brianray/Adam/data/tanakh_cache/` is a generated local artifact, not a checked-in repo fixture.
+Next shortest proof path:
+- If Hebrew scene text fidelity must move beyond the DOM canonical reader, add a browser proof harness that compares Troika-rendered labels against the current validation oracle and only escalate to HarfBuzz-based shaping if that proof fails.
+## [2026-03-11 13:00:44 EDT] PRE-FLIGHT
+Operator task:
+Add ignore rules for generated material that is inflating the pending git commit.
+Task checksum:
+05bc5b7f0fb1d4fe64b75f8fa614825f6e1f6d8d001c59f7bd091c7115cb6294
+Repo situation:
+Tanakh vertical-slice work is still live in the tree. The main inflation source is newly generated `data/tanakh_cache/` with the fetched UXLC archive plus extracted `Books/*.xml`; a smaller generated Vite test-cache file under `web/observatory/node_modules/.vite/` is also showing as modified.
+Relevant spec surfaces read:
+Root `AGENTS.md` only. No behavioral/product spec surface is affected by this turn; this is repository hygiene.
+Natural-language contracts in force:
+Keep the checked-in observatory bundle as contract surface. Do not hide intentional source/build artifacts; only ignore generated local cache/test material.
+Files/modules likely in scope:
+`/Users/brianray/Adam/.gitignore`, `/Users/brianray/Adam/codex_notes_garden.md`.
+Status register:
+- Implemented:
+  - Tanakh substrate cache generation under `data/tanakh_cache/`.
+- Instrumented:
+  - None.
+- Conceptual:
+  - None.
+- Unknown:
+  - Whether any tracked generated file beyond the Tanakh cache is materially inflating the commit.
+Risks / invariants:
+Do not ignore checked-in observatory bundle outputs that the repo treats as runtime contract. Avoid broad ignores that would hide source files or durable exports.
+Evidence plan:
+Inspect `git status`, inspect `.gitignore`, add narrow ignore rules, then verify ignored status.
+Shortest proof path:
+Ignore `data/tanakh_cache/` and the local Vite cache directory, then confirm `git status --ignored` shows `data/` suppressed.
+## [2026-03-11 13:00:44 EDT] POST-FLIGHT
+Files changed:
+- `/Users/brianray/Adam/.gitignore`
+- `/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+- None. Repository hygiene only.
+Natural-language contracts added/revised/preserved:
+- Preserved the rule that checked-in observatory bundle assets remain visible contract files.
+- Added narrow ignore coverage for Tanakh substrate cache material and local Vite cache material only.
+Behavior implemented or modified:
+- Added `data/tanakh_cache/` to `.gitignore`.
+- Added `web/observatory/node_modules/.vite/` to `.gitignore`.
+Evidence produced (tests / traces / commands / exports):
+- `git status --short`
+- `git diff --numstat -- . ':(exclude).DS_Store'`
+- `git status --short --ignored`
+Status register changes:
+- Implemented:
+  - Generated Tanakh cache is now ignored for future adds.
+  - Local Vite cache directory is now ignored for future adds.
+- Instrumented:
+  - None.
+- Conceptual:
+  - None.
+- Unknown:
+  - The modified `web/observatory/node_modules/.vite/.../results.json` entry remains visible because it is already tracked; `.gitignore` does not retroactively hide tracked files.
+Truth-table / limitations updates:
+- None.
+Remaining uncertainties:
+- If the tracked Vite results file should also disappear from the pending commit, it needs a separate cleanup/removal step rather than another ignore rule.
+Next shortest proof path:
+- Remove or restore the already tracked Vite results file if you want the pending diff trimmed further.

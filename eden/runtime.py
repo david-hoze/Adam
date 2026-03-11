@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .budget import BudgetEstimate, estimate_budget
-from .config import DEFAULT_MLX_MODEL_DIR, EXPORT_DIR, RUNTIME_LOG_PATH, RuntimeSettings, SEED_CANON_DIR
+from .config import DEFAULT_MLX_MODEL_DIR, EXPORT_DIR, RUNTIME_LOG_PATH, RuntimeSettings, SEED_CANON_DIR, TANAKH_CACHE_DIR
 from .inference import (
     InferenceProfileRequest,
     default_profile_request,
@@ -29,6 +29,7 @@ from .observatory.service import ObservatoryService
 from .regard import ema, feedback_signal
 from .retrieval import RetrievalService
 from .storage.graph_store import GraphStore
+from .tanakh import DEFAULT_TANAKH_REF, TanakhService
 from .utils import now_utc, safe_excerpt, slugify, top_phrases
 
 
@@ -109,7 +110,8 @@ class EdenRuntime:
         self.runtime_log = runtime_log or RuntimeLog(RUNTIME_LOG_PATH)
         self.ingest_service = IngestService(self.store, self.runtime_log)
         self.retrieval_service = RetrievalService(self.store)
-        self.exporter = ObservatoryExporter(self.store, self.retrieval_service, self.runtime_log)
+        self.tanakh_service = TanakhService(cache_root=TANAKH_CACHE_DIR)
+        self.exporter = ObservatoryExporter(self.store, self.retrieval_service, self.runtime_log, tanakh_service=self.tanakh_service)
         self.observatory_service = ObservatoryService(
             store=self.store,
             exporter=self.exporter,
@@ -117,6 +119,7 @@ class EdenRuntime:
             export_root=EXPORT_DIR,
             runtime_status_provider=self.observatory_runtime_status,
             runtime_model_provider=self.observatory_model_status,
+            tanakh_service=self.tanakh_service,
         )
         self.observatory_server = ObservatoryServer(
             EXPORT_DIR,
@@ -1286,6 +1289,39 @@ class EdenRuntime:
     def export_observability(self, *, experiment_id: str, session_id: str | None = None) -> dict[str, str]:
         out_dir = self.export_dir_for_experiment(experiment_id)
         return self.exporter.export_all(experiment_id=experiment_id, session_id=session_id, out_dir=out_dir)
+
+    def tanakh_get_passage(self, *, ref: str, mode: str = "keep_cantillation") -> dict[str, Any]:
+        return self.tanakh_service.get_passage(ref, mode)
+
+    def tanakh_gematria(self, *, input_text: str, scheme: str, preprocess: str) -> dict[str, Any]:
+        return self.tanakh_service.gematria(input_text, scheme, preprocess)
+
+    def tanakh_notarikon(self, *, input_text: str, mode: str, preprocess: str) -> dict[str, Any]:
+        return self.tanakh_service.notarikon(input_text, mode, preprocess)
+
+    def tanakh_temurah(self, *, input_text: str, mapping: str, preprocess: str) -> dict[str, Any]:
+        return self.tanakh_service.temurah(input_text, mapping, preprocess)
+
+    def tanakh_compile_merkavah_scene(self, *, ref: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        return self.tanakh_service.compile_merkavah_scene(ref, params or {})
+
+    def tanakh_surface_bundle(
+        self,
+        *,
+        experiment_id: str,
+        session_id: str | None,
+        ref: str = DEFAULT_TANAKH_REF,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        out_dir = self.export_dir_for_experiment(experiment_id)
+        _, payload = self.tanakh_service.export_surface_bundle(
+            experiment_id=experiment_id,
+            session_id=session_id,
+            out_dir=out_dir,
+            ref=ref,
+            params=params,
+        )
+        return payload
 
     def preview_observatory_action(
         self,

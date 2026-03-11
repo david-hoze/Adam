@@ -10,6 +10,7 @@
 - Mirror, chirality, and translation-symmetry outputs are derived proxies. They are evidence-bearing diagnostics, but they are not proof of metaphysical “sacred geometry.”
 - The browser observatory now runs as a checked-in React/Sigma/Three bundle, but it is still a bounded observability instrument rather than a full graph IDE with arbitrary drag-to-wire editing.
 - Graph and basin rendering can fail in browsers or headless contexts without usable WebGL. The current bundle falls back to explicit renderer-unavailable notes plus text-access panels instead of inventing a visual surface or silently blanking the panel.
+- The Tanakh tool-surface currently treats canonical Hebrew display as a DOM/CSS reader and keeps the Three scene explicitly derived. The render-validation harness produces oracle/HTML artifacts, but niqqud/cantillation placement still requires manual review before claiming fully validated 3D Hebrew text rendering.
 - Geometry for editing previews is computed over EDEN's exported simple graph topology. Multiple relation types between the same node pair remain inspectable in provenance, but geometry itself is still evaluated on the collapsed neighborhood structure.
 - Seeded geometry exports cap per-memode local reports to a bounded, relevance-sorted subset so observatory/export remains responsive on this machine. The browser payload is intentionally not an exhaustive local-report dump for every memode.
 - `current_active_set` geometry export is based on the latest persisted active set for the selected session, not the unsent live composer preview.
@@ -29,6 +30,7 @@
 - Retrieval remains lexical/graph-heuristic rather than embedding-based.
 - Known memode confidence is currently operator-supplied plus provenance-backed. There is not yet a separate learned confidence model for memode validity.
 - The React observatory has now been browser-validated for source honesty, payload lifecycle clarity, read-only inspect, sparse/large-graph honesty, SSE refresh, browser-local presets, and keyboard/text access. Preview/commit/revert, memode assertion, and runtime-causality flows remain server-side or conceptual in the current browser UI.
+- Tanakh runs are surfaced through dedicated sidecar artifacts and live read/run endpoints, but they are not first-class measurement events yet and do not participate in preview / commit / revert semantics.
 - Static observatory exports must be HTTP-served. Direct `file://` opening is not a supported runtime path for the v1 bundle.
 - Browser view presets live in `localStorage` only. They are origin-local, non-authoritative, and intentionally absent from the measurement ledger and graph payload planes.
 - The checked-in frontend bundle is treated as runtime contract surface. Runtime warns on stale build metadata, and CI should fail until `npm --prefix web/observatory run build` refreshes `build-meta.json`.

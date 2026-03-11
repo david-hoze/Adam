@@ -9,6 +9,7 @@ import networkx as nx
 import numpy as np
 
 from ..utils import now_utc, safe_excerpt, sha256_text
+from ..tanakh import DEFAULT_TANAKH_REF
 from .contracts import (
     ASSEMBLY_RENDER_MODES,
     BASIN_LIFT_MODES,
@@ -27,10 +28,11 @@ LOCAL_GEOMETRY_REPORT_LIMIT = 24
 
 
 class ObservatoryExporter:
-    def __init__(self, store, retrieval_service, runtime_log) -> None:
+    def __init__(self, store, retrieval_service, runtime_log, tanakh_service=None) -> None:
         self.store = store
         self.retrieval_service = retrieval_service
         self.runtime_log = runtime_log
+        self.tanakh_service = tanakh_service
 
     def export_all(self, *, experiment_id: str, session_id: str | None, out_dir: Path) -> dict[str, str]:
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -69,6 +71,14 @@ class ObservatoryExporter:
             out_dir=out_dir,
             snapshot=snapshot,
         )
+        tanakh_paths: dict[str, str] = {}
+        tanakh_payload: dict[str, Any] | None = None
+        if self.tanakh_service is not None:
+            tanakh_paths, tanakh_payload = self.export_tanakh_surface(
+                experiment_id=experiment_id,
+                session_id=session_id,
+                out_dir=out_dir,
+            )
         index_paths = self.export_observatory_index(
             experiment_id=experiment_id,
             session_id=session_id,
@@ -80,8 +90,10 @@ class ObservatoryExporter:
             basin_paths=basin_paths,
             geometry_paths=geometry_paths,
             measurement_paths=measurement_paths,
+            tanakh_paths=tanakh_paths,
+            tanakh_payload=tanakh_payload,
         )
-        return {**graph_paths, **basin_paths, **geometry_paths, **measurement_paths, **index_paths}
+        return {**graph_paths, **basin_paths, **geometry_paths, **measurement_paths, **tanakh_paths, **index_paths}
 
     def export_graph_knowledge_base(
         self,
@@ -654,6 +666,8 @@ class ObservatoryExporter:
         basin_paths: dict[str, str],
         geometry_paths: dict[str, str],
         measurement_paths: dict[str, str],
+        tanakh_paths: dict[str, str],
+        tanakh_payload: dict[str, Any] | None,
     ) -> dict[str, str]:
         payload = {
             "generated_at": now_utc(),
@@ -664,6 +678,7 @@ class ObservatoryExporter:
                 "basin": basin_paths,
                 "geometry": geometry_paths,
                 "measurement": measurement_paths,
+                "tanakh": tanakh_paths,
             },
             "summary": {
                 "nodes": len(graph_payload["nodes"]),
@@ -671,6 +686,7 @@ class ObservatoryExporter:
                 "turns": basin_payload["turn_count"],
                 "sessions": basin_payload["session_count"],
                 "measurement_events": measurement_payload["counts"]["events"],
+                "tanakh_ref": (tanakh_payload or {}).get("current_ref"),
             },
         }
         html_path = out_dir / "observatory_index.html"
@@ -1446,6 +1462,8 @@ class ObservatoryExporter:
         if session_id:
             live_api["session_turns"] = f"/api/sessions/{session_id}/turns"
             live_api["session_active_set"] = f"/api/sessions/{session_id}/active-set"
+        live_api["tanakh"] = f"/api/experiments/{experiment_id}/tanakh"
+        live_api["tanakh_run"] = f"/api/experiments/{experiment_id}/tanakh-run"
         return {
             "mode": "hybrid",
             "asset_base": "./_observatory_app",
@@ -1461,9 +1479,47 @@ class ObservatoryExporter:
                 "measurements": "./measurement_events.json",
                 "overview": "./observatory_index.json",
                 "geometry": "./geometry_diagnostics.json",
+                "tanakh": "./tanakh_surface.json",
             },
             "live_api": live_api,
         }
+
+    def export_tanakh_surface(
+        self,
+        *,
+        experiment_id: str,
+        session_id: str | None,
+        out_dir: Path,
+        ref: str | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> tuple[dict[str, str], dict[str, Any]]:
+        if self.tanakh_service is None:
+            return {}, {}
+        paths, payload = self.tanakh_service.export_surface_bundle(
+            experiment_id=experiment_id,
+            session_id=session_id,
+            out_dir=out_dir,
+            ref=ref or DEFAULT_TANAKH_REF,
+            params=params,
+        )
+        for artifact_type, path in (
+            ("tanakh_surface_json", paths["tanakh_surface_json"]),
+            ("tanakh_manifest_json", paths["tanakh_manifest"]),
+            ("tanakh_index_json", paths["tanakh_index"]),
+            ("tanakh_measurements_json", paths["tanakh_measurements"]),
+            ("tanakh_scene_json", paths["tanakh_scene"]),
+            ("tanakh_passage_json", paths["tanakh_passage"]),
+            ("tanakh_render_validation_json", paths["tanakh_render_validation"]),
+            ("tanakh_render_validation_html", paths["tanakh_render_validation_html"]),
+        ):
+            self.store.record_export_artifact(
+                experiment_id=experiment_id,
+                session_id=session_id,
+                artifact_type=artifact_type,
+                path=Path(path),
+            )
+        self.runtime_log.emit("INFO", "export_tanakh", "Generated Tanakh tool-surface payload.", experiment_id=experiment_id, path=paths["tanakh_surface_json"])
+        return paths, payload
 
     def _graph_html_v12(self, payload: dict[str, Any]) -> str:
         data = json.dumps(payload, ensure_ascii=True)

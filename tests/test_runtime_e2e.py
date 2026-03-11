@@ -57,6 +57,8 @@ def test_blank_bootstrap_chat_feedback_and_exports(runtime, tmp_path) -> None:
     assert (tmp_path / "exports" / "geometry_lab.html").exists()
     assert (tmp_path / "exports" / "measurement_ledger.html").exists()
     assert (tmp_path / "exports" / "observatory_index.html").exists()
+    assert (tmp_path / "exports" / "tanakh_surface.json").exists()
+    assert (tmp_path / "exports" / "tanakh_render_validation.json").exists()
     assert export_paths["graph_html"].endswith(".html")
     geometry_payload = json.loads((tmp_path / "exports" / "geometry_diagnostics.json").read_text())
     assert "local_reports" in geometry_payload

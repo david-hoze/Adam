@@ -10,6 +10,7 @@ data/*.db
 data/*.db-wal
 data/*.db-shm
 data/*.sqlite
+data/tanakh_cache/
 exports/latest/
 exports/context/
 exports/.eden_observatory.json
@@ -18,3 +19,4 @@ exports/*/graph_knowledge_base.json
 exports/*/
 models/
 data/cannonical_secondary_sources/
+web/observatory/node_modules/.vite/

@@ -3,13 +3,14 @@ import { startTransition, useEffect, useMemo, useState } from "react";
 
 import BasinPanel from "./components/BasinPanel";
 import GraphPanel from "./components/GraphPanel";
+import TanakhPanel from "./components/TanakhPanel";
 
-type Surface = "overview" | "graph" | "basin" | "geometry" | "measurements";
+type Surface = "overview" | "graph" | "basin" | "geometry" | "tanakh" | "measurements";
 type GraphMode = "Semantic Map" | "Assemblies" | "Runtime" | "Active Set" | "Compare";
 type AssemblyRenderMode = "hulls" | "collapsed-meta-node" | "hidden";
 type LiftMode = "flat" | "time_lift" | "density_lift" | "session_offset";
 type InspectorTab = "cards" | "json";
-type PayloadKey = "overview" | "measurements" | "basin" | "graph" | "geometry" | "transcript" | "runtimeStatus" | "runtimeModel";
+type PayloadKey = "overview" | "measurements" | "basin" | "graph" | "geometry" | "tanakh" | "transcript" | "runtimeStatus" | "runtimeModel";
 type PayloadStatusKind = "idle" | "loading" | "ready" | "error" | "deferred";
 
 type Bootstrap = {
@@ -67,10 +68,19 @@ type OverviewPayload = {
   graph_counts?: Record<string, number>;
   basin?: Record<string, any>;
   measurements?: Record<string, any>;
+  tanakh?: Record<string, any>;
 };
 
 type TranscriptPayload = {
   turns?: any[];
+};
+
+type TanakhPayload = {
+  current_ref?: string;
+  bundle_hash?: string;
+  artifacts?: Record<string, string>;
+  bundle?: Record<string, any>;
+  live_query_supported?: boolean;
 };
 
 type DataBundle = {
@@ -79,6 +89,7 @@ type DataBundle = {
   overview: OverviewPayload | null;
   measurements: MeasurementsPayload | null;
   geometry: Record<string, any> | null;
+  tanakh: TanakhPayload | null;
   transcript: TranscriptPayload | null;
   runtimeStatus: Record<string, any> | null;
   runtimeModel: Record<string, any> | null;
@@ -92,6 +103,7 @@ type ResolvedSources = {
   overview?: string;
   measurements?: string;
   geometry?: string;
+  tanakh?: string;
   transcript?: string;
   runtimeStatus?: string;
   runtimeModel?: string;
@@ -107,13 +119,13 @@ type PayloadStatus = {
   error?: string;
 };
 
-const SURFACES: Surface[] = ["overview", "graph", "basin", "geometry", "measurements"];
+const SURFACES: Surface[] = ["overview", "graph", "basin", "geometry", "tanakh", "measurements"];
 const DEFAULT_GRAPH_MODE: GraphMode = "Semantic Map";
 const DEFAULT_ASSEMBLY_RENDER_MODE: AssemblyRenderMode = "hulls";
 const DEFAULT_LIFT_MODE: LiftMode = "flat";
 const TEXT_ACCESS_LIMIT = 12;
 const ESSENTIAL_PAYLOADS: PayloadKey[] = ["overview", "measurements", "basin"];
-const PAYLOAD_ORDER: PayloadKey[] = ["overview", "measurements", "basin", "graph", "geometry", "transcript", "runtimeStatus", "runtimeModel"];
+const PAYLOAD_ORDER: PayloadKey[] = ["overview", "measurements", "basin", "graph", "geometry", "tanakh", "transcript", "runtimeStatus", "runtimeModel"];
 
 const EMPTY_DATA: DataBundle = {
   graph: null,
@@ -121,6 +133,7 @@ const EMPTY_DATA: DataBundle = {
   overview: null,
   measurements: null,
   geometry: null,
+  tanakh: null,
   transcript: null,
   runtimeStatus: null,
   runtimeModel: null,
@@ -134,6 +147,7 @@ const EMPTY_STATUS: Record<PayloadKey, PayloadStatus> = {
   basin: { label: "Basin", detail: "Trajectory summary and attractor metadata", status: "idle", source: "none" },
   graph: { label: "Graph", detail: "Large semantic graph bundle", status: "idle", source: "none" },
   geometry: { label: "Geometry", detail: "Large diagnostics bundle", status: "idle", source: "none" },
+  tanakh: { label: "Tanakh", detail: "Canonical text, derived analyzers, and merkavah scene sidecars", status: "idle", source: "none" },
   transcript: { label: "Transcript", detail: "Turn history and active-set cross-links", status: "idle", source: "none" },
   runtimeStatus: { label: "Runtime status", detail: "Live backend status", status: "idle", source: "none" },
   runtimeModel: { label: "Runtime model", detail: "Live model metadata", status: "idle", source: "none" },
@@ -144,6 +158,7 @@ function labelForSurface(surface: Surface): string {
   if (surface === "graph") return "Graph";
   if (surface === "basin") return "Basin";
   if (surface === "geometry") return "Geometry";
+  if (surface === "tanakh") return "Tanakh";
   return "Measurements";
 }
 
@@ -229,7 +244,7 @@ function initializePayloadStatuses(sources: Partial<Record<PayloadKey, string>>,
       next[key].source = liveEnabled ? "live_api" : "static_export";
       next[key].status = ESSENTIAL_PAYLOADS.includes(key)
         ? "loading"
-        : key === "geometry"
+        : key === "geometry" || key === "tanakh"
           ? "deferred"
           : "idle";
     }
@@ -281,6 +296,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
   const [data, setData] = useState<DataBundle>(EMPTY_DATA);
   const [resolvedSources, setResolvedSources] = useState<ResolvedSources | null>(null);
   const [payloadStatuses, setPayloadStatuses] = useState<Record<PayloadKey, PayloadStatus>>(EMPTY_STATUS);
+  const [tanakhRunPending, setTanakhRunPending] = useState(false);
 
   const presetStorageKey = useMemo(() => storageKey({ bootstrap, graph: data.graph, surface }), [bootstrap, data.graph, surface]);
 
@@ -390,6 +406,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
               overview: bootstrap.live_api?.overview,
               measurements: bootstrap.live_api?.measurements,
               geometry: bootstrap.live_api?.geometry,
+              tanakh: bootstrap.live_api?.tanakh,
               transcript: bootstrap.live_api?.session_turns,
               runtimeStatus: bootstrap.live_api?.runtime_status,
               runtimeModel: bootstrap.live_api?.runtime_model,
@@ -400,6 +417,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
               overview: bootstrap.payload_urls?.overview,
               measurements: bootstrap.payload_urls?.measurements,
               geometry: bootstrap.payload_urls?.geometry,
+              tanakh: bootstrap.payload_urls?.tanakh,
               transcript: undefined,
               runtimeStatus: undefined,
               runtimeModel: undefined,
@@ -529,7 +547,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
     });
     stream.addEventListener("observatory.invalidate", async () => {
       try {
-        const [graph, basin, overview, measurements, transcript, runtimeStatus, runtimeModel] = await Promise.all([
+        const [graph, basin, overview, measurements, transcript, runtimeStatus, runtimeModel, tanakh] = await Promise.all([
           bootstrap.live_api?.graph ? fetchJson<GraphPayload>(bootstrap.live_api.graph) : Promise.resolve(null),
           bootstrap.live_api?.basin ? fetchJson<BasinPayload>(bootstrap.live_api.basin) : Promise.resolve(null),
           bootstrap.live_api?.overview ? fetchJson<OverviewPayload>(bootstrap.live_api.overview) : Promise.resolve(null),
@@ -537,6 +555,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
           bootstrap.live_api?.session_turns ? fetchJson<TranscriptPayload>(bootstrap.live_api.session_turns) : Promise.resolve(null),
           bootstrap.live_api?.runtime_status ? fetchJson<Record<string, any>>(bootstrap.live_api.runtime_status) : Promise.resolve(null),
           bootstrap.live_api?.runtime_model ? fetchJson<Record<string, any>>(bootstrap.live_api.runtime_model) : Promise.resolve(null),
+          bootstrap.live_api?.tanakh ? fetchJson<TanakhPayload>(bootstrap.live_api.tanakh) : Promise.resolve(null),
         ]);
         setData((current) => ({
           ...current,
@@ -547,6 +566,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
           transcript,
           runtimeStatus,
           runtimeModel,
+          tanakh,
         }));
       } catch {
         // keep prior payloads if a live refresh fails
@@ -599,6 +619,48 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
     };
   }, [data.geometry, resolvedSources, surface]);
 
+  useEffect(() => {
+    if (surface !== "tanakh" || data.tanakh || !resolvedSources?.tanakh) return;
+    let cancelled = false;
+    const url = resolvedSources.tanakh;
+    setPayloadStatuses((current) => ({
+      ...current,
+      tanakh: {
+        ...current.tanakh,
+        status: "loading",
+        source: resolvedSources.liveEnabled ? "live_api" : "static_export",
+        error: undefined,
+      },
+    }));
+    void fetchJson<TanakhPayload>(url)
+      .then((tanakh) => {
+        if (cancelled) return;
+        setData((current) => ({ ...current, tanakh }));
+        setPayloadStatuses((current) => ({
+          ...current,
+          tanakh: {
+            ...current.tanakh,
+            status: "ready",
+          },
+        }));
+      })
+      .catch((loadError) => {
+        if (cancelled) return;
+        const message = loadError instanceof Error ? loadError.message : "Failed to load Tanakh payload.";
+        setPayloadStatuses((current) => ({
+          ...current,
+          tanakh: {
+            ...current.tanakh,
+            status: "error",
+            error: message,
+          },
+        }));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [data.tanakh, resolvedSources, surface]);
+
   function handleSelectNode(nodeId: string, additive: boolean) {
     setSelectedEdgeId(null);
     if (!nodeId) {
@@ -632,6 +694,58 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
   function handleFocusNode(nodeId: string) {
     setSelectedNodeIds([nodeId]);
     setSelectedEdgeId(null);
+  }
+
+  async function handleRunTanakh(request: any) {
+    if (!bootstrap.live_api?.tanakh_run) return;
+    setTanakhRunPending(true);
+    setPayloadStatuses((current) => ({
+      ...current,
+      tanakh: {
+        ...current.tanakh,
+        status: "loading",
+        source: "live_api",
+        error: undefined,
+      },
+    }));
+    try {
+      const response = await fetch(bootstrap.live_api.tanakh_run, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: bootstrap.session_id,
+          ref: request.ref,
+          params: request.params,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(`${response.status} ${response.statusText} for ${bootstrap.live_api.tanakh_run}`);
+      }
+      const tanakh = (await response.json()) as TanakhPayload;
+      setData((current) => ({ ...current, tanakh }));
+      setPayloadStatuses((current) => ({
+        ...current,
+        tanakh: {
+          ...current.tanakh,
+          status: "ready",
+          source: "live_api",
+        },
+      }));
+    } catch (runError) {
+      const message = runError instanceof Error ? runError.message : "Failed to run Tanakh surface.";
+      setPayloadStatuses((current) => ({
+        ...current,
+        tanakh: {
+          ...current.tanakh,
+          status: "error",
+          source: "live_api",
+          error: message,
+        },
+      }));
+    } finally {
+      setTanakhRunPending(false);
+    }
   }
 
   function renderOverview() {
@@ -673,6 +787,16 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
         </Card>
         <Card title="Measurements">
           <MetricList items={[["Payload", payloadStatuses.measurements.status], ...Object.entries(measurementCounts)]} />
+        </Card>
+        <Card title="Tanakh">
+          <MetricList
+            items={[
+              ["Payload", payloadStatuses.tanakh.status],
+              ["Ref", data.tanakh?.current_ref ?? data.overview?.tanakh?.current_ref],
+              ["Bundle", data.tanakh?.bundle_hash ?? data.overview?.tanakh?.bundle_hash],
+              ["Mode", data.liveEnabled ? "Live/API + static sidecars" : "Static sidecars"],
+            ]}
+          />
         </Card>
       </div>
     );
@@ -1145,6 +1269,30 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
         );
       }
       return <pre className="debug-json">{JSON.stringify(data.geometry ?? {}, null, 2)}</pre>;
+    }
+    if (surface === "tanakh") {
+      if (!data.tanakh) {
+        return (
+          <div className="empty-state">
+            <h2>Tanakh payload {payloadStatuses.tanakh.status}</h2>
+            <p>
+              {payloadStatuses.tanakh.status === "error"
+                ? "Tanakh artifacts are unavailable for this surface."
+                : "The Tanakh bundle is deferred until you open this tab because it includes canonical text plus derived sidecars."}
+            </p>
+            {payloadStatuses.tanakh.error ? <p>{payloadStatuses.tanakh.error}</p> : null}
+          </div>
+        );
+      }
+      return (
+        <TanakhPanel
+          payload={data.tanakh}
+          liveEnabled={data.liveEnabled}
+          canRun={Boolean(data.liveEnabled && bootstrap.live_api?.tanakh_run)}
+          running={tanakhRunPending}
+          onRun={handleRunTanakh}
+        />
+      );
     }
     return <pre className="debug-json">{JSON.stringify(data.measurements ?? {}, null, 2)}</pre>;
   }

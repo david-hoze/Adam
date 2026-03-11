@@ -17,7 +17,7 @@ from .frontend_assets import build_status
 
 
 SERVER_INFO_FILENAME = ".eden_observatory.json"
-API_VERSION = 3
+API_VERSION = 4
 
 
 class _ThreadingHTTPServer(http.server.ThreadingHTTPServer):
@@ -120,6 +120,19 @@ class _ObservatoryHandler(http.server.SimpleHTTPRequestHandler):
                     "kinds": ["graph", "basin", "measurements", "overview"],
                     "reason": "measurement_reverted",
                 })
+            elif action_name == "tanakh-run":
+                result = self._service.run_tanakh(
+                    experiment_id=experiment_id,
+                    session_id=body.get("session_id"),
+                    ref=str(body.get("ref", "")).strip(),
+                    params=dict(body.get("params") or {}),
+                )
+                self._event_publisher({
+                    "experiment_id": experiment_id,
+                    "session_id": body.get("session_id"),
+                    "kinds": ["tanakh", "overview"],
+                    "reason": "tanakh_run",
+                })
             else:
                 self._send_json({"error": f"Unknown action '{action_name}'."}, status=404)
                 return
@@ -182,6 +195,9 @@ class _ObservatoryHandler(http.server.SimpleHTTPRequestHandler):
             return
         if action_name == "measurement-events":
             self._send_json(self._service.measurement_payload(experiment_id=experiment_id, session_id=session_id))
+            return
+        if action_name == "tanakh":
+            self._send_json(self._service.tanakh_payload(experiment_id=experiment_id, session_id=session_id))
             return
         if action_name == "sessions":
             self._send_json(self._service.list_sessions(experiment_id=experiment_id))
@@ -326,6 +342,7 @@ class ObservatoryServer:
                 "commit": self.service is not None,
                 "revert": self.service is not None,
                 "measurement_events": self.service is not None,
+                "tanakh": self.service is not None,
                 "sse": self.service is not None,
             },
             frontend_build=build_status(),
@@ -399,6 +416,7 @@ class ObservatoryServer:
                 "commit": self.service is not None,
                 "revert": self.service is not None,
                 "measurement_events": self.service is not None,
+                "tanakh": self.service is not None,
                 "sse": self.service is not None,
             },
         }

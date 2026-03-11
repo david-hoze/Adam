@@ -77,6 +77,7 @@ def test_observatory_server_exposes_live_api(runtime, tmp_path) -> None:
             payload = json.loads(response.read().decode("utf-8"))
         assert payload["ok"] is True
         assert payload["status"]["capabilities"]["preview"] is True
+        assert payload["status"]["capabilities"]["tanakh"] is True
         assert "frontend_build" in payload["status"]
 
         with urllib.request.urlopen(f"{status['url']}api/experiments") as response:
@@ -103,6 +104,11 @@ def test_observatory_server_exposes_live_api(runtime, tmp_path) -> None:
         with urllib.request.urlopen(f"{status['url']}api/experiments/{experiment['id']}/basin?session_id={session['id']}") as response:
             basin_payload = json.loads(response.read().decode("utf-8"))
         assert basin_payload["projection_method"] == "svd_on_turn_features"
+
+        with urllib.request.urlopen(f"{status['url']}api/experiments/{experiment['id']}/tanakh?session_id={session['id']}") as response:
+            tanakh_payload = json.loads(response.read().decode("utf-8"))
+        assert tanakh_payload["current_ref"] == "Ezek 1"
+        assert tanakh_payload["bundle"]["manifest"]["text_version"] == "UXLC 2.4"
 
         with urllib.request.urlopen(f"{status['url']}api/experiments/{experiment['id']}/sessions") as response:
             sessions_payload = json.loads(response.read().decode("utf-8"))
@@ -164,6 +170,29 @@ def test_observatory_server_exposes_live_api(runtime, tmp_path) -> None:
         with urllib.request.urlopen(commit_request) as response:
             commit_payload = json.loads(response.read().decode("utf-8"))
         assert commit_payload["event"]["action_type"] == "edge_add"
+
+        tanakh_run_request = urllib.request.Request(
+            f"{status['url']}api/experiments/{experiment['id']}/tanakh-run",
+            method="POST",
+            headers={"Content-Type": "application/json"},
+            data=json.dumps(
+                {
+                    "session_id": session["id"],
+                    "ref": "Ezek 1:1-3",
+                    "params": {
+                        "preprocess": "keep_cantillation",
+                        "gematria_scheme": "mispar_hechrechi",
+                        "notarikon_mode": "first_letter",
+                        "temurah_mapping": "atbash",
+                        "scene": {"theme": "amber", "seed": 5},
+                    },
+                }
+            ).encode("utf-8"),
+        )
+        with urllib.request.urlopen(tanakh_run_request) as response:
+            tanakh_run_payload = json.loads(response.read().decode("utf-8"))
+        assert tanakh_run_payload["current_ref"] == "Ezek 1:1-3"
+        assert tanakh_run_payload["bundle"]["scene"]["ref"] == "Ezek 1:1-3"
 
         with urllib.request.urlopen(f"{status['url']}api/experiments/{experiment['id']}/measurement-events?session_id={session['id']}") as response:
             ledger = json.loads(response.read().decode("utf-8"))

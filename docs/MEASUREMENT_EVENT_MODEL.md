@@ -51,6 +51,7 @@ Supported in v1.2:
 - Commit persists the event and, when applicable, mutates the graph.
 - Revert persists a new `revert` event. Reversion is itself part of the measurement ledger.
 - Browser view presets are never measurement events. They stay in browser-local state.
+- Tanakh tool-surface runs are not measurement events in v1.2. They persist as Tanakh sidecar artifacts (`tanakh_surface.json`, `tanakh_measurements.json`, scene/passsage/validation sidecars) until a first-class schema extension is specified and proved.
 
 ## Evidence handling
 

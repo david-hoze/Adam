@@ -18,6 +18,14 @@ Generated per experiment under `exports/<experiment_id>/`:
 - `measurement_ledger.html`
 - `measurement_events.json`
 - `measurement_events.manifest.json`
+- `tanakh_manifest.json`
+- `tanakh_index.json`
+- `tanakh_surface.json`
+- `tanakh_measurements.json`
+- `tanakh_render_validation.json`
+- `tanakh_render_validation.html`
+- `tanakh_passage_cache/<ref>.json`
+- `tanakh_scene_<id>.json`
 - `observatory_index.html`
 - `observatory_index.json`
 - `_observatory_app/` checked-in frontend bundle copied from `eden/observatory/static/observatory_app/`
@@ -121,6 +129,30 @@ Observation does not silently mutate the graph. Mutation is a separate, attribut
   - `SPECULATIVE`
   - operator assertion labels surfaced separately from geometry evidence labels
 
+## Tanakh tool-surface
+
+- the Tanakh surface is an additive observatory instrument, not a replacement runtime
+- canonical Tanakh reading stays DOM/CSS-based unless a separate render-validation proof upgrades that claim
+- derived analyzers are exposed as explicit sidecars:
+  - `get_passage`
+  - `gematria`
+  - `notarikon`
+  - `temurah`
+  - `compile_merkavah_scene`
+- every Tanakh payload carries provenance for:
+  - canonical citation or raw source
+  - dataset id / text version / build / archive hash
+  - preprocessing choices
+  - operator version
+  - parameterization
+  - creation timestamp
+  - output kind (`canonical_text`, `derived_transformation`, or `derived_visualization`)
+- the first merkavah slice is explicitly derived:
+  - canonical entry ref defaults to `Ezek 1`
+  - same ref + params produce hash-stable scene JSON
+  - `sceneNodeId -> citation span` linkage is exported in the scene payload
+- Tanakh runs are surfaced in observatory sidecar artifacts and overview badges; they are not silently promoted to first-class measurement events
+
 ## Local observatory server
 
 CLI:
@@ -147,6 +179,7 @@ Live API:
 - `GET /api/experiments/<experiment_id>/basin`
 - `GET /api/experiments/<experiment_id>/geometry`
 - `GET /api/experiments/<experiment_id>/measurement-events`
+- `GET /api/experiments/<experiment_id>/tanakh`
 - `GET /api/experiments/<experiment_id>/sessions`
 - `GET /api/sessions/<session_id>/turns`
 - `GET /api/sessions/<session_id>/active-set`
@@ -156,6 +189,7 @@ Live API:
 - `POST /api/experiments/<experiment_id>/preview`
 - `POST /api/experiments/<experiment_id>/commit`
 - `POST /api/experiments/<experiment_id>/revert`
+- `POST /api/experiments/<experiment_id>/tanakh-run`
 
 SSE emits small invalidation payloads only. It does not push full graph or basin payloads.
 
@@ -175,3 +209,4 @@ Validated in this patch:
 - live API preview / commit / revert plus graph / basin / transcript read endpoints against a real experiment
 - SSE invalidation stream emits compact refresh messages after observatory commits
 - the checked-in React observatory bundle builds and emits `build-meta.json`
+- Tanakh surface export writes canonical/derived sidecars plus a manual-review render-validation harness

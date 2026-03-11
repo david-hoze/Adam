@@ -215,12 +215,172 @@ button {
 }
 
 .graph-panel,
-.basin-panel {
+.basin-panel,
+.tanakh-scene-panel {
   min-height: 520px;
   border-radius: 18px;
   overflow: hidden;
   background: linear-gradient(180deg, rgba(22, 12, 6, 0.96), rgba(13, 8, 5, 0.98));
   border: 1px solid var(--border);
+}
+
+.tanakh-surface {
+  display: grid;
+  gap: 14px;
+}
+
+.tanakh-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(49, 31, 17, 0.92);
+}
+
+.tanakh-controls label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+
+.tanakh-controls label span {
+  color: var(--amber-hot);
+}
+
+.tanakh-controls input,
+.tanakh-controls select {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(239, 177, 95, 0.24);
+  background: rgba(18, 11, 7, 0.9);
+  color: var(--ink);
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.tanakh-controls button {
+  align-self: end;
+}
+
+.tanakh-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+  gap: 14px;
+}
+
+.tanakh-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: rgba(49, 31, 17, 0.96);
+  box-shadow: var(--shadow);
+}
+
+.tanakh-card header {
+  display: grid;
+  gap: 4px;
+}
+
+.tanakh-card h2 {
+  margin: 0;
+  color: var(--amber-hot);
+  font-size: 1.1rem;
+}
+
+.tanakh-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.tanakh-reader-card,
+.tanakh-scene-card {
+  min-height: 0;
+}
+
+.tanakh-provenance-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.tanakh-reader {
+  display: grid;
+  gap: 12px;
+  max-height: 540px;
+  overflow: auto;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: #0f0906;
+}
+
+.tanakh-verse {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(239, 177, 95, 0.12);
+}
+
+.tanakh-verse:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.tanakh-verse-ref {
+  color: var(--amber);
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.tanakh-verse-text,
+.tanakh-verse-processed {
+  line-height: 1.9;
+  font-size: 1.18rem;
+  unicode-bidi: plaintext;
+  font-family: "Times New Roman", "Noto Serif Hebrew", "David", serif;
+}
+
+.tanakh-verse-processed {
+  padding-top: 8px;
+  border-top: 1px dashed rgba(239, 177, 95, 0.14);
+  color: #b4deff;
+  font-size: 1rem;
+}
+
+.tanakh-analysis-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.tanakh-analysis-item {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(239, 177, 95, 0.16);
+  background: rgba(18, 11, 7, 0.7);
+}
+
+.analysis-result {
+  unicode-bidi: plaintext;
+  font-family: "Times New Roman", "Noto Serif Hebrew", "David", serif;
+}
+
+.tanakh-scene-panel {
+  min-height: 420px;
+}
+
+.tanakh-debug-card .debug-json {
+  min-height: 240px;
 }
 
 .status-panel {
@@ -401,5 +561,9 @@ button {
   .sidebar,
   .inspector {
     max-height: none;
+  }
+
+  .tanakh-grid {
+    grid-template-columns: 1fr;
   }
 }
