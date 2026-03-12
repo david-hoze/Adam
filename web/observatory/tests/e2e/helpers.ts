@@ -1,4 +1,6 @@
 import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { expect, type APIRequestContext, type Page, type TestInfo } from "@playwright/test";
 
@@ -10,6 +12,7 @@ type NetworkRecord = {
   startedAt: number;
   status?: number;
   responseBodySnippet?: string;
+  failureText?: string;
 };
 
 type Recorder = {
@@ -17,6 +20,8 @@ type Recorder = {
   network: NetworkRecord[];
   sseEvents: () => Promise<any[]>;
 };
+
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 
 export async function attachRecorder(page: Page): Promise<Recorder> {
   const consoleMessages: string[] = [];
@@ -70,6 +75,22 @@ export async function attachRecorder(page: Page): Promise<Recorder> {
     }
   });
 
+  page.on("requestfailed", (request) => {
+    const record = [...network].reverse().find((candidate) => candidate.url === request.url() && candidate.failureText == null);
+    if (record) {
+      record.failureText = request.failure()?.errorText ?? "request failed";
+      return;
+    }
+    network.push({
+      method: request.method(),
+      url: request.url(),
+      resourceType: request.resourceType(),
+      postData: request.postData() ?? null,
+      startedAt: Date.now(),
+      failureText: request.failure()?.errorText ?? "request failed",
+    });
+  });
+
   return {
     consoleMessages,
     network,
@@ -92,6 +113,10 @@ export async function snapshotLedger(request: APIRequestContext, url: string) {
   const response = await request.get(url);
   expect(response.ok()).toBeTruthy();
   return response.json();
+}
+
+export async function snapshotLedgerFile(filePath: string) {
+  return JSON.parse(await fs.readFile(filePath, "utf8"));
 }
 
 export function diffLedger(before: any, after: any) {
@@ -144,6 +169,36 @@ export function mutationRequests(network: NetworkRecord[]) {
   return network.filter((entry) => entry.method === "POST");
 }
 
+export async function findRealExportFixture() {
+  const exportsRoot = path.join(REPO_ROOT, "exports");
+  const entries = await fs.readdir(exportsRoot, { withFileTypes: true });
+  const directories = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
+
+  for (const directory of directories) {
+    const exportDir = path.join(exportsRoot, directory);
+    const observatoryIndex = path.join(exportDir, "observatory_index.html");
+    const measurementEvents = path.join(exportDir, "measurement_events.json");
+    const bundledApp = path.join(exportDir, "_observatory_app", "index.js");
+    try {
+      await Promise.all([
+        fs.access(observatoryIndex),
+        fs.access(measurementEvents),
+        fs.access(bundledApp),
+      ]);
+      return {
+        exportDir,
+        observatoryIndex,
+        measurementEvents,
+        fileUrl: `file://${observatoryIndex}`,
+      };
+    } catch {
+      // keep scanning until a complete export bundle is found
+    }
+  }
+
+  throw new Error(`No real observatory export fixture found under ${exportsRoot}.`);
+}
+
 export async function persistJourneyEvidence(
   page: Page,
   testInfo: TestInfo,
@@ -166,6 +221,16 @@ export async function persistJourneyEvidence(
     ...extra,
   };
   await fs.writeFile(jsonPath, JSON.stringify(payload, null, 2), "utf8");
+  if (!Array.isArray(payload.consoleMessages) || !Array.isArray(payload.network) || !Array.isArray(payload.sseEvents)) {
+    throw new Error(`${journeyId} evidence payload is missing recorder arrays.`);
+  }
+  if (typeof payload.result !== "string" || !payload.result) {
+    throw new Error(`${journeyId} evidence payload is missing a string result.`);
+  }
+  const stats = await Promise.all([fs.stat(screenshotPath), fs.stat(domPath), fs.stat(jsonPath)]);
+  if (stats.some((stat) => stat.size <= 0)) {
+    throw new Error(`${journeyId} evidence bundle is missing or empty.`);
+  }
   await testInfo.attach(`${journeyId}-evidence`, { path: jsonPath, contentType: "application/json" });
   await testInfo.attach(`${journeyId}-screenshot`, { path: screenshotPath, contentType: "image/png" });
   await testInfo.attach(`${journeyId}-dom`, { path: domPath, contentType: "text/html" });

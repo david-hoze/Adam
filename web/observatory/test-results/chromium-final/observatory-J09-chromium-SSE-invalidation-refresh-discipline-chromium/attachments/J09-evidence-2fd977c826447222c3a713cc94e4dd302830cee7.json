@@ -9,7 +9,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/pages/live-normal.html",
       "resourceType": "document",
       "postData": null,
-      "startedAt": 1773244923016,
+      "startedAt": 1773332624798,
       "status": 200
     },
     {
@@ -17,7 +17,7 @@
       "url": "http://127.0.0.1:4173/eden/observatory/static/observatory_app/style.css",
       "resourceType": "stylesheet",
       "postData": null,
-      "startedAt": 1773244923020,
+      "startedAt": 1773332624802,
       "status": 200
     },
     {
@@ -25,7 +25,7 @@
       "url": "http://127.0.0.1:4173/eden/observatory/static/observatory_app/index.js",
       "resourceType": "script",
       "postData": null,
-      "startedAt": 1773244923020,
+      "startedAt": 1773332624802,
       "status": 200
     },
     {
@@ -33,7 +33,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/normal/status",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244923041,
+      "startedAt": 1773332624823,
       "status": 200,
       "responseBodySnippet": "{\n  \"ok\": true,\n  \"status\": {\n    \"frontend_build\": {\n      \"warning\": false,\n      \"reason\": \"\"\n    },\n    \"capabilities\": {\n      \"preview\": true,\n      \"commit\": true,\n      \"revert\": true,\n      \"measurement_events\": true\n    }\n  }\n}"
     },
@@ -42,7 +42,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/normal/overview",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244923052,
+      "startedAt": 1773332624835,
       "status": 200,
       "responseBodySnippet": "{\n  \"graph_counts\": {\n    \"sessions\": 2,\n    \"turns\": 4,\n    \"documents\": 1,\n    \"memes\": 5,\n    \"memodes\": 1,\n    \"edges\": 3,\n    \"measurement_events\": 1\n  },\n  \"basin\": {\n    \"filtered_turn_count\": 4,\n    \"source_turn_count\": 6,\n    \"projection_method\": \"svd_on_turn_features\"\n  },\n  \"measurements\": {\n    \"events\": 1,\n    \"action_types\": {\n      \"geometry_measurement_run\": 1\n    },\n    \"evidence_labels\": {\n      \"DERIVED\": 1\n    }\n  }\n}"
     },
@@ -51,7 +51,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/normal/measurements",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244923052,
+      "startedAt": 1773332624835,
       "status": 200,
       "responseBodySnippet": "{\n  \"counts\": {\n    \"events\": 1,\n    \"action_types\": {\n      \"geometry_measurement_run\": 1\n    },\n    \"evidence_labels\": {\n      \"DERIVED\": 1\n    }\n  },\n  \"events\": [\n    {\n      \"id\": \"evt-baseline-001\",\n      \"action_type\": \"geometry_measurement_run\",\n      \"evidence_label\": \"DERIVED\",\n      \"operator_label\": \"baseline_probe\",\n      \"measurement_method\": \"selection_geometry\",\n      \"confidence\": 0.82,\n      \"rationale\": \"Baseline local geometry measurement for the persistence loop.\",\n      \"created_at\": \"2026-03-11T12:00:00Z\",\n      \"target_ids\": [\n        \"meme-persistence\",\n        \"meme-r"
     },
@@ -60,7 +60,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/normal/basin",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244923052,
+      "startedAt": 1773332624835,
       "status": 200,
       "responseBodySnippet": "{\n  \"projection_method\": \"svd_on_turn_features\",\n  \"projection_version\": \"2026.03\",\n  \"projection_input_hash\": \"proj-hash-normal-001\",\n  \"filtered_turn_count\": 4,\n  \"source_turn_count\": 6,\n  \"turns\": [\n    {\n      \"turn_id\": \"turn-001\",\n      \"turn_index\": 1,\n      \"session_id\": \"session-alpha\",\n      \"x\": -1.4,\n      \"y\": 0.3,\n      \"display_attractor_label\": \"Persistence Cluster\",\n      \"dominant_label\": \"Persistence Cluster\",\n      \"dominant_domain\": \"behavior\",\n      \"dominant_cluster_signature\": \"cluster-loop\",\n      \"active_set_node_ids\": [\n        \"meme-persistence\",\n        \"meme-retri"
     },
@@ -69,7 +69,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/normal/events?session_id=session-alpha",
       "resourceType": "eventsource",
       "postData": null,
-      "startedAt": 1773244923056,
+      "startedAt": 1773332624838,
       "status": 200
     },
     {
@@ -77,7 +77,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/normal/graph",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244923058,
+      "startedAt": 1773332624840,
       "status": 200,
       "responseBodySnippet": "{\n  \"export_manifest_id\": \"manifest-graph-hash-normal-v1\",\n  \"source_graph_hash\": \"graph-hash-normal-v1\",\n  \"graph_modes\": [\n    \"Semantic Map\",\n    \"Assemblies\",\n    \"Runtime\",\n    \"Active Set\",\n    \"Compare\"\n  ],\n  \"assembly_render_modes\": [\n    \"hulls\",\n    \"collapsed-meta-node\",\n    \"hidden\"\n  ],\n  \"semantic_nodes\": [\n    {\n      \"id\": \"meme-persistence\",\n      \"label\": \"Persistence Loop\",\n      \"kind\": \"meme\",\n      \"domain\": \"behavior\",\n      \"source_kind\": \"operator_seed\",\n      \"summary\": \"Recurrence motif that keeps a claim active across turns.\",\n      \"created_at\": \"2026-03-10T09:00:"
     },
@@ -86,7 +86,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/normal/transcript",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244923058,
+      "startedAt": 1773332624840,
       "status": 200,
       "responseBodySnippet": "{\n  \"turns\": [\n    {\n      \"turn_id\": \"turn-001\",\n      \"turn_index\": 1,\n      \"user_text\": \"Discuss Persistence Cluster\",\n      \"active_set_node_ids\": [\n        \"meme-persistence\",\n        \"meme-retrieval\"\n      ],\n      \"active_set_labels\": [\n        \"Persistence Loop\",\n        \"Retrieval Bridge\"\n      ],\n      \"profile_name\": \"balanced\"\n    },\n    {\n      \"turn_id\": \"turn-002\",\n      \"turn_index\": 2,\n      \"user_text\": \"Discuss Persistence Cluster\",\n      \"active_set_node_ids\": [\n        \"meme-persistence\",\n        \"meme-retrieval\",\n        \"meme-membrane\"\n      ],\n      \"active_set_labels\""
     },
@@ -95,7 +95,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/normal/runtime/status",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244923058,
+      "startedAt": 1773332624840,
       "status": 200,
       "responseBodySnippet": "{\n  \"available\": true,\n  \"mode\": \"local_mlx\"\n}"
     },
@@ -104,7 +104,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/normal/runtime/model",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244923058,
+      "startedAt": 1773332624840,
       "status": 200,
       "responseBodySnippet": "{\n  \"available\": true,\n  \"backend\": \"mlx\",\n  \"profile\": \"balanced\"\n}"
     },
@@ -113,7 +113,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/normal/graph",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244923270,
+      "startedAt": 1773332625057,
       "status": 200,
       "responseBodySnippet": "{\n  \"export_manifest_id\": \"manifest-graph-hash-normal-v1\",\n  \"source_graph_hash\": \"graph-hash-normal-v1\",\n  \"graph_modes\": [\n    \"Semantic Map\",\n    \"Assemblies\",\n    \"Runtime\",\n    \"Active Set\",\n    \"Compare\"\n  ],\n  \"assembly_render_modes\": [\n    \"hulls\",\n    \"collapsed-meta-node\",\n    \"hidden\"\n  ],\n  \"semantic_nodes\": [\n    {\n      \"id\": \"meme-persistence\",\n      \"label\": \"Persistence Loop\",\n      \"kind\": \"meme\",\n      \"domain\": \"behavior\",\n      \"source_kind\": \"operator_seed\",\n      \"summary\": \"Recurrence motif that keeps a claim active across turns.\",\n      \"created_at\": \"2026-03-10T09:00:"
     },
@@ -122,7 +122,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/normal/basin",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244923271,
+      "startedAt": 1773332625057,
       "status": 200,
       "responseBodySnippet": "{\n  \"projection_method\": \"svd_on_turn_features\",\n  \"projection_version\": \"2026.03\",\n  \"projection_input_hash\": \"proj-hash-normal-001\",\n  \"filtered_turn_count\": 4,\n  \"source_turn_count\": 6,\n  \"turns\": [\n    {\n      \"turn_id\": \"turn-001\",\n      \"turn_index\": 1,\n      \"session_id\": \"session-alpha\",\n      \"x\": -1.4,\n      \"y\": 0.3,\n      \"display_attractor_label\": \"Persistence Cluster\",\n      \"dominant_label\": \"Persistence Cluster\",\n      \"dominant_domain\": \"behavior\",\n      \"dominant_cluster_signature\": \"cluster-loop\",\n      \"active_set_node_ids\": [\n        \"meme-persistence\",\n        \"meme-retri"
     },
@@ -131,7 +131,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/normal/overview",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244923271,
+      "startedAt": 1773332625057,
       "status": 200,
       "responseBodySnippet": "{\n  \"graph_counts\": {\n    \"sessions\": 2,\n    \"turns\": 4,\n    \"documents\": 1,\n    \"memes\": 5,\n    \"memodes\": 1,\n    \"edges\": 3,\n    \"measurement_events\": 1\n  },\n  \"basin\": {\n    \"filtered_turn_count\": 4,\n    \"source_turn_count\": 6,\n    \"projection_method\": \"svd_on_turn_features\"\n  },\n  \"measurements\": {\n    \"events\": 2,\n    \"action_types\": {\n      \"geometry_measurement_run\": 1,\n      \"edge_add\": 1\n    },\n    \"evidence_labels\": {\n      \"DERIVED\": 1,\n      \"OPERATOR_ASSERTED\": 1\n    }\n  }\n}"
     },
@@ -140,7 +140,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/normal/measurements",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244923271,
+      "startedAt": 1773332625057,
       "status": 200,
       "responseBodySnippet": "{\n  \"counts\": {\n    \"events\": 2,\n    \"action_types\": {\n      \"geometry_measurement_run\": 1,\n      \"edge_add\": 1\n    },\n    \"evidence_labels\": {\n      \"DERIVED\": 1,\n      \"OPERATOR_ASSERTED\": 1\n    }\n  },\n  \"events\": [\n    {\n      \"id\": \"evt-normal-002\",\n      \"action_type\": \"edge_add\",\n      \"evidence_label\": \"OPERATOR_ASSERTED\",\n      \"operator_label\": \"second_actor\",\n      \"measurement_method\": \"edge_commit\",\n      \"confidence\": 0.77,\n      \"rationale\": \"Synthetic external mutation for SSE refresh coverage.\",\n      \"created_at\": \"2026-03-11T12:15:00Z\",\n      \"target_ids\": [\n        \"meme-per"
     },
@@ -149,7 +149,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/normal/transcript",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244923271,
+      "startedAt": 1773332625057,
       "status": 200,
       "responseBodySnippet": "{\n  \"turns\": [\n    {\n      \"turn_id\": \"turn-001\",\n      \"turn_index\": 1,\n      \"user_text\": \"Discuss Persistence Cluster\",\n      \"active_set_node_ids\": [\n        \"meme-persistence\",\n        \"meme-retrieval\"\n      ],\n      \"active_set_labels\": [\n        \"Persistence Loop\",\n        \"Retrieval Bridge\"\n      ],\n      \"profile_name\": \"balanced\"\n    },\n    {\n      \"turn_id\": \"turn-002\",\n      \"turn_index\": 2,\n      \"user_text\": \"Discuss Persistence Cluster\",\n      \"active_set_node_ids\": [\n        \"meme-persistence\",\n        \"meme-retrieval\",\n        \"meme-membrane\"\n      ],\n      \"active_set_labels\""
     },
@@ -158,7 +158,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/normal/runtime/status",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244923271,
+      "startedAt": 1773332625057,
       "status": 200,
       "responseBodySnippet": "{\n  \"available\": true,\n  \"mode\": \"local_mlx\"\n}"
     },
@@ -167,7 +167,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/normal/runtime/model",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244923271,
+      "startedAt": 1773332625057,
       "status": 200,
       "responseBodySnippet": "{\n  \"available\": true,\n  \"backend\": \"mlx\",\n  \"profile\": \"balanced\"\n}"
     }

@@ -13,7 +13,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/pages/live-heavy.html",
       "resourceType": "document",
       "postData": null,
-      "startedAt": 1773244925769,
+      "startedAt": 1773332627473,
       "status": 200
     },
     {
@@ -21,7 +21,7 @@
       "url": "http://127.0.0.1:4173/eden/observatory/static/observatory_app/style.css",
       "resourceType": "stylesheet",
       "postData": null,
-      "startedAt": 1773244925773,
+      "startedAt": 1773332627477,
       "status": 200
     },
     {
@@ -29,7 +29,7 @@
       "url": "http://127.0.0.1:4173/eden/observatory/static/observatory_app/index.js",
       "resourceType": "script",
       "postData": null,
-      "startedAt": 1773244925773,
+      "startedAt": 1773332627477,
       "status": 200
     },
     {
@@ -37,7 +37,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/heavy/status",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244925794,
+      "startedAt": 1773332627498,
       "status": 200,
       "responseBodySnippet": "{\n  \"ok\": true,\n  \"status\": {\n    \"frontend_build\": {\n      \"warning\": false,\n      \"reason\": \"\"\n    },\n    \"capabilities\": {\n      \"preview\": true,\n      \"commit\": true,\n      \"revert\": true,\n      \"measurement_events\": true\n    }\n  }\n}"
     },
@@ -46,7 +46,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/heavy/overview",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244925805,
+      "startedAt": 1773332627509,
       "status": 200,
       "responseBodySnippet": "{\n  \"graph_counts\": {\n    \"sessions\": 4,\n    \"turns\": 16,\n    \"documents\": 4,\n    \"memes\": 24,\n    \"memodes\": 14,\n    \"edges\": 23,\n    \"measurement_events\": 2\n  },\n  \"basin\": {\n    \"filtered_turn_count\": 16,\n    \"source_turn_count\": 20,\n    \"projection_method\": \"svd_on_turn_features\"\n  },\n  \"measurements\": {\n    \"events\": 2,\n    \"action_types\": {\n      \"geometry_measurement_run\": 1,\n      \"edge_add\": 1\n    },\n    \"evidence_labels\": {\n      \"DERIVED\": 1,\n      \"OPERATOR_ASSERTED\": 1\n    }\n  }\n}"
     },
@@ -55,7 +55,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/heavy/measurements",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244925805,
+      "startedAt": 1773332627509,
       "status": 200,
       "responseBodySnippet": "{\n  \"counts\": {\n    \"events\": 2,\n    \"action_types\": {\n      \"geometry_measurement_run\": 1,\n      \"edge_add\": 1\n    },\n    \"evidence_labels\": {\n      \"DERIVED\": 1,\n      \"OPERATOR_ASSERTED\": 1\n    }\n  },\n  \"events\": [\n    {\n      \"id\": \"evt-heavy-002\",\n      \"action_type\": \"edge_add\",\n      \"evidence_label\": \"OPERATOR_ASSERTED\",\n      \"operator_label\": \"baseline_probe\",\n      \"measurement_method\": \"selection_geometry\",\n      \"confidence\": 0.82,\n      \"rationale\": \"Baseline local geometry measurement for the persistence loop.\",\n      \"created_at\": \"2026-03-11T12:00:00Z\",\n      \"target_ids\": [\n "
     },
@@ -64,7 +64,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/heavy/basin",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244925805,
+      "startedAt": 1773332627509,
       "status": 200,
       "responseBodySnippet": "{\n  \"projection_method\": \"svd_on_turn_features\",\n  \"projection_version\": \"2026.03\",\n  \"projection_input_hash\": \"proj-hash-normal-001\",\n  \"filtered_turn_count\": 16,\n  \"source_turn_count\": 20,\n  \"turns\": [\n    {\n      \"turn_id\": \"turn-heavy-01\",\n      \"turn_index\": 1,\n      \"session_id\": \"session-heavy-a\",\n      \"x\": -1.2,\n      \"y\": -0.4,\n      \"display_attractor_label\": \"Cluster 1\",\n      \"dominant_label\": \"Cluster 1\",\n      \"dominant_domain\": \"behavior\",\n      \"dominant_cluster_signature\": \"cluster-1\",\n      \"active_set_node_ids\": [\n        \"heavy-node-01\",\n        \"heavy-node-02\",\n        \"h"
     },
@@ -73,7 +73,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/heavy/events?session_id=session-alpha",
       "resourceType": "eventsource",
       "postData": null,
-      "startedAt": 1773244925806,
+      "startedAt": 1773332627515,
       "status": 200
     },
     {
@@ -81,7 +81,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/heavy/graph",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244925810,
+      "startedAt": 1773332627516,
       "status": 200,
       "responseBodySnippet": "{\n  \"export_manifest_id\": \"manifest-graph-hash-heavy-v1\",\n  \"source_graph_hash\": \"graph-hash-heavy-v1\",\n  \"graph_modes\": [\n    \"Semantic Map\",\n    \"Assemblies\",\n    \"Runtime\",\n    \"Active Set\",\n    \"Compare\"\n  ],\n  \"assembly_render_modes\": [\n    \"hulls\",\n    \"collapsed-meta-node\",\n    \"hidden\"\n  ],\n  \"semantic_nodes\": [\n    {\n      \"id\": \"heavy-node-01\",\n      \"label\": \"Heavy Meme 01\",\n      \"kind\": \"meme\",\n      \"domain\": \"knowledge\",\n      \"source_kind\": \"heavy_fixture\",\n      \"summary\": \"Synthetic heavy graph node 1.\",\n      \"created_at\": \"2026-03-10T13:01:00Z\",\n      \"cluster_signature\": \""
     },
@@ -90,7 +90,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/heavy/transcript",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244925810,
+      "startedAt": 1773332627516,
       "status": 200,
       "responseBodySnippet": "{\n  \"turns\": [\n    {\n      \"turn_id\": \"turn-heavy-01\",\n      \"turn_index\": 1,\n      \"user_text\": \"Discuss Cluster 1\",\n      \"active_set_node_ids\": [\n        \"heavy-node-01\",\n        \"heavy-node-02\",\n        \"heavy-node-03\"\n      ],\n      \"active_set_labels\": [\n        \"Heavy Meme 01\",\n        \"Heavy Meme 02\",\n        \"Heavy Meme 03\"\n      ],\n      \"profile_name\": \"balanced\"\n    },\n    {\n      \"turn_id\": \"turn-heavy-02\",\n      \"turn_index\": 2,\n      \"user_text\": \"Discuss Cluster 1\",\n      \"active_set_node_ids\": [\n        \"heavy-node-02\",\n        \"heavy-node-03\",\n        \"heavy-node-04\"\n      ],"
     },
@@ -99,7 +99,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/heavy/runtime/status",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244925810,
+      "startedAt": 1773332627516,
       "status": 200,
       "responseBodySnippet": "{\n  \"available\": true,\n  \"mode\": \"local_mlx\"\n}"
     },
@@ -108,7 +108,7 @@
       "url": "http://127.0.0.1:4173/__e2e__/api/heavy/runtime/model",
       "resourceType": "fetch",
       "postData": null,
-      "startedAt": 1773244925810,
+      "startedAt": 1773332627516,
       "status": 200,
       "responseBodySnippet": "{\n  \"available\": true,\n  \"backend\": \"mlx\",\n  \"profile\": \"balanced\"\n}"
     }

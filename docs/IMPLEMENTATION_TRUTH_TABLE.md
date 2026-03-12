@@ -57,7 +57,7 @@
 | Live observatory read endpoints | Implemented | overview, graph, basin, sessions, transcript, active-set, runtime status/model |
 | Observatory SSE invalidation stream | Implemented | compact invalidation events after turns, feedback, commits, and reverts |
 | Browser-local view presets | Implemented | browser-proved via Playwright; `localStorage` only, keyed by experiment + surface + export manifest/source graph hash; hydration race fixed so reload restores saved view without entering the measurement ledger |
-| Observatory browser E2E audit | Implemented | Playwright Chromium full battery plus Firefox/WebKit smoke proofs captured under `web/observatory/test-results/chromium-final`, `firefox-final`, and `webkit-final` |
+| Observatory browser E2E audit | Implemented | Playwright Chromium full battery plus Firefox/WebKit smoke proofs captured under `web/observatory/test-results/chromium-final` and `cross-browser-smoke`; every journey now fails if screenshot/DOM/JSON evidence artifacts are missing or empty |
 | Frontend build freshness guard | Implemented | `build-meta.json` emitted at build time, runtime warning via `/api/status`, CI check script in `scripts/check_observatory_build_meta.py` |
 | Robust observatory server lifecycle | Implemented | host/port args, reuse, free-port fallback, tests |
 | Observatory open without forced synchronous export | Implemented | TUI observatory actions now start/open the server immediately and reuse existing artifacts when present |
@@ -67,15 +67,16 @@
 | Large-graph geometry fallback | Implemented | seeded-scale graphs use sparse-safe approximations instead of SciPy / dense full-graph linear algebra |
 | Large-graph local geometry cap | Implemented | geometry export now limits per-memode local reports to keep seeded exports tractable |
 | Geometry ablation probes | Implemented | `CO_OCCURS_WITH` masking and dominant-cluster removal |
-| Browser observatory view controls | Implemented | browser-proved graph modes, assembly render modes, basin lift modes, source/build badges, payload-status diagnostics, and honest sparse/large-graph copy; no coordinate-mode switcher yet |
-| Browser observatory interaction modes | Conceptual in current React UI | current browser bundle exposes read/inspect flows plus graph/basin view toggles only; dedicated `MEASURE`, `EDIT`, `ABLATE`, and explicit inspect-mode controls are not surfaced |
-| Preview before commit | Implemented server-side; browser UI gap | live API + server tests support preview semantics, but the current React observatory exposes only read/inspect copy and does not present preview/commit controls |
-| Edge add/update/remove with provenance | Implemented server-side; browser UI gap | measurement-event server path exists, but the current React observatory does not expose the precision drawer or attributable edge mutation controls |
-| Known memode assertion | Implemented server-side; browser UI gap | admissibility logic exists below the browser surface, but the current React observatory does not expose a memode assertion flow |
-| Memode membership refinement | Implemented server-side; browser UI gap | persisted/revertible below the browser surface; not currently exposed in the React observatory controls |
-| Revert observatory-originated mutation | Implemented server-side; browser UI gap | explicit `revert` event exists in server/measurement tests, but the current React observatory does not expose a revert action |
-| Local selection geometry | Implemented outside current browser UI | geometry exports and server/test surfaces exist, but the current React observatory does not expose a local-measure preview workflow |
-| TUI trace of observatory edits | Implemented outside current browser UI | runtime log/trace emission exists in backend/TUI surfaces, but the current React observatory does not surface runtime causality for observatory mutations |
+| Browser observatory view controls | Implemented | browser-proved source/build badges, graph modes, assembly render modes, basin lift modes, payload-status diagnostics, honest sparse/large-graph copy, and keyboard/text access |
+| Browser compare / coordinate surface | Explicit browser contract gap | current React UI exposes a `Compare` graph-mode radio only; Playwright rerun still proves no coordinate-mode switcher and no baseline-vs-modified compare surface |
+| Browser observatory interaction modes | Explicit browser contract gap | current React bundle exposes read/inspect flows plus graph/basin view toggles only; dedicated browser `MEASURE`, `EDIT`, `ABLATE`, and explicit inspect-mode controls are not surfaced |
+| Preview before commit | Implemented server-side; explicit browser contract gap | live API + server tests support preview semantics, but the current React observatory does not present preview/commit controls |
+| Edge add/update/remove with provenance | Implemented server-side; explicit browser contract gap | measurement-event server path exists, but the current React observatory does not expose the precision drawer or attributable edge mutation controls |
+| Known memode assertion | Implemented server-side; explicit browser contract gap | admissibility logic exists below the browser surface, but the current React observatory does not expose a memode assertion flow |
+| Memode membership refinement | Implemented server-side; explicit browser contract gap | persisted/revertible below the browser surface; not currently exposed in the React observatory controls |
+| Revert observatory-originated mutation | Implemented server-side; explicit browser contract gap | explicit `revert` event exists in server/measurement tests, but the current React observatory does not expose a revert action |
+| Local selection geometry | Implemented server-side; explicit browser contract gap | geometry exports and server/test surfaces exist, but the current React observatory does not expose a local-measure preview workflow |
+| TUI trace of observatory edits | Implemented outside current browser UI; explicit browser contract gap | runtime log/trace emission exists in backend/TUI surfaces, but the current React observatory does not surface runtime causality for observatory mutations |
 | Default Qwen 3.5 MLX local pathing | Implemented | runtime prepares repo-local model storage automatically when MLX is selected |
 | Weight training / fine-tuning / LoRA | Deferred by design | explicitly out of scope |
 | Governor / hidden planner | Deferred by design | explicitly absent |

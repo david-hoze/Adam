@@ -114,12 +114,12 @@ describe("EDEN Observatory App", () => {
     expect((await screen.findByTestId("graph-panel")).textContent).toContain("graph:Semantic Map");
     expect(screen.getByText("Large semantic graph bundle")).toBeTruthy();
     expect(screen.getByText("Large diagnostics bundle")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Assemblies" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "Assemblies" }).getAttribute("aria-checked")).toBe("false");
     expect(screen.getByText("Identity")).toBeTruthy();
     expect(screen.getByText("Ontology")).toBeTruthy();
     expect(screen.getByText("Measurement History")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Raw JSON" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Raw JSON" }));
     expect(screen.getByText(/"label": "Persistence memode"/)).toBeTruthy();
 
     await waitFor(() => {
@@ -190,7 +190,7 @@ describe("EDEN Observatory App", () => {
       expect(geometryRequests).toBe(0);
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Geometry" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Geometry" }));
 
     await waitFor(() => {
       expect(geometryRequests).toBe(1);
@@ -281,6 +281,8 @@ describe("EDEN Observatory App", () => {
     expect(screen.getByText(/Projection: svd_on_turn_features/)).toBeTruthy();
     expect(screen.getByText(/Lift: flat/)).toBeTruthy();
     expect(screen.getByText(/Build warning: stale build/)).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Basin" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("radio", { name: "flat" }).getAttribute("aria-checked")).toBe("true");
 
     await waitFor(() => {
       expect(window.localStorage.getItem("eden.observatory.view_presets.v1::exp-2::basin::graph-hash-live")).not.toBeNull();

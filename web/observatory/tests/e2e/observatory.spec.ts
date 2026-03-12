@@ -7,10 +7,12 @@ import {
   attachRecorder,
   diffLedger,
   diffLocalStorage,
+  findRealExportFixture,
   mutationRequests,
   persistJourneyEvidence,
   resetScenario,
   snapshotLedger,
+  snapshotLedgerFile,
   snapshotLocalStorage,
   triggerInvalidation,
 } from "./helpers";
@@ -55,6 +57,18 @@ async function tabTo(page: Page, matcher: RegExp, reverse = false) {
   throw new Error(`Failed to focus element matching ${String(matcher)} with keyboard navigation.`);
 }
 
+function surfaceTab(page: Page, name: string) {
+  return page.getByRole("tab", { name, exact: true });
+}
+
+function inspectorTab(page: Page, name: "Cards" | "Raw JSON") {
+  return page.getByRole("tab", { name, exact: true });
+}
+
+function modeRadio(page: Page, name: string) {
+  return page.getByRole("radio", { name, exact: true });
+}
+
 test("J01 @smoke @chromium boot, source honesty, and build freshness", async ({ page, request }, testInfo) => {
   await resetScenario(request, "normal");
   await resetScenario(request, "stale");
@@ -72,6 +86,9 @@ test("J01 @smoke @chromium boot, source honesty, and build freshness", async ({ 
   await page.goto(pages.staticNormal);
   await assertSourceMode(page, "Static export");
   await assertPayloadStatus(page, /Static export mode reads adjacent JSON artifacts/);
+  await expect(page.getByRole("button", { name: /^Preview$/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Commit$/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Revert$/ })).toHaveCount(0);
 
   await page.goto(pages.liveStale);
   await assertSourceMode(page, "Live API", /Build warning: checked-in observatory bundle is stale/);
@@ -110,7 +127,7 @@ test("J02 @chromium payload lifecycle clarity and progressive loading", async ({
   await expect(page.getByText("exp-observatory-e2e")).toBeVisible();
   expect(recorder.network.some((entry) => entry.url.endsWith("/geometry"))).toBeFalsy();
 
-  await page.getByRole("button", { name: "Geometry", exact: true }).click();
+  await surfaceTab(page, "Geometry").click();
   await assertGracefulDegradation(page, /Geometry payload loading/, /intentionally deferred until you open this tab/);
   await expect(page.getByText(/"coordinate_modes": \[/)).toBeVisible();
   const geometryCalls = recorder.network.filter((entry) => entry.url.endsWith("/geometry"));
@@ -132,7 +149,7 @@ test("J03 @chromium graph inspect is read-only and provenance rich", async ({ pa
   const ledgerBefore = await snapshotLedger(request, ledgers.normalLive);
 
   await page.goto(pages.liveNormal);
-  await page.getByRole("button", { name: "Graph", exact: true }).click();
+  await surfaceTab(page, "Graph").click();
   await expect(page.getByRole("button", { name: "Graph entity Persistence Loop" })).toBeVisible();
   await page.getByRole("button", { name: "Graph entity Persistence Loop" }).click();
   await expect(page.getByText("Identity")).toBeVisible();
@@ -145,9 +162,9 @@ test("J03 @chromium graph inspect is read-only and provenance rich", async ({ pa
   await expect(page.getByText("Measurement History")).toBeVisible();
   await expect(page.getByRole("definition").filter({ hasText: /^meme-persistence$/ })).toBeVisible();
 
-  await page.getByRole("button", { name: "Raw JSON" }).click();
+  await inspectorTab(page, "Raw JSON").click();
   await expect(page.getByText(/"id": "meme-persistence"/)).toBeVisible();
-  await page.getByRole("button", { name: "Cards" }).click();
+  await inspectorTab(page, "Cards").click();
   await page.getByRole("button", { name: "Graph relation SUPPORTS: Persistence Loop -> Retrieval Bridge" }).click();
   await expect(page.getByText(/OPERATOR_ASSERTED/)).toBeVisible();
   await expect(page.getByText(/0.91/)).toBeVisible();
@@ -168,19 +185,19 @@ test("J04 @chromium cross-surface coherence", async ({ page, request }, testInfo
   const ledgerBefore = await snapshotLedger(request, ledgers.normalLive);
 
   await page.goto(pages.liveNormal);
-  await page.getByRole("button", { name: "Graph", exact: true }).click();
+  await surfaceTab(page, "Graph").click();
   await page.getByRole("button", { name: "Graph entity Persistence Loop" }).click();
   await expect(page.getByRole("definition").filter({ hasText: /^meme-persistence$/ })).toBeVisible();
 
-  await page.getByRole("button", { name: "Basin", exact: true }).click();
+  await surfaceTab(page, "Basin").click();
   await expect(page.getByRole("definition").filter({ hasText: /^meme-persistence$/ })).toBeVisible();
   await page.getByRole("button", { name: "Basin turn T3 turn-003 Regard Cluster" }).click();
-  await expect(page.getByRole("button", { name: "Transcript turn T3 turn-003" })).toHaveClass(/is-active/);
+  await expect(page.getByRole("button", { name: "Transcript turn T3 turn-003" })).toHaveAttribute("data-state", "active");
 
-  await page.getByRole("button", { name: "Overview", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Transcript turn T3 turn-003" })).toHaveClass(/is-active/);
-  await page.getByRole("button", { name: "Graph", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Transcript turn T3 turn-003" })).toHaveClass(/is-active/);
+  await surfaceTab(page, "Overview").click();
+  await expect(page.getByRole("button", { name: "Transcript turn T3 turn-003" })).toHaveAttribute("data-state", "active");
+  await surfaceTab(page, "Graph").click();
+  await expect(page.getByRole("button", { name: "Transcript turn T3 turn-003" })).toHaveAttribute("data-state", "active");
   expect(mutationRequests(recorder.network)).toHaveLength(0);
 
   const ledgerAfter = await snapshotLedger(request, ledgers.normalLive);
@@ -200,11 +217,12 @@ test("J05 @smoke @chromium basin provenance, derived badges, and sparse honesty"
   const sparseBefore = await snapshotLedger(request, ledgers.sparse);
 
   await page.goto(pages.staticNormal);
-  await page.getByRole("button", { name: "Basin", exact: true }).click();
+  await surfaceTab(page, "Basin").click();
   await expect(page.getByText(/Projection: svd_on_turn_features/)).toBeVisible();
   await expect(page.getByText(/Lift: flat/)).toBeVisible();
   await expect(page.getByText("Derived")).toBeVisible();
-  await page.getByRole("button", { name: "time_lift" }).click();
+  await modeRadio(page, "time_lift").click();
+  await expect(modeRadio(page, "time_lift")).toHaveAttribute("aria-checked", "true");
   await expect(page.getByText(/Lift: time_lift/)).toBeVisible();
   if (await page.getByTestId("basin-plot").count()) {
     await expect(page.getByTestId("basin-plot")).toBeVisible();
@@ -213,7 +231,7 @@ test("J05 @smoke @chromium basin provenance, derived badges, and sparse honesty"
   }
 
   await page.goto(pages.staticSparse);
-  await page.getByRole("button", { name: "Basin", exact: true }).click();
+  await surfaceTab(page, "Basin").click();
   await expect(page.getByText("Sparse basin data")).toBeVisible();
   await expect(page.getByText(/Filtered trajectory contains fewer than two turns/)).toBeVisible();
   await expect(page.getByTestId("basin-plot")).toHaveCount(0);
@@ -233,18 +251,18 @@ test("J05 @smoke @chromium basin provenance, derived badges, and sparse honesty"
   });
 });
 
-test("J06 @chromium proves the coordinate-mode and compare GUI contract gap", async ({ page, request }, testInfo) => {
+test("J06 @chromium revalidates compare/coordinate browser truth before any demotion", async ({ page, request }, testInfo) => {
   await resetScenario(request, "normal");
   const recorder = await attachRecorder(page);
   const ledgerBefore = await snapshotLedger(request, ledgers.normalLive);
 
   await page.goto(pages.liveNormal);
-  await page.getByRole("button", { name: "Graph", exact: true }).click();
-  await page.getByRole("button", { name: "Compare" }).click();
-  await expect(page.getByRole("button", { name: "Compare" })).toBeVisible();
+  await surfaceTab(page, "Graph").click();
+  await modeRadio(page, "Compare").click();
+  await expect(modeRadio(page, "Compare")).toHaveAttribute("aria-checked", "true");
   await expect(page.getByText(/Baseline/)).toHaveCount(0);
   await expect(page.getByText(/Modified/)).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /Coordinate mode/i })).toHaveCount(0);
+  await expect(page.getByRole("radiogroup", { name: /Coordinate mode/i })).toHaveCount(0);
   expect(mutationRequests(recorder.network)).toHaveLength(0);
 
   const ledgerAfter = await snapshotLedger(request, ledgers.normalLive);
@@ -266,19 +284,19 @@ test("J07 @chromium browser-local preset persistence remains non-authoritative",
   await page.evaluate(() => window.localStorage.clear());
   await page.reload();
   const storageBefore = await snapshotLocalStorage(page);
-  await page.getByRole("button", { name: "Graph", exact: true }).click();
-  await page.getByRole("button", { name: "Compare" }).click();
-  await page.getByRole("button", { name: "hidden" }).click();
+  await surfaceTab(page, "Graph").click();
+  await modeRadio(page, "Compare").click();
+  await modeRadio(page, "hidden").click();
   await page.reload();
-  await expect(page.getByRole("button", { name: "Graph", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Graph", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Compare" })).toHaveClass(/is-active/);
-  await expect(page.getByRole("button", { name: "hidden" })).toHaveClass(/is-active/);
+  await expect(surfaceTab(page, "Graph")).toBeVisible();
+  await surfaceTab(page, "Graph").click();
+  await expect(modeRadio(page, "Compare")).toHaveAttribute("aria-checked", "true");
+  await expect(modeRadio(page, "hidden")).toHaveAttribute("aria-checked", "true");
   const storageAfterRestore = await snapshotLocalStorage(page);
 
   await page.goto(pages.staticHashMismatch);
-  await page.getByRole("button", { name: "Graph", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Semantic Map" })).toHaveClass(/is-active/);
+  await surfaceTab(page, "Graph").click();
+  await expect(modeRadio(page, "Semantic Map")).toHaveAttribute("aria-checked", "true");
   const storageAfterMismatch = await snapshotLocalStorage(page);
   expect(diffLocalStorage(storageBefore, storageAfterRestore).added.length).toBeGreaterThan(0);
   expect(diffLocalStorage(storageAfterRestore, storageAfterMismatch).added.length).toBeGreaterThan(0);
@@ -304,9 +322,9 @@ test("J08 @chromium graceful degradation for partial payload failures", async ({
 
   await page.goto(pages.livePartial);
   await expect(page.getByText("exp-observatory-partial")).toBeVisible();
-  await page.getByRole("button", { name: "Geometry", exact: true }).click();
+  await surfaceTab(page, "Geometry").click();
   await assertGracefulDegradation(page, /Geometry payload error/, /500 Internal Server Error for \/__e2e__\/api\/partial\/geometry/);
-  await page.getByRole("button", { name: "Graph", exact: true }).click();
+  await surfaceTab(page, "Graph").click();
   await expect(page.getByRole("button", { name: "Graph entity Persistence Loop" })).toBeVisible();
   await expect(page.getByText(/Transcript payload error/)).toBeVisible();
   expect(mutationRequests(recorder.network)).toHaveLength(0);
@@ -327,16 +345,16 @@ test("J09 @chromium SSE invalidation refresh discipline", async ({ page, request
 
   await page.goto(pages.liveNormal);
   await page.getByRole("button", { name: "Transcript turn T2 turn-002" }).click();
-  await expect(page.getByRole("button", { name: "Transcript turn T2 turn-002" })).toHaveClass(/is-active/);
+  await expect(page.getByRole("button", { name: "Transcript turn T2 turn-002" })).toHaveAttribute("data-state", "active");
 
   const triggerResult = await triggerInvalidation(request, "normal");
   await waitForSseCount(page, 1);
   await expect.poll(async () => {
-    await page.getByRole("button", { name: "Measurements", exact: true }).click();
+    await surfaceTab(page, "Measurements").click();
     return page.textContent("pre");
   }).toContain('"events": 2');
-  await page.getByRole("button", { name: "Overview", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Transcript turn T2 turn-002" })).toHaveClass(/is-active/);
+  await surfaceTab(page, "Overview").click();
+  await expect(page.getByRole("button", { name: "Transcript turn T2 turn-002" })).toHaveAttribute("data-state", "active");
 
   const ledgerAfter = await snapshotLedger(request, ledgers.normalLive);
   expect(diffLedger(ledgerBefore, ledgerAfter).delta).toBe(1);
@@ -363,11 +381,15 @@ test("J10 @chromium proves measure mode is a GUI contract gap", async ({ page, r
   const ledgerBefore = await snapshotLedger(request, ledgers.normalLive);
 
   await page.goto(pages.liveNormal);
-  const buttonNames = await page.getByRole("button").allTextContents();
-  expect(buttonNames).not.toContain("MEASURE");
-  expect(buttonNames).not.toContain("Measure");
-  expect(buttonNames).not.toContain("Preview");
-  expect(buttonNames).not.toContain("Commit");
+  const interactiveLabels = await page.locator('[role="tab"], [role="radio"], button').allTextContents();
+  expect(interactiveLabels).not.toContain("MEASURE");
+  expect(interactiveLabels).not.toContain("Measure");
+  expect(interactiveLabels).not.toContain("Preview");
+  expect(interactiveLabels).not.toContain("Commit");
+  await expect(page.getByRole("tab", { name: /^Measure$/i })).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: /^Measure$/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Preview$/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Commit$/ })).toHaveCount(0);
   expect(mutationRequests(recorder.network)).toHaveLength(0);
 
   const ledgerAfter = await snapshotLedger(request, ledgers.normalLive);
@@ -376,7 +398,7 @@ test("J10 @chromium proves measure mode is a GUI contract gap", async ({ page, r
   await persistJourneyEvidence(page, testInfo, "J10", recorder, {
     result: "gap",
     ledgerDiff: diffLedger(ledgerBefore, ledgerAfter),
-    buttonNames,
+    interactiveLabels,
   });
 });
 
@@ -431,7 +453,7 @@ test("J13 @chromium proves revert is absent from the current browser UI", async 
   const ledgerBefore = await snapshotLedger(request, ledgers.normalLive);
 
   await page.goto(pages.liveNormal);
-  await page.getByRole("button", { name: "Measurements", exact: true }).click();
+  await surfaceTab(page, "Measurements").click();
   await expect(page.getByRole("button", { name: /^Revert$/ })).toHaveCount(0);
   expect(mutationRequests(recorder.network)).toHaveLength(0);
 
@@ -474,9 +496,9 @@ test("J15 @chromium large-graph resilience and honest caps", async ({ page, requ
   await expect(page.getByText("exp-observatory-heavy")).toBeVisible();
   await expect(page.getByText(/Showing first 12 of 24 graph entities/)).toBeVisible();
   await expect(page.getByText(/Showing first 12 of 23 relations/)).toBeVisible();
-  await page.getByRole("button", { name: "Basin", exact: true }).click();
+  await surfaceTab(page, "Basin").click();
   await expect(page.getByText(/Showing first 12 of 16 basin turns/)).toBeVisible();
-  await page.getByRole("button", { name: "Graph", exact: true }).click();
+  await surfaceTab(page, "Graph").click();
   await expect(page.getByRole("button", { name: "Graph entity Heavy Meme 01" })).toBeVisible();
   expect(mutationRequests(recorder.network)).toHaveLength(0);
 
@@ -489,27 +511,30 @@ test("J15 @chromium large-graph resilience and honest caps", async ({ page, requ
   });
 });
 
-test("J16 @chromium static export parity and honest limitations", async ({ page, request }, testInfo) => {
+test("J16a @chromium supported HTTP-served static parity and honest limitations", async ({ page, request }, testInfo) => {
   await resetScenario(request, "normal");
   const recorder = await attachRecorder(page);
   const liveBefore = await snapshotLedger(request, ledgers.normalLive);
   const staticBefore = await snapshotLedger(request, ledgers.normalStatic);
 
   await page.goto(pages.liveNormal);
-  await page.getByRole("button", { name: "Graph", exact: true }).click();
+  await surfaceTab(page, "Graph").click();
   await expect(page.getByRole("button", { name: "Graph entity Persistence Loop" })).toBeVisible();
-  await page.getByRole("button", { name: "Basin", exact: true }).click();
+  await surfaceTab(page, "Basin").click();
   await expect(page.getByText(/Projection: svd_on_turn_features/)).toBeVisible();
-  await page.getByRole("button", { name: "Measurements", exact: true }).click();
+  await surfaceTab(page, "Measurements").click();
   await expect(page.getByText(/"events": 1/)).toBeVisible();
 
   await page.goto(pages.staticNormal);
   await assertSourceMode(page, "Static export");
-  await page.getByRole("button", { name: "Graph", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^Preview$/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Commit$/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Revert$/ })).toHaveCount(0);
+  await surfaceTab(page, "Graph").click();
   await expect(page.getByRole("button", { name: "Graph entity Persistence Loop" })).toBeVisible();
-  await page.getByRole("button", { name: "Basin", exact: true }).click();
+  await surfaceTab(page, "Basin").click();
   await expect(page.getByText(/Projection: svd_on_turn_features/)).toBeVisible();
-  await page.getByRole("button", { name: "Measurements", exact: true }).click();
+  await surfaceTab(page, "Measurements").click();
   await expect(page.getByText(/"events": 1/)).toBeVisible();
   expect(mutationRequests(recorder.network)).toHaveLength(0);
   expect(recorder.network.some((entry) => entry.url.includes("/__e2e__/api/normal/"))).toBeTruthy();
@@ -520,12 +545,38 @@ test("J16 @chromium static export parity and honest limitations", async ({ page,
   expect(diffLedger(liveBefore, liveAfter).delta).toBe(0);
   expect(diffLedger(staticBefore, staticAfter).delta).toBe(0);
 
-  await persistJourneyEvidence(page, testInfo, "J16", recorder, {
+  await persistJourneyEvidence(page, testInfo, "J16a", recorder, {
     result: "pass",
     ledgerDiffs: {
       live: diffLedger(liveBefore, liveAfter),
       static: diffLedger(staticBefore, staticAfter),
     },
+  });
+});
+
+test("J16b @chromium unsupported file runtime does not reach supported static-ready state", async ({ page }, testInfo) => {
+  const recorder = await attachRecorder(page);
+  const exportFixture = await findRealExportFixture();
+  const ledgerBefore = await snapshotLedgerFile(exportFixture.measurementEvents);
+
+  await page.goto(exportFixture.fileUrl, { waitUntil: "load" });
+  await page.waitForTimeout(1000);
+
+  await expect(page.getByRole("heading", { name: "Live-first semantic graph and basin instrument" })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "Overview", exact: true })).toHaveCount(0);
+  expect(mutationRequests(recorder.network)).toHaveLength(0);
+  expect(
+    recorder.consoleMessages.some((message) => message.startsWith("error:")) ||
+      recorder.network.some((entry) => Boolean(entry.failureText)),
+  ).toBeTruthy();
+
+  const ledgerAfter = await snapshotLedgerFile(exportFixture.measurementEvents);
+  expect(diffLedger(ledgerBefore, ledgerAfter).delta).toBe(0);
+
+  await persistJourneyEvidence(page, testInfo, "J16b", recorder, {
+    result: "pass",
+    exportDir: exportFixture.exportDir,
+    ledgerDiff: diffLedger(ledgerBefore, ledgerAfter),
   });
 });
 
@@ -546,7 +597,8 @@ test("J17 @smoke @chromium keyboard-operable controls and textual graph equivale
   await expect(page.getByText(/"id": "meme-persistence"/)).toBeVisible();
   await tabTo(page, /^Basin$/, true);
   await page.keyboard.press("Enter");
-  await expect(page.getByText("Basin Turns")).toBeVisible();
+  await expect(surfaceTab(page, "Basin")).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { name: "Basin Turns" })).toBeVisible();
   expect(mutationRequests(recorder.network)).toHaveLength(0);
 
   const ledgerAfter = await snapshotLedger(request, ledgers.normalStatic);

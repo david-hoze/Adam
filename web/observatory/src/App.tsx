@@ -846,24 +846,28 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
     const renderModes = data.graph?.assembly_render_modes ?? [DEFAULT_ASSEMBLY_RENDER_MODE];
     return (
       <div className="toolbar">
-        <div className="toolbar-group">
+        <div aria-label="Graph mode" className="toolbar-group" role="radiogroup">
           {graphModes.map((mode) => (
             <button
+              aria-checked={mode === graphMode}
               key={mode}
               className={mode === graphMode ? "toolbar-button is-active" : "toolbar-button"}
               onClick={() => setGraphMode(mode)}
+              role="radio"
               type="button"
             >
               {mode}
             </button>
           ))}
         </div>
-        <div className="toolbar-group">
+        <div aria-label="Assembly render mode" className="toolbar-group" role="radiogroup">
           {renderModes.map((mode) => (
             <button
+              aria-checked={mode === assemblyRenderMode}
               key={mode}
               className={mode === assemblyRenderMode ? "toolbar-button is-active" : "toolbar-button"}
               onClick={() => setAssemblyRenderMode(mode)}
+              role="radio"
               type="button"
             >
               {mode}
@@ -877,12 +881,14 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
   function renderBasinControls() {
     return (
       <div className="toolbar">
-        <div className="toolbar-group">
+        <div aria-label="Basin lift mode" className="toolbar-group" role="radiogroup">
           {(["flat", "time_lift", "density_lift", "session_offset"] as LiftMode[]).map((mode) => (
             <button
+              aria-checked={mode === liftMode}
               key={mode}
               className={mode === liftMode ? "toolbar-button is-active" : "toolbar-button"}
               onClick={() => setLiftMode(mode)}
+              role="radio"
               type="button"
             >
               {mode}
@@ -964,97 +970,119 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
           ];
     return (
       <aside className="inspector">
-        <div className="inspector-tabs">
-          <button className={inspectorTab === "cards" ? "toolbar-button is-active" : "toolbar-button"} onClick={() => setInspectorTab("cards")} type="button">
+        <div aria-label="Inspector view" className="inspector-tabs" role="tablist">
+          <button
+            aria-controls="observatory-inspector-panel"
+            aria-selected={inspectorTab === "cards"}
+            className={inspectorTab === "cards" ? "toolbar-button is-active" : "toolbar-button"}
+            id="observatory-inspector-tab-cards"
+            onClick={() => setInspectorTab("cards")}
+            role="tab"
+            type="button"
+          >
             Cards
           </button>
-          <button className={inspectorTab === "json" ? "toolbar-button is-active" : "toolbar-button"} onClick={() => setInspectorTab("json")} type="button">
+          <button
+            aria-controls="observatory-inspector-panel"
+            aria-selected={inspectorTab === "json"}
+            className={inspectorTab === "json" ? "toolbar-button is-active" : "toolbar-button"}
+            id="observatory-inspector-tab-json"
+            onClick={() => setInspectorTab("json")}
+            role="tab"
+            type="button"
+          >
             Raw JSON
           </button>
         </div>
-        {inspectorTab === "json" ? (
-          <pre className="debug-json">{JSON.stringify(rawTarget, null, 2)}</pre>
-        ) : (
-          <div className="inspector-cards">
-            <Card title="Identity">
-              <MetricList
-                items={[
-                  ["ID", rawTarget?.id ?? rawTarget?.turn_id ?? rawTarget?.cluster_signature],
-                  ["Label", identityLabel],
-                  ["Created", rawTarget?.created_at],
-                ]}
-              />
-            </Card>
-            <Card title="Ontology">
-              <MetricList
-                items={[
-                  ["Kind", ontologyKind],
-                  ["Domain", ontologyDomain],
-                  ["Source", ontologySource],
-                ]}
-              />
-            </Card>
-            <Card title="Summary/Invariance">
-              <MetricList
-                items={[
-                  ["Summary", rawTarget?.summary ?? rawTarget?.manual_summary ?? rawTarget?.dominant_label],
-                  ["Invariance", selectedAssembly?.invariance_summary],
-                  ["Recent turns", selectedTurn?.active_set_labels],
-                ]}
-              />
-            </Card>
-            <Card title="Provenance">
-              <MetricList
-                items={[
-                  ["Operator/Source", provenance],
-                  ["Evidence label", rawTarget?.evidence_label ?? selectedAssembly?.evidence_label ?? selectedEdge?.evidence_label],
-                  ["Confidence", rawTarget?.confidence ?? selectedAssembly?.confidence ?? selectedEdge?.confidence],
-                ]}
-              />
-            </Card>
-            <Card title="Cluster Membership">
-              <MetricList
-                items={[
-                  ["Cluster", selectedEdge ? `${selectedEdgeSource?.cluster_signature ?? "unknown"} -> ${selectedEdgeTarget?.cluster_signature ?? "unknown"}` : rawTarget?.cluster_signature ?? selectedTurn?.dominant_cluster_signature],
-                  ["Display label", clusterDisplay],
-                  ["Domain mix", rawTarget?.domain_mix],
-                ]}
-              />
-            </Card>
-            <Card title="Memode Membership">
-              <MetricList
-                items={[
-                  [
-                    "Assemblies",
-                    selectedEdge
-                      ? [
-                          ...(selectedEdgeSource?.memode_membership ?? []),
-                          ...(selectedEdgeTarget?.memode_membership ?? []),
-                        ]
-                      : rawTarget?.memode_membership ?? selectedAssembly?.member_meme_ids,
-                  ],
-                  ["Supporting edges", selectedAssembly?.supporting_edge_ids],
-                  ["Member order", selectedAssembly?.member_order],
-                ]}
-              />
-            </Card>
-            <Card title="Supporting Relations">
-              <MetricList items={supportingRelations} />
-            </Card>
-            <Card title="Active Set Presence">
-              <MetricList items={activeSetPresence} />
-            </Card>
-            <Card title="Measurement History">
-              <MetricList
-                items={[
-                  ["Count", measurementHistory.length],
-                  ["Recent event", measurementHistory[0]?.action_type],
-                  ["Preview delta", "Use preview/commit API; view-only presets stay out of evidence."],
-                ]}
-              />
-            </Card>
-          </div>
-        )}
+        <div
+          aria-labelledby={inspectorTab === "json" ? "observatory-inspector-tab-json" : "observatory-inspector-tab-cards"}
+          id="observatory-inspector-panel"
+          role="tabpanel"
+        >
+          {inspectorTab === "json" ? (
+            <pre className="debug-json">{JSON.stringify(rawTarget, null, 2)}</pre>
+          ) : (
+            <div className="inspector-cards">
+              <Card title="Identity">
+                <MetricList
+                  items={[
+                    ["ID", rawTarget?.id ?? rawTarget?.turn_id ?? rawTarget?.cluster_signature],
+                    ["Label", identityLabel],
+                    ["Created", rawTarget?.created_at],
+                  ]}
+                />
+              </Card>
+              <Card title="Ontology">
+                <MetricList
+                  items={[
+                    ["Kind", ontologyKind],
+                    ["Domain", ontologyDomain],
+                    ["Source", ontologySource],
+                  ]}
+                />
+              </Card>
+              <Card title="Summary/Invariance">
+                <MetricList
+                  items={[
+                    ["Summary", rawTarget?.summary ?? rawTarget?.manual_summary ?? rawTarget?.dominant_label],
+                    ["Invariance", selectedAssembly?.invariance_summary],
+                    ["Recent turns", selectedTurn?.active_set_labels],
+                  ]}
+                />
+              </Card>
+              <Card title="Provenance">
+                <MetricList
+                  items={[
+                    ["Operator/Source", provenance],
+                    ["Evidence label", rawTarget?.evidence_label ?? selectedAssembly?.evidence_label ?? selectedEdge?.evidence_label],
+                    ["Confidence", rawTarget?.confidence ?? selectedAssembly?.confidence ?? selectedEdge?.confidence],
+                  ]}
+                />
+              </Card>
+              <Card title="Cluster Membership">
+                <MetricList
+                  items={[
+                    ["Cluster", selectedEdge ? `${selectedEdgeSource?.cluster_signature ?? "unknown"} -> ${selectedEdgeTarget?.cluster_signature ?? "unknown"}` : rawTarget?.cluster_signature ?? selectedTurn?.dominant_cluster_signature],
+                    ["Display label", clusterDisplay],
+                    ["Domain mix", rawTarget?.domain_mix],
+                  ]}
+                />
+              </Card>
+              <Card title="Memode Membership">
+                <MetricList
+                  items={[
+                    [
+                      "Assemblies",
+                      selectedEdge
+                        ? [
+                            ...(selectedEdgeSource?.memode_membership ?? []),
+                            ...(selectedEdgeTarget?.memode_membership ?? []),
+                          ]
+                        : rawTarget?.memode_membership ?? selectedAssembly?.member_meme_ids,
+                    ],
+                    ["Supporting edges", selectedAssembly?.supporting_edge_ids],
+                    ["Member order", selectedAssembly?.member_order],
+                  ]}
+                />
+              </Card>
+              <Card title="Supporting Relations">
+                <MetricList items={supportingRelations} />
+              </Card>
+              <Card title="Active Set Presence">
+                <MetricList items={activeSetPresence} />
+              </Card>
+              <Card title="Measurement History">
+                <MetricList
+                  items={[
+                    ["Count", measurementHistory.length],
+                    ["Recent event", measurementHistory[0]?.action_type],
+                    ["Preview delta", "Use preview/commit API; view-only presets stay out of evidence."],
+                  ]}
+                />
+              </Card>
+            </div>
+          )}
+        </div>
       </aside>
     );
   }
@@ -1074,6 +1102,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
                     aria-label={`Assembly ${assembly.label}`}
                     key={assembly.id}
                     className={assembly.id === selectedAssemblyId ? "chip is-active" : "chip"}
+                    data-state={assembly.id === selectedAssemblyId ? "active" : "inactive"}
                     onClick={() => handleSelectAssembly(assembly.id)}
                     type="button"
                   >
@@ -1098,6 +1127,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
                     aria-label={`Graph entity ${nodeLabel(node)}`}
                     key={node.id}
                     className={node.id === selectedNodeId ? "chip is-active" : "chip"}
+                    data-state={node.id === selectedNodeId ? "active" : "inactive"}
                     onClick={() => handleFocusNode(node.id)}
                     type="button"
                   >
@@ -1122,6 +1152,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
                     aria-label={`Graph relation ${edgeLabel(edge, nodeLookup)}`}
                     key={edge.id}
                     className={edge.id === selectedEdgeId ? "transcript-turn is-active" : "transcript-turn"}
+                    data-state={edge.id === selectedEdgeId ? "active" : "inactive"}
                     onClick={() => handleSelectEdge(edge.id)}
                     type="button"
                   >
@@ -1161,6 +1192,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
                     aria-label={`Basin turn T${turn.turn_index ?? "?"} ${turn.turn_id} ${turn.display_attractor_label ?? turn.dominant_label ?? turn.turn_id}`}
                     key={turn.turn_id}
                     className={turn.turn_id === selectedTurn?.turn_id ? "transcript-turn is-active" : "transcript-turn"}
+                    data-state={turn.turn_id === selectedTurn?.turn_id ? "active" : "inactive"}
                     onClick={() => handleSelectTurn(turn.turn_id)}
                     type="button"
                   >
@@ -1182,6 +1214,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
                   aria-label={`Transcript turn T${turn.turn_index} ${turn.turn_id}`}
                   key={turn.turn_id}
                   className={turn.turn_id === selectedTurn?.turn_id ? "transcript-turn is-active" : "transcript-turn"}
+                  data-state={turn.turn_id === selectedTurn?.turn_id ? "active" : "inactive"}
                   onClick={() => handleSelectTurn(turn.turn_id)}
                   type="button"
                 >
@@ -1311,9 +1344,18 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
         </div>
       </header>
 
-      <nav className="surface-tabs">
+      <nav aria-label="Observatory surface" className="surface-tabs" role="tablist">
         {SURFACES.map((item) => (
-          <button key={item} className={item === surface ? "toolbar-button is-active" : "toolbar-button"} onClick={() => setSurface(item)} type="button">
+          <button
+            aria-controls="observatory-surface-panel"
+            aria-selected={item === surface}
+            className={item === surface ? "toolbar-button is-active" : "toolbar-button"}
+            id={`observatory-surface-tab-${item}`}
+            key={item}
+            onClick={() => setSurface(item)}
+            role="tab"
+            type="button"
+          >
             {labelForSurface(item)}
           </button>
         ))}
@@ -1324,7 +1366,14 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
 
       <main className="layout">
         {renderSidebar()}
-        <section className="surface-panel">{renderMainSurface()}</section>
+        <section
+          aria-labelledby={`observatory-surface-tab-${surface}`}
+          className="surface-panel"
+          id="observatory-surface-panel"
+          role="tabpanel"
+        >
+          {renderMainSurface()}
+        </section>
         {renderInspector()}
       </main>
     </div>

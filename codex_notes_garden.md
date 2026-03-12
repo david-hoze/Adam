@@ -1653,3 +1653,97 @@ Remaining uncertainties:
 - If the tracked Vite results file should also disappear from the pending commit, it needs a separate cleanup/removal step rather than another ignore rule.
 Next shortest proof path:
 - Remove or restore the already tracked Vite results file if you want the pending diff trimmed further.
+## [2026-03-12 12:15:37 EDT] PRE-FLIGHT
+Operator task:
+Refresh the observatory browser truth audit: tighten public UI state semantics, harden Playwright evidence emission, split J16 into HTTP-served static parity vs unsupported `file://`, and update browser truth surfaces without flattening backend truth.
+Task checksum:
+46f6e6c39efd7f9c0b22ee852ce2685dab874fd3df4a7995cf5bd26f91483152
+Repo situation:
+Existing observatory browser audit infrastructure is already present under `web/observatory/tests/e2e/` plus `docs/OBSERVATORY_E2E_AUDIT.md`. Current worktree is dirty in unrelated files only: `.DS_Store` modified and `docs.zip` deleted. Current execution revalidated baseline proof before edits: Vitest 3/3, pytest 14/14 on observatory server/measurement tests, Playwright Chromium 17/17, Firefox/WebKit smoke 6/6.
+Relevant spec surfaces read:
+- `docs/OBSERVATORY_SPEC.md`
+- `docs/OBSERVATORY_INTERACTION_SPEC.md`
+- `docs/OBSERVATORY_GEOMETRY_SPEC.md`
+- `docs/GEOMETRY_EVIDENCE_POLICY.md`
+- `docs/MEASUREMENT_EVENT_MODEL.md`
+- `docs/KNOWN_LIMITATIONS.md`
+- `docs/IMPLEMENTATION_TRUTH_TABLE.md`
+Natural-language contracts in force:
+Browser proof must privilege observatory truth over rendering. Inspect remains read-only. Layout/coordinate/lift/preset changes must not masquerade as evidence or graph mutation. Browser-local presets remain non-authoritative and absent from the measurement ledger. Backend/server implementation truth must remain separate from browser exposure truth.
+Files/modules likely in scope:
+- `/Users/brianray/Adam/web/observatory/src/App.tsx`
+- `/Users/brianray/Adam/web/observatory/src/App.test.tsx`
+- `/Users/brianray/Adam/web/observatory/tests/e2e/observatory.spec.ts`
+- `/Users/brianray/Adam/web/observatory/tests/e2e/helpers.ts`
+- `/Users/brianray/Adam/docs/OBSERVATORY_E2E_AUDIT.md`
+- `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+- `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+- `/Users/brianray/Adam/codex_notes_garden.md`
+Status register:
+- Implemented:
+  - Browser proof for J01-J05, J07-J09, J15, J17 was reproduced in this execution.
+  - Backend/server observatory preview/commit/revert and measurement-event semantics were reproduced by pytest in this execution.
+- Instrumented:
+  - Existing Playwright harness already records network, SSE, screenshot, and DOM artifacts per journey, but does not yet fail fast on missing/empty artifact files.
+- Conceptual:
+  - None claimed for browser truth at pre-flight; J06 and J10-J14 require fresh browser classification after edits/rerun.
+- Unknown:
+  - Whether J06 still deserves a browser truth downgrade after public-state semantic cleanup and rerun.
+  - Whether any current audit language still collapses backend truth into browser truth after this refresh.
+Risks / invariants:
+Do not invent absent React mutation flows. Keep Playwright as the canonical browser surface. Use `role=tab` + `aria-selected` for tabs, `aria-checked` for exclusive radio-like controls, and `data-state="active"` only where no narrower ARIA pattern fits. Do not rely on CSS classes for browser truth assertions after this turn.
+Evidence plan:
+Edit App semantics and tests, add explicit `file://` negative proof, refresh audit/truth docs, then rerun Vitest, observatory pytest targets, Playwright Chromium full battery, and Firefox/WebKit smoke with fresh artifact directories.
+Shortest proof path:
+Make semantic-state changes in the React shell, rewrite Playwright active-state assertions, split J16 with a real exported `observatory_index.html` `file://` proof, update truth surfaces, and rerun the browser/server proof stack from repo root.
+## [2026-03-12 12:28:17 EDT] POST-FLIGHT
+Files changed:
+- `/Users/brianray/Adam/web/observatory/src/App.tsx`
+- `/Users/brianray/Adam/web/observatory/src/App.test.tsx`
+- `/Users/brianray/Adam/web/observatory/tests/e2e/helpers.ts`
+- `/Users/brianray/Adam/web/observatory/tests/e2e/observatory.spec.ts`
+- `/Users/brianray/Adam/docs/OBSERVATORY_E2E_AUDIT.md`
+- `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+- `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+- `/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+- `docs/OBSERVATORY_E2E_AUDIT.md`
+- `docs/IMPLEMENTATION_TRUTH_TABLE.md`
+- `docs/KNOWN_LIMITATIONS.md`
+Natural-language contracts added/revised/preserved:
+- Preserved the live-first observatory posture and read-only inspect contract.
+- Revised browser truth language so backend/server implementation is not flattened into browser exposure truth.
+- Added explicit `file://` unsupported-runtime proof to the browser audit rather than treating HTTP-served static parity as exhaustive.
+Behavior implemented or modified:
+- Surface navigation and inspector tabs now expose `role="tab"` with `aria-selected`.
+- Graph-mode, assembly-render, and basin-lift exclusive controls now expose radio-like state through `aria-checked`.
+- Assembly, graph-entity, relation, basin-turn, and transcript selection buttons now expose `data-state="active"` for browser-proofable selection state without relying on CSS classes.
+- Playwright journeys now assert public state attributes instead of `is-active` CSS classes.
+- Journey evidence emission now fails fast if screenshot/DOM/JSON artifacts are missing or empty, and request-failure evidence is recorded.
+- J16 is now split into `J16a` HTTP-served static parity and `J16b` unsupported `file://` runtime proof using a real exported `observatory_index.html`.
+Evidence produced (tests / traces / commands / exports):
+- `npm --prefix web/observatory test` → 3/3 passed.
+- `npm --prefix web/observatory run build` → passed, refreshed checked-in observatory bundle/build metadata.
+- `npm --prefix web/observatory run test:e2e -- --project=chromium --output=test-results/chromium-final` → 18/18 passed.
+- `npm --prefix web/observatory run test:e2e -- --project=firefox --project=webkit --output=test-results/cross-browser-smoke` → 6/6 passed.
+- `./.venv/bin/pytest -q tests/test_observatory_server.py tests/test_observatory_measurements.py` → 14/14 passed.
+- Fresh browser evidence under `/Users/brianray/Adam/web/observatory/test-results/chromium-final/` and `/Users/brianray/Adam/web/observatory/test-results/cross-browser-smoke/`.
+Status register changes:
+- Implemented:
+  - Public browser state semantics are now directly observable through ARIA/data-state rather than CSS classes.
+  - Browser proof now includes explicit unsupported `file://` runtime evidence (`J16b`).
+  - J01-J05, J07-J09, J15, J16a, J16b, and J17 are re-proved in this execution.
+- Instrumented:
+  - Journey evidence bundling is hardened with non-empty artifact verification and request-failure capture.
+- Conceptual:
+  - None newly introduced.
+- Unknown:
+  - None remaining for the audited browser journeys; J06 and J10-J14 are now explicit browser contract gaps rather than unknowns.
+Truth-table / limitations updates:
+- `IMPLEMENTATION_TRUTH_TABLE.md` now distinguishes implemented browser view controls from explicit browser contract gaps for compare/coordinate exposure and mutation/causality flows.
+- `KNOWN_LIMITATIONS.md` now states that compare/coordinate exposure plus J10-J14 flows are explicit browser contract gaps and that direct `file://` does not reach a supported-static-ready state.
+Remaining uncertainties:
+- The current React bundle still does not expose browser paths for compare/coordinate surface semantics, measure preview, attributable edit, memode assertion, revert, or runtime causality; those remain backend/server implemented where noted, but absent in the browser.
+- `J16b` proves unsupported `file://` failure in Chromium. Firefox/WebKit smoke intentionally remains limited to read-only honesty journeys.
+Next shortest proof path:
+- If the React observatory later surfaces compare/coordinate controls or mutation flows, upgrade J06 and J10-J14 from browser gap proofs to positive browser journeys with preview/commit/revert assertions and rerun the same artifact-validated Playwright stack.
