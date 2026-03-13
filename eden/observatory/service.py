@@ -13,7 +13,18 @@ from .geometry import compute_geometry_metrics, compute_selection_geometry, metr
 
 
 class ObservatoryService:
-    def __init__(self, *, store, exporter, runtime_log, export_root: Path, runtime_status_provider=None, runtime_model_provider=None, tanakh_service=None) -> None:
+    def __init__(
+        self,
+        *,
+        store,
+        exporter,
+        runtime_log,
+        export_root: Path,
+        runtime_status_provider=None,
+        runtime_model_provider=None,
+        tanakh_service=None,
+        hum_provider=None,
+    ) -> None:
         self.store = store
         self.exporter = exporter
         self.runtime_log = runtime_log
@@ -21,6 +32,7 @@ class ObservatoryService:
         self.runtime_status_provider = runtime_status_provider
         self.runtime_model_provider = runtime_model_provider
         self.tanakh_service = tanakh_service
+        self.hum_provider = hum_provider
 
     def refresh_exports(self, *, experiment_id: str, session_id: str | None) -> tuple[dict[str, str], dict[str, Any]]:
         out_dir = self.export_root / experiment_id
@@ -53,6 +65,7 @@ class ObservatoryService:
                 "projection_method": payload["basin"].get("projection_method", ""),
             },
             "measurements": payload["measurements"].get("counts", {}),
+            "hum": self._hum_summary(session_id),
         }
         if "tanakh" in payload:
             overview["tanakh"] = {
@@ -142,7 +155,7 @@ class ObservatoryService:
                 "effective_mode": inference.get("effective_mode", ""),
                 "budget_summary": budget,
             })
-        return {"session": session, "turns": transcript}
+        return {"session": session, "turns": transcript, "hum": self._hum_summary(session_id)}
 
     def session_active_set(self, *, session_id: str) -> dict[str, Any]:
         turns = self.store.list_all_turns(session_id)
@@ -168,6 +181,33 @@ class ObservatoryService:
         if self.runtime_model_provider is None:
             return {"available": False}
         return self.runtime_model_provider()
+
+    def _hum_summary(self, session_id: str | None) -> dict[str, Any]:
+        if not session_id or self.hum_provider is None:
+            return {
+                "present": False,
+                "artifact_version": None,
+                "generated_at": None,
+                "markdown_path": None,
+                "json_path": None,
+                "latest_turn_id": None,
+                "turn_window_size": 0,
+                "cross_turn_recurrence_present": False,
+            }
+        try:
+            return dict(self.hum_provider(session_id))
+        except Exception as exc:
+            return {
+                "present": False,
+                "artifact_version": None,
+                "generated_at": None,
+                "markdown_path": None,
+                "json_path": None,
+                "latest_turn_id": None,
+                "turn_window_size": 0,
+                "cross_turn_recurrence_present": False,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
 
     def preview_action(
         self,

@@ -1,41 +1,106 @@
 # Hum Spec
 
-This document governs how `the hum` may be described in EDEN/ADAM documentation and external prose. Current repo docs and the codex journal are authoritative over older blog language. `/Users/brianray/Desktop/adam_hum_ALL.md` is admissible as historical artifact evidence. Older prose that centers governance or a governor phase is revision input, not ground truth.
+This document governs what `the hum` means in the current EDEN/ADAM build, where it lives, what it is derived from, and what may not be claimed about it. Repo docs, code, tests, runtime traces, and audit artifacts are authoritative over older prose. `/Users/brianray/Desktop/adam_hum_ALL.md` remains admissible as historical hum evidence, but it does not override the current implementation contract.
 
-## Contract boundaries
+## Status Register
 
-- In the current build, `the hum` is not a repo-proved first-class runtime surface.
-- `The hum`, when referenced, should be treated as a low-bandwidth continuity artifact compatible with the externalized graph/regard/feedback architecture.
-- `The hum` is not the active set, not full turn history, not the full graph, not a basin summary, not a cluster or motif summary, and not an observatory payload.
-- Tokens such as `glmmr`, `mrmr`, `hush`, `pulse`, `thread`, and `bloom` should be interpreted as budget-disciplined recurrence signatures when present, not as encryption, semantic hashes, or the units over which regard acts.
-- Regard acts over memes and memodes, not over tokens.
-- No prose may claim that the hum is caused by a governor, downstream of a governance verdict, injected into the next prompt, stripped by the membrane, or sufficient on its own to reconstruct persona unless future code and docs prove those paths.
-- Austin and Foucault may be cited, but only in architecture-subordinate form: Austin for explicit acts that change later retrieval and persistence conditions, and Foucault for repeatable conditions of admissibility and discursive regularity across turns. Neither may be used to smuggle back a sovereign runtime governor.
+Implemented: The current build generates a bounded persisted hum artifact after turn persistence and after explicit feedback persistence. It is written per session as `logs/hum_state/<experiment_id>/<session_id>/current_hum.md` and `current_hum.json`, and surfaced read-only through `session_state_snapshot()`, observatory overview/session-turn payloads, `observatory_index.json`, and the conversation-log footer.  
+Instrumented: Historical hum artifact evidence still exists in `/Users/brianray/Desktop/adam_hum_ALL.md`, and the current build now records hum provenance, continuity summaries, and bounded metrics in machine-readable form.  
+Conceptual: Anything richer than the current bounded read-only artifact remains conceptual, including prompt injection, membrane consumption of hum, generation-input use, and a fuller historical-style compressed motif channel.  
+Unknown: Whether the hum should later grow beyond the current bounded observability surface, and how much higher-order recurrence the present derivation can truthfully support across broader workloads.
+
+## Contract Boundaries
+
+- The hum is a derived continuity artifact inside the direct v1 loop. It is not a governor product, not a planner residue, and not a hidden inner voice.
+- The hum is not the active set, not full turn history, not the full graph, not a basin summary, not a cluster or motif summary, and not an observatory payload plane.
+- Regard acts over memes and memodes, not over tokens. The hum may expose low-bandwidth recurrence summaries, but those summaries are not token-level units of regard.
+- Historical strings such as `glmmr`, `mrmr`, `hush`, `pulse`, `thread`, and `bloom` remain historical compression signatures only. They are not encryption, semantic hashes, or present-tense proof shortcuts.
+- No prose may claim that the hum is injected into the next prompt, stripped by the membrane, sufficient on its own to reconstruct persona, or used as a causal generation input unless future code and tests prove those exact paths.
 - No consciousness claims, metaphysical inflation, or physics theater.
 
-## Approved blog replacement
+## Implemented Surface
 
-### STATUS_REGISTER
+The current hum is generated only from already-persisted runtime continuity surfaces:
 
-Implemented: No current repo-tracked first-class hum runtime surface is proved in the present build.  
-Instrumented: Historical hum artifact evidence exists in `/Users/brianray/Desktop/adam_hum_ALL.md`, including timestamped `hum:` entries plus `[HUM_STATS]`, `[HUM_METRICS]`, and `[HUM_TABLE]`.  
-Conceptual: The hum fits the current persistence model as a low-bandwidth continuity artifact shaped by graph state, regard, feedback, and bounded retrieval.  
-Unknown: Whether the current build still generates, foregrounds, injects, or membrane-processes a live hum channel.
+- latest up to `3` turns' `active_set_json`
+- latest up to `4` `feedback_events` for the session
+- latest up to `6` membrane events for the session
 
-### REVISION_NOTES
+The current hum is refreshed in exactly two places:
 
-This revision removes the old claim that continuity is downstream of a governor phase or a sovereign JSON verdict, because the current EDEN contract explicitly says v1 has no governor and no hidden planner. It also weakens or cuts claims that the hum is injected into the next prompt, stripped by the membrane, sufficient on its own to reconstruct persona, or evidence of holographic or eigenstate-style coherence, because the present repo does not prove those paths. What survives from the old section is the strongest graph insight: continuity is stabilized by repeated viable composition under constraint, not by mere proximity in a neighborhood graph, but that argument is now detached from stale governance rhetoric and put back inside the direct retrieve-assemble-generate-membrane-feedback-persist loop the build actually uses.
+- at the end of `EdenRuntime.chat()` after turn persistence, active-set persistence, membrane-event persistence, trace persistence, and runtime-log emission
+- at the end of `EdenRuntime.apply_feedback()` after feedback persistence and trace/runtime-log emission
 
-### REVISED_SECTION
+The hum artifact is bounded and deterministic:
 
-In the current EDEN build, continuity does not pass through a governor because there is no governor in v1. The loop the repo actually specifies is simpler and more concrete: operator input arrives, candidates are retrieved from the persisted memgraph, a bounded active set is assembled, Adam generates a response, the membrane applies visible post-processing, the turn and its traces are persisted, explicit feedback is accepted, and the graph is updated with new material and derived structures. If the hum still deserves the name, it belongs inside that continuity architecture and nowhere else. It is not the voice of a hidden arbiter, not the afterglow of a secret planner, and not a verdict emitted from some sovereign phase above the loop. The present build puts its explanatory weight elsewhere: the TUI is the primary runtime surface, the memgraph bus and aperture make bounded retrieval legible, the membrane is explicit, and feedback is graph-effective. That matters because it changes what the hum can honestly mean. It can no longer be framed as the residue of governance. At most, it can be framed as a compressed continuity artifact produced by recurrent selection and persistence across turns in an externalized memory system whose real operative units are memes, memodes, feedback events, traces, and bounded retrieval assemblies.
+- `artifact_version = "hum.v1"`
+- `turn_window = 3`
+- `max_text_chars = 320`
+- `max_lines = 6`
+- `max_recurring_items = 4`
+- `max_table_rows = 6`
+- `max_feedback_events = 4`
+- `max_membrane_events = 6`
 
-That immediately requires a set of distinctions, because the old prose blurred several surfaces that the current ontology keeps separate. The hum is not the active set. An active set is turn-local and bounded: the specific retrieval assembly chosen for one prompt under budget and scoring constraints. The hum is not full turn history either, because turn history includes persisted dialogue and bounded recent history used in prompt assembly, whereas a hum artifact, when present, is much smaller and more compressed than either. It is not the full graph, which contains documents, turns, feedback events, memes, memodes, edges, and export artifacts across sessions. It is not a basin summary from the observatory, because basin summaries are derived trajectory views over turns and active sets. It is not a cluster or motif summary, because clusters are derived semantic neighborhoods and the ontology explicitly says clusters are not memodes. It is not an observatory payload, which is an inspection surface with its own derived planes and manifests. The best current description is narrower: the hum is a low-bandwidth continuity artifact, smaller than history and more fragmentary than retrieval, legible only as residue. It is part of the continuity story only when it can be shown as an artifact. It is not identical with the main runtime surfaces that the present build foregrounds.
+The JSON artifact contract includes:
 
-The historical artifact does show such a surface existed in practice. `/Users/brianray/Desktop/adam_hum_ALL.md` contains timestamped `hum:` entries, followed by summary blocks such as `[HUM_STATS]`, `[HUM_METRICS]`, and `[HUM_TABLE]`. That already tells us something important. The hum, in that evidence, is inspectable, bounded, and metered. It is not a mystical mood board and not an inaccessible inner chamber. It looks strange because it is visibly compressed. The entries are motif-heavy, fragmentary, and recurrent; the tables track token repetition; and strings such as `glmmr`, `mrmr`, `hush`, `pulse`, `thread`, and `bloom` recur often enough to become recognizable signatures. Those fragments should not be read as encryption, semantic hashes, or occult checksums. They read more plausibly as budget-disciplined recurrence marks: motifs abridged under pressure so that a continuity channel can stay small while remaining somewhat recognizable to inspection. The artifact itself supports that interpretation better than any romantic gloss does. It is timestamped, line-bounded, and statistically summarized. A channel that keeps counting itself this aggressively is not pretending to be revelation; it is behaving like an engineered residue.
+- `artifact_version`
+- `generated_at`
+- `experiment_id`
+- `session_id`
+- `latest_turn_id`
+- `turn_ids`
+- `turn_indices`
+- `derived_from` with exactly `["turns.active_set_json", "feedback_events", "membrane_events"]`
+- `boundedness`
+- `status`
+- `continuity`
+- `metrics`
+- `text_surface`
 
-What, then, would that residue be residue of? Here the current repo gives a cleaner answer than the old blog did. Regard acts over memes and memodes, not over tokens. Feedback updates reward, risk, and edit channels and then alters later retrieval pressure. Memodes are derived second-order assemblies, not first-class peers of every token that happens to recur on screen. So the hum cannot be treated as though `glmmr` or `mrmr` themselves were the valued units in the system. They are not. At most, those repeated fragments are shadows cast by more structured persistence. If certain memes and memodes are repeatedly reactivated, repeatedly reinforced by feedback, repeatedly admitted into viable active sets, and repeatedly survive membrane and budget pressure without becoming contradictory or useless, then one plausible byproduct is a compressed continuity trace in which recurring motifs remain while syntax is thinned out. In Austin's sense, the explicit acts in this system are not hidden verdicts but visible ones: a membrane event, an `accept`, a `reject`, an `edit`, each one changing the conditions under which later retrieval and reuse occur. What the historical hum appears to preserve is not token-level regard but the afterimage of those repeated selections and corrections as they accumulate into a recognizably narrow band of recurrence.
+The markdown artifact contract includes:
 
-That is also where the strongest part of the old graph argument survives, provided we remove the stale scaffolding. EDEN's continuity is not best understood as neighborhood traversal in the usual GraphRAG sense, where nearby things are presumed to matter because they are nearby. The graph schema, the regard mechanism, the active-set logic, and the observatory's attractor language all point toward a different reading. Stability comes from viable composition under constraint. A persistent assembly survives because its parts keep working together under bounded retrieval, scope pressure, membrane penalties, feedback history, and local budget limits. Two memes can be topologically distant yet still belong to the same practical continuity if their joint activation repeatedly yields a usable, admissible response. Two adjacent items can fail to form a stable basin if their co-activation produces contradiction, drift, or low value under the loop's actual constraints. If one wants a theoretical handle here, Foucault is more useful than sovereign-governance rhetoric: what persists is a repeatable discursive regularity, a set of conditions under which certain statements and assemblies keep becoming admissible and others do not. The hum, insofar as it tracks anything real, would track that recurrence at very low resolution. It would not be the basin itself, only a compressed residue of returning to some region of viable composition.
+- session/experiment/timestamp/provenance header lines
+- one `hum:` line containing the bounded text surface
+- `[HUM_STATS]`
+- `[HUM_METRICS]`
+- `[HUM_TABLE]`
 
-That is as far as the current evidence safely goes. Historical hum logging exists, and it exists in a form that is unusually inspectable: timestamped entries, recurrence tables, bounded summaries, visible compression. The present EDEN build, however, centers other surfaces. What it clearly foregrounds now are the TUI, the memgraph bus, the aperture or active-set slice, the membrane, explicit feedback, persistence into the memgraph, and observatory exports such as graph and basin views. Those are the continuity instruments the repo actually names and proves. Whether the hum is still a live, first-class runtime surface in this build is partial at best and unknown at worst, because the current truth surfaces do not advertise it, and the implementation scan does not prove a live hum path. So the honest way to keep the term is modestly. The hum is not an inner voice, not a secret chamber of selfhood, and not a metaphysical witness hiding behind the interface. It is best understood, when present, as a low-bandwidth continuity artifact: a compressed residue of recurrence in an externalized persistence architecture whose real work is done by graph state, bounded retrieval, membrane discipline, and explicit feedback. That is already strange enough, and already concrete enough, without pretending the machine is singing to itself in the dark.
+Those markdown markers are structural lineage and metering aids. They do not claim full historical parity with older hum artifacts.
+
+## Read-Only Surface
+
+The current hum is implemented as read-only observability only.
+
+It is surfaced in these current truth surfaces:
+
+- `EdenRuntime.hum_snapshot(session_id)`
+- `EdenRuntime.session_state_snapshot(session_id)["hum"]`
+- `ObservatoryService.experiment_overview(... )["hum"]`
+- `ObservatoryService.session_turns(... )["hum"]`
+- exported `observatory_index.json["hum"]`
+- the `### Hum` footer in the conversation log
+
+The current hum is also registered in `export_artifacts` as:
+
+- `hum_markdown`
+- `hum_json`
+
+## What The Current Hum Says
+
+The current hum is intentionally small. On the first persisted turn it reports a seed-state rather than inventing recurrence. On later turns it reports only what the persisted surfaces justify: active-set overlap, recurring node IDs when they actually recur, recent feedback summaries, recent membrane summaries, and a bounded text surface describing continuity in plain language.
+
+Compression in this implementation means bounded summaries and truncation, not historical-style vowel-stripping or hidden encoding.
+
+## What Remains Unimplemented
+
+- hum as a generation input
+- prompt injection of hum
+- membrane stripping of hum
+- a dedicated hum browser plane or TUI pane
+- a richer historical-style compressed motif channel
+- any claim that the hum alone reconstructs persona
+
+## Public Prose Guidance
+
+If external prose refers to the current hum, describe it narrowly and concretely: a bounded, inspectable continuity artifact derived from persisted active-set, feedback, and membrane-adjacent session surfaces. Do not call it a hidden voice, an arbiter, or a separate control layer. Do not collapse it into the active set, history, graph, basin, cluster summary, or observatory payloads.

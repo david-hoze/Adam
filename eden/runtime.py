@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from .budget import BudgetEstimate, estimate_budget
-from .config import DEFAULT_MLX_MODEL_DIR, EXPORT_DIR, RUNTIME_LOG_PATH, RuntimeSettings, SEED_CANON_DIR, TANAKH_CACHE_DIR
+from .config import DEFAULT_MLX_MODEL_DIR, EXPORT_DIR, LOG_DIR, RUNTIME_LOG_PATH, RuntimeSettings, SEED_CANON_DIR, TANAKH_CACHE_DIR
+from .hum import HumService
 from .inference import (
     InferenceProfileRequest,
     default_profile_request,
@@ -114,10 +115,18 @@ class EdenRuntime:
         self.store = store
         self.settings = settings or RuntimeSettings()
         self.runtime_log = runtime_log or RuntimeLog(RUNTIME_LOG_PATH)
+        self.conversation_export_root = EXPORT_DIR / "conversations"
         self.ingest_service = IngestService(self.store, self.runtime_log)
         self.retrieval_service = RetrievalService(self.store)
         self.tanakh_service = TanakhService(cache_root=TANAKH_CACHE_DIR)
-        self.exporter = ObservatoryExporter(self.store, self.retrieval_service, self.runtime_log, tanakh_service=self.tanakh_service)
+        self.hum_service = HumService(store=self.store, runtime_log=self.runtime_log, root=LOG_DIR / "hum_state")
+        self.exporter = ObservatoryExporter(
+            self.store,
+            self.retrieval_service,
+            self.runtime_log,
+            tanakh_service=self.tanakh_service,
+            hum_provider=self.hum_snapshot,
+        )
         self.observatory_service = ObservatoryService(
             store=self.store,
             exporter=self.exporter,
@@ -126,6 +135,7 @@ class EdenRuntime:
             runtime_status_provider=self.observatory_runtime_status,
             runtime_model_provider=self.observatory_model_status,
             tanakh_service=self.tanakh_service,
+            hum_provider=self.hum_snapshot,
         )
         self.observatory_server = ObservatoryServer(
             EXPORT_DIR,
@@ -589,7 +599,7 @@ class EdenRuntime:
         experiment = self.store.get_experiment(session["experiment_id"])
         experiment_slug = experiment.get("slug") or slugify(experiment.get("name") or experiment["id"])
         session_slug = slugify(session.get("title") or "operator-session")
-        out_dir = EXPORT_DIR / "conversations" / experiment_slug
+        out_dir = self.conversation_export_root / experiment_slug
         out_dir.mkdir(parents=True, exist_ok=True)
         return out_dir / f"{session_slug}-{session_id[:8]}.md"
 
@@ -653,8 +663,36 @@ class EdenRuntime:
                         lines.append(f"  {corrected_text}")
                         lines.append("  ```")
                 lines.append("")
+        hum = self.hum_snapshot(session_id)
+        lines.extend(
+            [
+                "### Hum",
+                "",
+                f"- present: {hum['present']}",
+                f"- generated_at: {hum.get('generated_at') or 'n/a'}",
+                f"- markdown_path: {hum['markdown_path']}",
+                f"- json_path: {hum['json_path']}",
+                "",
+            ]
+        )
         path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
         return path
+
+    def hum_snapshot(self, session_id: str) -> dict[str, Any]:
+        return self.hum_service.snapshot(session_id)
+
+    def _refresh_hum_safely(self, session_id: str) -> dict[str, Any] | None:
+        try:
+            return self.hum_service.refresh(session_id=session_id)
+        except Exception as exc:
+            self.runtime_log.emit(
+                "ERROR",
+                "hum_refresh_failed",
+                "Failed to refresh bounded hum artifact.",
+                session_id=session_id,
+                error=f"{type(exc).__name__}: {exc}",
+            )
+            return None
 
     def session_state_snapshot(self, session_id: str) -> dict[str, Any]:
         session = self.store.get_session(session_id)
@@ -665,6 +703,7 @@ class EdenRuntime:
             "session_id": session["id"],
             "session_title": session["title"],
             "conversation_log_path": str(self.write_conversation_log(session_id)),
+            "hum": self.hum_snapshot(session_id),
             "profile_request": self.session_profile_request(session_id),
             "last_turn_id": None,
             "last_user_text": "",
@@ -694,6 +733,7 @@ class EdenRuntime:
                 "last_trace": json.loads(turn["trace_json"] or "[]"),
                 "current_budget": metadata.get("budget"),
                 "current_profile": metadata.get("inference_profile"),
+                "hum": self.hum_snapshot(session_id),
             }
         )
         return snapshot
@@ -1108,8 +1148,6 @@ class EdenRuntime:
         selected_meme_ids = [item["node_id"] for item in active_set["items"] if item["node_kind"] == "meme"]
         selected_memode_ids = [item["node_id"] for item in active_set["items"] if item["node_kind"] == "memode"]
         self.store.touch_nodes("meme", selected_meme_ids + indexed_user["meme_ids"] + indexed_adam["meme_ids"])
-        if self.observatory_server.running:
-            self.observatory_server.publish_invalidation(experiment_id=experiment_id, session_id=session_id, kinds=["graph", "basin", "transcript", "runtime", "overview"], reason="turn_persisted")
         self.store.touch_nodes("memode", selected_memode_ids + indexed_user["memode_ids"] + indexed_adam["memode_ids"])
         self.store.record_trace_event(
             experiment_id=experiment_id,
@@ -1143,6 +1181,14 @@ class EdenRuntime:
             profile_name=profile["profile_name"],
             budget_pressure=budget["pressure_level"],
         )
+        self._refresh_hum_safely(session_id)
+        if self.observatory_server.running:
+            self.observatory_server.publish_invalidation(
+                experiment_id=experiment_id,
+                session_id=session_id,
+                kinds=["graph", "basin", "transcript", "runtime", "overview"],
+                reason="turn_persisted",
+            )
         return ChatOutcome(
             turn=turn,
             active_set=active_set["items"],
@@ -1257,8 +1303,14 @@ class EdenRuntime:
             turn_id=turn_id,
             verdict=verdict,
         )
+        self._refresh_hum_safely(session_id)
         if self.observatory_server.running:
-            self.observatory_server.publish_invalidation(experiment_id=experiment_id, session_id=session_id, kinds=["graph", "transcript", "measurements", "overview"], reason="feedback_persisted")
+            self.observatory_server.publish_invalidation(
+                experiment_id=experiment_id,
+                session_id=session_id,
+                kinds=["graph", "transcript", "measurements", "overview"],
+                reason="feedback_persisted",
+            )
         return feedback
 
     def ingest_document(

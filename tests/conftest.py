@@ -201,6 +201,8 @@ def runtime(tmp_path: Path) -> EdenRuntime:
     log = RuntimeLog(tmp_path / "runtime.jsonl")
     settings = RuntimeSettings(model_backend="mock")
     runtime = EdenRuntime(store=store, settings=settings, runtime_log=log)
+    runtime.conversation_export_root = tmp_path / "exports" / "conversations"
+    runtime.hum_service.root = tmp_path / "hum_state"
     fixture_root = _build_tanakh_fixture(tmp_path / "tanakh_fixture")
     tanakh_service = TanakhService(
         cache_root=tmp_path / "tanakh_cache",

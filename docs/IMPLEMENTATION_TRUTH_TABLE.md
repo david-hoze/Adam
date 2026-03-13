@@ -36,7 +36,7 @@
 | Edit stores rationale and corrected answer separately | Implemented | persisted in `feedback_events` |
 | Persistent memes and memodes | Implemented | SQLite tables + edges + retrieval |
 | Regard math in code | Implemented | `eden/regard.py` |
-| Hum continuity artifact | Historical artifact evidence only; current runtime surface unproved | `/Users/brianray/Desktop/adam_hum_ALL.md` contains timestamped `hum:` logs and `[HUM_STATS]` / `[HUM_METRICS]` / `[HUM_TABLE]`; current repo docs and implementation scans do not prove a live first-class hum runtime path. See `docs/HUM_SPEC.md`. |
+| Hum continuity artifact | Implemented as a bounded read-only runtime artifact | `eden/hum.py` now derives `current_hum.md` plus `current_hum.json` from persisted `active_set_json`, `feedback_events`, and membrane events, refreshes after `chat()` and `apply_feedback()`, surfaces hum through `session_state_snapshot()`, observatory overview/session turns, `observatory_index.json`, and the conversation-log footer, and is proved by `tests/test_hum_runtime.py`, `tests/test_hum_user_journey_audit.py`, and `scripts/run_hum_user_journey_audit.py --out exports/hum_audit/latest`. Historical artifact lineage remains in `/Users/brianray/Desktop/adam_hum_ALL.md`. See `docs/HUM_SPEC.md`. |
 | PDF ingest | Implemented | validated on `eden_whitepaper_v14.pdf` |
 | CSV/TXT/Markdown ingest | Implemented | validated in tests |
 | Ingest framing prompt | Implemented | document ingest modal indexes operator framing text into the memgraph as persistent document-conditioning material |

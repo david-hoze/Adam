@@ -28,11 +28,12 @@ LOCAL_GEOMETRY_REPORT_LIMIT = 24
 
 
 class ObservatoryExporter:
-    def __init__(self, store, retrieval_service, runtime_log, tanakh_service=None) -> None:
+    def __init__(self, store, retrieval_service, runtime_log, tanakh_service=None, hum_provider=None) -> None:
         self.store = store
         self.retrieval_service = retrieval_service
         self.runtime_log = runtime_log
         self.tanakh_service = tanakh_service
+        self.hum_provider = hum_provider
 
     def export_all(self, *, experiment_id: str, session_id: str | None, out_dir: Path) -> dict[str, str]:
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -669,10 +670,12 @@ class ObservatoryExporter:
         tanakh_paths: dict[str, str],
         tanakh_payload: dict[str, Any] | None,
     ) -> dict[str, str]:
+        hum = self._hum_summary(session_id)
         payload = {
             "generated_at": now_utc(),
             "experiment_id": experiment_id,
             "session_id": session_id,
+            "hum": hum,
             "artifacts": {
                 "graph": graph_paths,
                 "basin": basin_paths,
@@ -708,6 +711,33 @@ class ObservatoryExporter:
             "observatory_index_html": str(html_path),
             "observatory_index_json": str(json_path),
         }
+
+    def _hum_summary(self, session_id: str | None) -> dict[str, Any]:
+        if not session_id or self.hum_provider is None:
+            return {
+                "present": False,
+                "artifact_version": None,
+                "generated_at": None,
+                "markdown_path": None,
+                "json_path": None,
+                "latest_turn_id": None,
+                "turn_window_size": 0,
+                "cross_turn_recurrence_present": False,
+            }
+        try:
+            return dict(self.hum_provider(session_id))
+        except Exception as exc:
+            return {
+                "present": False,
+                "artifact_version": None,
+                "generated_at": None,
+                "markdown_path": None,
+                "json_path": None,
+                "latest_turn_id": None,
+                "turn_window_size": 0,
+                "cross_turn_recurrence_present": False,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
 
     def _build_graph_model(self, *, snapshot: dict[str, Any], session_id: str | None, basin_payload: dict[str, Any]) -> dict[str, Any]:
         graph = nx.Graph()

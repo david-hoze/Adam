@@ -2063,3 +2063,121 @@ Remaining uncertainties:
 There is still no repo-tracked blog source to patch directly; the implemented revision lives as the approved prose block inside `docs/HUM_SPEC.md`. The current repo still does not prove a live first-class hum runtime surface.
 Next shortest proof path:
 If a repo-tracked external-facing article source is added later, paste the approved replacement block from `docs/HUM_SPEC.md` into that source and keep the same status register language unless new code/runtime evidence upgrades the claim.
+
+## [2026-03-13T05:28:07Z] PRE-FLIGHT
+Operator task:
+Build a hum user-journey troubleshooting guide plus an automated pre-exploration audit that classifies live, historical-only, docs-only, stale-residue, and unknown hum status without touching the live store by default.
+Task checksum:
+hum-user-journey-audit-20260313
+Repo situation:
+Worktree appears clean in this turn. Existing hum truth surfaces already include `docs/HUM_SPEC.md`, the hum row in `docs/IMPLEMENTATION_TRUTH_TABLE.md`, and the hum limitation in `docs/KNOWN_LIMITATIONS.md`; preserve their conservative status unless new code plus current-run proof upgrades it.
+Relevant spec surfaces read:
+AGENTS.md; docs/HUM_SPEC.md; docs/USER_JOURNEYS.md; docs/HOW_TO_USE_ADAM_TUI.md; docs/FIRST_RUN_QUICKSTART.md; docs/UX_AUDIT_AND_REPAIRS.md; docs/TUI_SPEC.md; docs/TURN_LOOP_AND_MEMBRANE.md; docs/CANONICAL_ONTOLOGY.md; docs/REGARD_MECHANISM.md; docs/IMPLEMENTATION_TRUTH_TABLE.md; docs/KNOWN_LIMITATIONS.md; codex_notes_garden.md.
+Natural-language contracts in force:
+No governor in v1. TUI remains primary. Memes are first-class, memodes are derived, regard acts over memes and memodes rather than tokens, active-set assembly is turn-local and bounded, and hum must remain distinct from active set, full history, full graph, basin summary, cluster summary, and observatory payloads.
+Files/modules likely in scope:
+/Users/brianray/Adam/docs/HUM_TROUBLESHOOTING_GUIDE.md; /Users/brianray/Adam/scripts/run_hum_user_journey_audit.py; /Users/brianray/Adam/tests/test_hum_user_journey_audit.py; /Users/brianray/Adam/codex_notes_garden.md.
+Status register:
+- Implemented:
+Current repo proves direct v1 loop surfaces, active-set snapshots, membrane events, explicit feedback persistence, conversation/session traces, and observatory exports/API payloads. No live first-class hum runtime surface is currently proved.
+- Instrumented:
+Historical hum artifact evidence remains `/Users/brianray/Desktop/adam_hum_ALL.md` with timestamped `hum:` entries and `[HUM_STATS]` / `[HUM_METRICS]` / `[HUM_TABLE]`.
+- Conceptual:
+Hum as a low-bandwidth continuity artifact compatible with graph state, regard, feedback, and bounded retrieval.
+- Unknown:
+Whether the current build still emits, foregrounds, injects, or membrane-processes a live hum channel.
+Risks / invariants:
+Do not let interface drift become fake hum absence. Do not write to repo-global data/log/export paths by default. Do not claim feedback pressure equals hum. Do not treat repeated motif words in unrelated code as hum proof.
+Evidence plan:
+Create a probe-first audit script that scans claims, builds a scratch mock runtime if safe, runs bounded continuity journeys, scans exported and observatory-adjacent artifacts, optionally compares a historical hum artifact, and emits JSON plus markdown reports with chain-of-custody metadata.
+Shortest proof path:
+Implement the script and tests, run the script with and without a historical hum artifact, verify the report bundle and statuses, then append POST-FLIGHT with exact evidence and any unchanged truth-table outcome.
+
+## [2026-03-13T05:45:53Z] POST-FLIGHT
+Files changed:
+/Users/brianray/Adam/docs/HUM_TROUBLESHOOTING_GUIDE.md; /Users/brianray/Adam/scripts/run_hum_user_journey_audit.py; /Users/brianray/Adam/tests/test_hum_user_journey_audit.py; /Users/brianray/Adam/codex_notes_garden.md.
+Specs changed:
+/Users/brianray/Adam/docs/HUM_TROUBLESHOOTING_GUIDE.md.
+Natural-language contracts added/revised/preserved:
+Added an operator-facing hum troubleshooting guide and preserved the existing hum contract from `docs/HUM_SPEC.md`: no governor in v1, no live hum overclaim, hum distinct from active set/history/graph/basin/cluster/observatory payloads, regard over memes and memodes rather than tokens, and historical motif strings treated only as compression signatures.
+Behavior implemented or modified:
+Added a probe-first, scratch-scoped hum audit script that scans hum claims, probes runtime and observatory capabilities, runs bounded scratch journeys, generates JSON and markdown report bundles, optionally parses a historical hum artifact, and exits zero when hum is absent but the audit itself succeeds. Added targeted pytest coverage for claim inventory generation, graceful no-hum classification, optional historical parsing, report emission, and infrastructure-failure exit handling.
+Evidence produced (tests / traces / commands / exports):
+`./.venv/bin/python scripts/run_hum_user_journey_audit.py --out exports/hum_audit/latest` -> succeeded and emitted the report bundle under `/Users/brianray/Adam/exports/hum_audit/latest`.
+`./.venv/bin/python scripts/run_hum_user_journey_audit.py --out exports/hum_audit/latest --historical-hum /Users/brianray/Desktop/adam_hum_ALL.md` -> succeeded; final classification reported `current_live_hum=NOT_PRESENT`, `claim_surface=DOCS_ONLY`, `historical_comparison=HISTORICAL_ONLY`.
+`./.venv/bin/pytest -q tests/test_hum_user_journey_audit.py` -> `6 passed`.
+Status register changes:
+- Implemented:
+Added the hum audit stack itself: guide, script, tests, and report bundle generation.
+- Instrumented:
+The audit now emits machine-readable and human-readable hum audit artifacts under `exports/hum_audit/latest`.
+- Conceptual:
+Hum remains conceptually compatible with graph/regard/feedback continuity, but the audit did not upgrade it to a current first-class runtime surface.
+- Unknown:
+Status register language for live hum remains unchanged; the current build still does not prove emission, foregrounding, prompt injection, or membrane handling of a live hum channel.
+Truth-table / limitations updates:
+No updates made. The audit results matched the existing conservative hum status in `docs/IMPLEMENTATION_TRUTH_TABLE.md` and `docs/KNOWN_LIMITATIONS.md`.
+Remaining uncertainties:
+The current automated audit does not drive the full live TUI PTY surface. Current exports and runtime artifacts do not prove a live hum surface, but a TUI-only presentation would still need a separate PTY proof path if someone insists on that last inch.
+Next shortest proof path:
+Use the generated `next_shortest_proof_paths.md` artifact under `/Users/brianray/Adam/exports/hum_audit/latest` and start with the PTY/TUI proof path or a read-only hum status field in runtime metadata if future builds intend hum to be machine-auditable.
+
+## [2026-03-13T07:01:35Z] PRE-FLIGHT
+Operator task:
+Implement a minimal truthful hum runtime surface that survives the existing audit in scratch scope: bounded artifact generation, persistence, read-only surfacing, audit promotion, tests, and aligned docs.
+Task checksum:
+minimal-truthful-hum-surface-20260313
+Repo situation:
+Dirty worktree already present before edits: `.DS_Store` modified, `codex_notes_garden.md` modified, and untracked hum audit files under `docs/`, `scripts/`, and `tests/`. Treat those audit files as baseline and preserve unrelated changes.
+Relevant spec surfaces read:
+AGENTS.md; docs/HUM_SPEC.md; docs/HUM_TROUBLESHOOTING_GUIDE.md; docs/TURN_LOOP_AND_MEMBRANE.md; docs/CANONICAL_ONTOLOGY.md; docs/REGARD_MECHANISM.md; docs/IMPLEMENTATION_TRUTH_TABLE.md; docs/KNOWN_LIMITATIONS.md; codex_notes_garden.md.
+Natural-language contracts in force:
+No governor in v1. Hum must remain a low-bandwidth continuity artifact inside the direct retrieve/assemble -> response -> membrane -> feedback -> graph update loop. Hum is not the active set, full turn history, full graph, basin summary, cluster summary, or observatory payload. Regard acts over memes and memodes, not tokens. No prompt injection or membrane-stripping claim unless code plus evidence proves it.
+Files/modules likely in scope:
+/Users/brianray/Adam/eden/hum.py; /Users/brianray/Adam/eden/runtime.py; /Users/brianray/Adam/eden/observatory/service.py; /Users/brianray/Adam/eden/observatory/exporters.py; /Users/brianray/Adam/scripts/run_hum_user_journey_audit.py; /Users/brianray/Adam/tests/test_hum_runtime.py; /Users/brianray/Adam/tests/test_hum_user_journey_audit.py; /Users/brianray/Adam/docs/HUM_SPEC.md; /Users/brianray/Adam/docs/HUM_TROUBLESHOOTING_GUIDE.md; /Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md; /Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md; /Users/brianray/Adam/codex_notes_garden.md.
+Status register:
+- Implemented:
+Direct v1 runtime persistence surfaces are implemented: turns, active-set snapshots, membrane events, feedback events, trace events, conversation logs, and observatory exports/API payloads. Live hum remains unproved before this turn.
+- Instrumented:
+Historical hum artifact evidence exists in `/Users/brianray/Desktop/adam_hum_ALL.md` with timestamped `hum:` entries and `[HUM_STATS]` / `[HUM_METRICS]` / `[HUM_TABLE]`.
+- Conceptual:
+Hum as a bounded low-bandwidth continuity artifact derived from persisted continuity surfaces and surfaced read-only.
+- Unknown:
+Whether a current scratch/runtime path can emit, persist, and expose a truthful hum artifact without becoming prompt input or collapsing into adjacent continuity surfaces.
+Risks / invariants:
+Do not add governor-like control logic, prompt injection, or hidden causal influence. Keep hum bounded, deterministic, provenance-rich, scratch-safe, and audit-detectable. Do not confuse export metadata with a new observatory hum payload plane.
+Evidence plan:
+Add a post-turn/post-feedback hum service, persist markdown + JSON artifacts plus export_artifact rows, expose read-only hum references in session snapshot and observatory overview/transcript/index, update the audit to validate artifacts directly, then prove with targeted hum runtime tests, audit tests, audit command output, and full pytest.
+Shortest proof path:
+Implement the smallest post-persistence hum artifact in `eden/runtime.py`, validate it in a mock-backed scratch run through the audit, then upgrade docs and truth surfaces only as far as the tests and run artifacts justify.
+
+## [2026-03-13T07:22:40Z] POST-FLIGHT
+Files changed:
+/Users/brianray/Adam/eden/hum.py; /Users/brianray/Adam/eden/runtime.py; /Users/brianray/Adam/eden/observatory/service.py; /Users/brianray/Adam/eden/observatory/exporters.py; /Users/brianray/Adam/tests/conftest.py; /Users/brianray/Adam/tests/test_hum_runtime.py; /Users/brianray/Adam/tests/test_hum_user_journey_audit.py; /Users/brianray/Adam/scripts/run_hum_user_journey_audit.py; /Users/brianray/Adam/docs/HUM_SPEC.md; /Users/brianray/Adam/docs/HUM_TROUBLESHOOTING_GUIDE.md; /Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md; /Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md; /Users/brianray/Adam/codex_notes_garden.md.
+Specs changed:
+/Users/brianray/Adam/docs/HUM_SPEC.md; /Users/brianray/Adam/docs/HUM_TROUBLESHOOTING_GUIDE.md; /Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md; /Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md.
+Natural-language contracts added/revised/preserved:
+Revised the hum contract from historical-only/conceptual to a bounded current-build runtime artifact. Preserved all load-bearing constraints: no governor in v1, no hidden planner, no prompt injection, no membrane consumption claim, no token-level regard, and no collapse of hum into active set, full history, full graph, basin summary, cluster summary, or observatory payloads.
+Behavior implemented or modified:
+Added `eden/hum.py` with a bounded `HumService` that derives `hum.v1` from persisted `active_set_json`, `feedback_events`, and membrane events; persists `current_hum.md` plus `current_hum.json` per session; records export artifacts; and refreshes after `chat()` and `apply_feedback()`. Added read-only hum references to `session_state_snapshot()`, the conversation-log footer, observatory overview/session-turn payloads, and `observatory_index.json`. Upgraded the hum audit to validate the artifacts and matching reference blocks instead of inferring live hum from generic string hits.
+Evidence produced (tests / traces / commands / exports):
+`./.venv/bin/pytest -q tests/test_hum_runtime.py tests/test_hum_user_journey_audit.py` -> `12 passed in 5.25s`.
+`./.venv/bin/pytest -q` -> `65 passed in 39.36s`.
+`./.venv/bin/python scripts/run_hum_user_journey_audit.py --out exports/hum_audit/latest` -> succeeded; final classification `current_live_hum=PASS`, `claim_surface=PASS`, `historical_comparison=MANUAL_REQUIRED`.
+`./.venv/bin/python scripts/run_hum_user_journey_audit.py --out exports/hum_audit/latest --historical-hum /Users/brianray/Desktop/adam_hum_ALL.md` -> succeeded; final classification `current_live_hum=PASS`, `claim_surface=PASS`, `historical_comparison=PASS`.
+Scratch runtime probe under `/tmp/adam_hum_probe` showed first-turn seed-state hum, second-turn refreshed hum with overlap metrics, and feedback-refreshed hum without prompt injection.
+Status register changes:
+- Implemented:
+Current build now generates a bounded persisted hum artifact (`current_hum.md` plus `current_hum.json`) after turn and feedback persistence, and surfaces it read-only through runtime and observatory reference surfaces.
+- Instrumented:
+Historical hum artifact evidence remains, and the current runtime now records hum provenance, continuity summaries, and bounded metrics in machine-readable form.
+- Conceptual:
+Anything richer than the current bounded read-only artifact remains conceptual, including prompt injection, membrane consumption, generation-input reuse, and a more expressive historical-style compressed hum channel.
+- Unknown:
+Whether the hum should later grow beyond this bounded observability surface, and how much additional higher-order recurrence is justified across broader workloads.
+Truth-table / limitations updates:
+Updated the hum row in `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md` to implemented minimal runtime artifact, and updated `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md` to state that the current hum remains bounded, read-only, non-causal, and non-equivalent to adjacent continuity surfaces.
+Remaining uncertainties:
+The current `hum.v1` artifact is intentionally human-readable and minimal rather than a recreation of the older compressed motif channel. Cross-turn recurrence is only reported when the persisted active-set window actually supports it. No dedicated TUI pane or observatory plane exists yet; current surfacing remains compact reference metadata plus artifact files.
+Next shortest proof path:
+If richer hum behavior is wanted later, add one new proof surface at a time: either a dedicated read-only TUI hum inspector backed by `hum_snapshot()`, or a clearly versioned higher-fidelity derivation contract in `docs/HUM_SPEC.md` with tests and audit updates before any causal generation reuse is considered.
