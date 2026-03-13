@@ -65,29 +65,28 @@ Session-start modal:
 Primary split:
 
 - left primary dialogue bay:
-  - scrolling dialogue tape with persisted Brian / Adam turn boxes for the active session
+  - longer scrolling dialogue tape with persisted Brian / Adam turn boxes for the active session
   - static chiaroscuro-shaded transcript cards; decorative interior glyph bands are no longer rendered inside the chat text surface
+  - compact reply-review status strip for pending/reviewed latest-turn state
   - live Brian draft box when the composer is loaded
-  - inline reply-review strip for pending/reviewed turn state
-  - typed inline review flow:
-    - verdict code input: `A`, `E`, `R`, `S`
-    - confirm input: `Y` + `Enter` to submit
-    - explanation field appears for `A` / `E` / `R`
-    - corrected-text field appears for `E`
   - multiline `TextArea` composer for Brian the operator with strong focus styling
   - message-input hint surface directly under the composer; `Ctrl+S` sends
   - keyboard-scrollable tape container so the operator can move up/down through the session history
 - right secondary telemetry bay:
   - enlarged slower-pulsing signal field / memgraph bus with explicit symbol legend and live update explanation
+  - persistent hum fact box showing the bounded continuity artifact as a read-only matter of fact
   - enlarged aperture / active-set slice that speaks directly to the bus lanes: docs, knowledge memes, behavior memes, memodes, and relation read
-  - lower thinking / reasoning slice
+  - lower reasoning slice with three operator lenses:
+    - direct visible reasoning
+    - chain-like numbered steps derived from the visible reasoning artifact
+    - hum-live chain-like rendering derived from the bounded hum artifact
 - bottom runtime strip:
   - merged runtime/event chyron with loop phase, active-set summary, feedback state, transcript pointer, and latest event flow
 
 Wide aperture drawer:
 
 - toggled from the action menu or `F8`
-- occupies the top band of the screen when open
+- occupies a narrower top band of the screen when open
 - renders a wider natural-language scan of the active set, persistent anchors, and live heat
 - collapses back to the compact telemetry stack when closed
 - on compact terminals, `F8` switches the live surface into an aperture-focused view instead of opening the wide top drawer; `Esc` returns to the dialogue composer
@@ -109,7 +108,8 @@ Secondary surfaces:
   - operator framing prompt that is indexed prior to later retrieval
   - keyboard-first submit / cancel flow
 - `Review` action:
-  - focuses the inline reply-review inputs under Adam's latest answer
+  - opens a dedicated terminal popup bound to Adam's latest answer
+  - popup applies graph-backed `accept` / `edit` / `reject` / `skip` feedback through the existing runtime API
 - `Conversation Atlas` modal:
   - `all_texts` root shelf over every persisted session transcript
   - relational lenses for folders, tags, experiments, and experiment modes
@@ -133,6 +133,7 @@ Secondary surfaces:
 - amber-on-dark remains the default operator grammar, while Deck exposes a persisted `Typewriter Light` look for paper-and-ink terminal reading
 - the prime screen now refreshes on state changes instead of a constant whole-screen repaint loop; decorative chat shading is static rather than animated
 - dialogue-first prime surface: visible transcript and composer dominate the left column; telemetry stays visible but secondary on the right
+- the prime dialogue bay is intentionally longer than the secondary telemetry stack so more transcript remains visible at once
 - live-session boot is the default path; the app no longer lands on a launcher before chat opens
 - session and utility actions now live in the keyboard-executable top action bus instead of left-column buttons
 - normal entry path is `.venv/bin/python -m eden` or `.venv/bin/python -m eden app`
@@ -149,11 +150,11 @@ Secondary surfaces:
 - the signal field is explicitly explanatory: it renders a live orthographic memgraph slice using active-set nodes, recall anchors, recent trace events, and ingest roots while remaining separate from any claim about hidden activations
 - the memgraph bus keeps an always-visible legend for its glyph vocabulary so the operator can read it as a tool rather than decorative telemetry
 - the aperture is rendered as both a compact but more verbose bus-to-active-set read and a full-width pull-down readable scan with natural-language summaries plus a ranked queue
-- the prime surface keeps transcript, reply review, composer, memgraph, aperture, thinking, and the merged runtime/event chyron visible while the operator types; Deck still carries the detailed trace and budget surfaces
+- the prime surface keeps transcript, reply-review status, composer, memgraph, hum, aperture, reasoning, and the merged runtime/event chyron visible while the operator types; Deck still carries the detailed trace and budget surfaces
 - on compact terminals, the prime surface prioritizes transcript + composer + chyron and hides the right telemetry stack until the operator explicitly opens aperture/deeper surfaces
-- feedback is integrated directly into the primary dialogue bay through an inline reply-review strip under Adam's latest answer
-- inline review uses typed `A` / `E` / `R` / `S` codes plus `Y` confirmation, but still reuses the graph-backed feedback path and therefore updates regard, reward, risk, and edit channels
-- `Review` only jumps into the inline strip when Adam has already replied; otherwise the composer keeps focus and the status line explains that there is nothing to review yet
+- feedback is integrated into the primary dialogue bay through a compact latest-turn review status strip plus a dedicated terminal popup launched from `Review` / `F7`
+- popup review still reuses the graph-backed feedback path and therefore updates regard, reward, risk, and edit channels
+- `Review` only opens the popup when Adam has already replied; otherwise the composer keeps focus and the status line explains that there is nothing to review yet
 - conversation logs are written as markdown artifacts under `exports/conversations/` for the active session and surfaced on-screen plus via `Open Conversation Log`
 - the conversation atlas treats saved sessions as a relational transcript library: all logs remain under the single export root while folder/tag organization is stored as session metadata and projected in the atlas
 - conversation boundaries are explicit through the live contract, transcript state, and inline review flow: ask or ingest, review when Adam answers, and end by opening a new session
@@ -190,7 +191,7 @@ Secondary surfaces:
 - `F4`: toggle low-motion in the current session request
 - `F5`: open the new-session inference-profile flow
 - `F6`: open the utilities deck
-- `F7`: focus the inline reply-review strip
+- `F7`: open the latest-turn review popup in a separate terminal
 - `F8`: toggle the full-width aperture drawer
 - `F9`: open document ingest with framing prompt
 - `F10`: open the conversation atlas

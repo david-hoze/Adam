@@ -147,6 +147,7 @@ class ObservatoryService:
                 "created_at": turn.get("created_at"),
                 "user_text": turn.get("user_text", ""),
                 "adam_text": turn.get("membrane_text") or turn.get("response_text") or "",
+                "reasoning_text": metadata.get("model_result", {}).get("reasoning_text", ""),
                 "feedback": feedback_by_turn.get(turn["id"], []),
                 "membrane_events": membrane_by_turn.get(turn["id"], []),
                 "active_set_summary": {"size": len(json.loads(turn.get("active_set_json") or "[]"))},

@@ -32,6 +32,100 @@ def build_runtime(args) -> EdenRuntime:
     return EdenRuntime(store=store, settings=settings, runtime_log=runtime_log)
 
 
+def _prompt_feedback_verdict() -> str:
+    verdict_map = {
+        "a": "accept",
+        "accept": "accept",
+        "e": "edit",
+        "edit": "edit",
+        "r": "reject",
+        "reject": "reject",
+        "s": "skip",
+        "skip": "skip",
+    }
+    while True:
+        raw = input("Verdict [A]ccept / [E]dit / [R]eject / [S]kip: ").strip().lower()
+        verdict = verdict_map.get(raw)
+        if verdict:
+            return verdict
+        print("Enter A, E, R, or S.")
+
+
+def _prompt_required(label: str) -> str:
+    while True:
+        value = input(f"{label}: ").strip()
+        if value:
+            return value
+        print(f"{label} is required.")
+
+
+def _prompt_multiline(label: str) -> str:
+    print(f"{label} (finish with a single '.' on its own line):")
+    lines: list[str] = []
+    while True:
+        line = input()
+        if line.strip() == ".":
+            joined = "\n".join(lines).strip()
+            if joined:
+                return joined
+            print(f"{label} is required for edit feedback.")
+            continue
+        lines.append(line)
+
+
+def cmd_feedback(args) -> int:
+    runtime = build_runtime(args)
+    snapshot = runtime.session_state_snapshot(args.session_id)
+    turn = runtime.store.get_turn(args.turn_id)
+    if str(turn.get("session_id")) != args.session_id:
+        raise SystemExit(f"Turn {args.turn_id} does not belong to session {args.session_id}.")
+
+    response_text, _ = runtime.sanitize_operator_response(
+        turn.get("membrane_text") or turn.get("response_text") or "",
+        response_char_cap=2200,
+    )
+    print("EDEN feedback popup")
+    print("===================")
+    print(f"Session: {snapshot.get('session_title') or args.session_id}")
+    print(f"Turn: T{turn.get('turn_index', '?')} ({args.turn_id})")
+    print(f"Created: {turn.get('created_at', 'n/a')}")
+    print()
+    print("Adam membrane reply")
+    print("-------------------")
+    print(response_text or "[empty reply]")
+    print()
+    print("This popup writes explicit graph-backed feedback only. It does not expose hidden chain-of-thought.")
+    print()
+
+    verdict = _prompt_feedback_verdict()
+    explanation = _prompt_required("Explanation") if verdict in {"accept", "edit", "reject"} else ""
+    corrected = _prompt_multiline("Corrected reply") if verdict == "edit" else ""
+    feedback = runtime.apply_feedback(
+        session_id=args.session_id,
+        turn_id=args.turn_id,
+        verdict=verdict,
+        explanation=explanation,
+        corrected_text=corrected,
+    )
+    hum = runtime.hum_snapshot(args.session_id)
+    print()
+    print("Stored feedback")
+    print("---------------")
+    print(json.dumps(
+        {
+            "feedback_id": feedback.get("id"),
+            "verdict": feedback.get("verdict"),
+            "turn_id": feedback.get("turn_id"),
+            "hum_present": hum.get("present"),
+            "hum_generated_at": hum.get("generated_at"),
+            "hum_text_surface": hum.get("text_surface"),
+        },
+        indent=2,
+    ))
+    input("\nFeedback written. Press Enter to close this popup.")
+    return 0
+
+
 def cmd_app(args) -> int:
     runtime = build_runtime(args)
     run_tui(runtime)
@@ -158,6 +252,13 @@ def main(argv: list[str] | None = None) -> int:
     observatory_parser.add_argument("--open", dest="open", action=argparse.BooleanOptionalAction, default=False)
     observatory_parser.add_argument("--reuse-existing", dest="reuse_existing", action=argparse.BooleanOptionalAction, default=True)
     observatory_parser.set_defaults(func=cmd_observatory)
+
+    feedback_parser = subparsers.add_parser("feedback", help="Open an interactive feedback popup for one turn.")
+    feedback_parser.add_argument("--backend", default=None, choices=["mock", "mlx"])
+    feedback_parser.add_argument("--model-path", default=None, help=argparse.SUPPRESS)
+    feedback_parser.add_argument("session_id")
+    feedback_parser.add_argument("turn_id")
+    feedback_parser.set_defaults(func=cmd_feedback)
 
     args = parser.parse_args(argv)
     return args.func(args)

@@ -45,6 +45,18 @@ Generated per experiment under `exports/<experiment_id>/`:
 - `COMPARE`
   - compare slices, coordinate methods, or baseline vs modified states
 
+## Continuity strip
+
+- the browser shell keeps a continuity strip visible above the main three-column layout
+- the strip contains:
+  - a persistent hum fact card grounded in the bounded hum artifact summary
+  - an operator-visible reasoning card with a radio-group lens switcher:
+    - `Reasoning`
+    - `Chain-Like`
+    - `Hum Live`
+- `Hum Live` reformats the bounded hum text surface as chain-like continuity beats; it does not claim hidden chain-of-thought
+- operator-visible reasoning in the browser is sourced from live session transcript payloads when available; static export alone may not provide a current reasoning artifact
+
 ## Graph knowledge base
 
 - authoritative graph payload planes:

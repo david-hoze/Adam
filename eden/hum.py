@@ -149,6 +149,7 @@ class HumService:
             "latest_turn_id": None,
             "turn_window_size": 0,
             "cross_turn_recurrence_present": False,
+            "text_surface": "",
         }
         if not json_path.exists() or not markdown_path.exists():
             return base
@@ -166,6 +167,7 @@ class HumService:
             "latest_turn_id": payload.get("latest_turn_id"),
             "turn_window_size": int(metrics.get("turn_window_size", 0) or 0),
             "cross_turn_recurrence_present": bool(status.get("cross_turn_recurrence_present")),
+            "text_surface": str(payload.get("text_surface") or ""),
         }
 
     def _artifact_paths(self, session_id: str) -> tuple[Path, Path]:

@@ -3,6 +3,9 @@ from __future__ import annotations
 import asyncio
 import json
 import math
+import shlex
+import subprocess
+import sys
 from time import monotonic
 from dataclasses import dataclass
 from functools import partial
@@ -202,6 +205,7 @@ class UiState:
     conversation_log_path: str | None = None
     action_progress: dict[str, Any] | None = None
     last_action_summary: str | None = None
+    reasoning_mode: str = "reasoning"
 
 
 def _sync_node_look(node: Any) -> str:
@@ -241,13 +245,13 @@ class HelpModal(ModalScreen[None]):
             "The top action bus keeps the menu plus quick ingest/aperture controls visible.\n"
             "F8 opens a full-width aperture drawer for a wider active-set scan.\n"
             "F9 opens the ingest bay so you can load a PDF or other document with a framing prompt.\n"
-            "The large left column is the Adam dialogue: scrolling transcript tape, inline reply review, and live composer.\n"
-            "The right column stacks the memgraph bus, a larger aperture/active-set read, and a lower thinking surface.\n"
+            "The large left column is the Adam dialogue: longer scrolling transcript tape, reply-review status, and live composer.\n"
+            "The right column stacks the memgraph bus, a persistent hum fact box, a larger aperture/active-set read, and a lower reasoning surface with chain-like and hum-live lenses.\n"
             "The runtime loop and session/event state ride in the merged bottom chyron so they stay visible without stealing panel width.\n"
             "Use Action Bus -> Open Conversation Log to open the saved markdown transcript for the live session.\n"
             "Use Action Bus -> Open Conversation Atlas to browse saved sessions through folder and tag projections.\n"
             "Open Utilities Deck for detailed budget, thinking, history, ingest, launch utilities, and the UI look selector.\n"
-            "Review Last Reply jumps focus to the inline reply-review strip.\n\n"
+            "Review Last Reply opens a dedicated terminal popup for graph-backed feedback on Adam's latest answer.\n\n"
             "[bold]F1[/] help overlay\n"
             "[bold]Ctrl+S[/] send current input\n"
             "[bold]F2[/] export graph, basin, and geometry artifacts\n"
@@ -255,15 +259,15 @@ class HelpModal(ModalScreen[None]):
             "[bold]F4[/] toggle low motion for the current session request\n"
             "[bold]F5[/] open the new-session inference-profile flow\n"
             "[bold]F6[/] open the operator deck\n"
-            "[bold]F7[/] focus inline reply review\n"
-            "[bold]F8[/] toggle the full-width aperture drawer\n"
+            "[bold]F7[/] open reply review in a dedicated terminal popup\n"
+            "[bold]F8[/] toggle the narrower top-band aperture drawer\n"
             "[bold]F9[/] open document ingest with framing prompt\n"
             "[bold]F10[/] open the conversation atlas\n"
             "[bold]Esc[/] focus the composer on the main chat screen\n"
             "[bold]Esc[/] close this overlay\n\n"
             "Printable keys typed outside editable widgets are routed back into the composer automatically.\n"
             "When the backend emits explicit reasoning, EDEN surfaces it as a visible model artifact.\n"
-            "That thinking panel shows model-emitted text, not claimed hidden chain-of-thought.\n\n"
+            "That reasoning surface can render direct text, chain-like steps, or hum-live continuity, but it still does not claim hidden chain-of-thought.\n\n"
             "Inference modes:\n"
             "- MANUAL: operator-specified bounded parameters\n"
             "- RUNTIME_AUTO: deterministic transparent runtime policy\n"
@@ -1971,6 +1975,8 @@ class ChatScreen(Screen):
         self._event_lines: list[str] = []
         self._last_runtime_action_dispatch: tuple[str, float] | None = None
         self._suppress_runtime_action_change = False
+        self._last_feedback_signature: tuple[str, str] | None = None
+        self._last_hum_signature: tuple[str, str] | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -1996,30 +2002,7 @@ class ChatScreen(Screen):
                     with Vertical(id="chat_deck"):
                         with VerticalScroll(id="chat_tape", can_focus=True):
                             yield Static(id="chat_exchange_panel")
-                        with Vertical(id="inline_feedback_surface"):
-                            yield Static(id="feedback_loop_panel")
-                            with Horizontal(id="inline_feedback_command_row"):
-                                yield Input(
-                                    id="inline_feedback_verdict_input",
-                                    placeholder="Verdict code: A / E / R / S",
-                                )
-                                yield Input(
-                                    id="inline_feedback_confirm_input",
-                                    placeholder="Confirm with Y, then Enter",
-                                )
-                            yield TextArea(
-                                id="inline_feedback_explanation_input",
-                                soft_wrap=True,
-                                show_line_numbers=False,
-                                placeholder="Why accept, reject, or edit this reply? Required for A / E / R.",
-                            )
-                            yield TextArea(
-                                id="inline_feedback_corrected_input",
-                                soft_wrap=True,
-                                show_line_numbers=False,
-                                placeholder="Only for Edit: provide the corrected reply text Adam should have given.",
-                            )
-                            yield Static(id="inline_feedback_status_panel")
+                        yield Static(id="feedback_loop_panel")
                         yield TextArea(
                             id="composer_input",
                             soft_wrap=True,
@@ -2029,7 +2012,12 @@ class ChatScreen(Screen):
                         yield Static(id="composer_hint_panel")
                 with Vertical(id="chat_secondary"):
                     yield SignalField(id="signal_field")
+                    yield Static(id="hum_panel")
                     yield Static(id="active_aperture_panel")
+                    with Horizontal(id="reasoning_mode_row"):
+                        yield Button("Reasoning", id="reasoning_mode_reasoning_btn")
+                        yield Button("Chain-Like", id="reasoning_mode_chain_btn")
+                        yield Button("Hum Live", id="reasoning_mode_hum_btn")
                     yield Static(id="thinking_panel")
             yield Static(id="runtime_chyron_panel")
         yield Footer()
@@ -2050,11 +2038,11 @@ class ChatScreen(Screen):
         self.query_one("#runtime_status_strip", Static).update(self.main_action_status_panel())
         self.query_one("#aperture_drawer_panel", Static).update(self.main_aperture_drawer_panel())
         self.query_one("#active_aperture_panel", Static).update(self.main_aperture_panel())
+        self.query_one("#hum_panel", Static).update(self.main_hum_panel())
+        self._sync_reasoning_mode_controls()
         self.query_one("#thinking_panel", Static).update(self.main_thinking_panel())
         self.query_one("#chat_exchange_panel", Static).update(self.main_chat_exchange_panel())
-        self._sync_inline_feedback_surface()
         self.query_one("#feedback_loop_panel", Static).update(self.main_feedback_loop_panel())
-        self.query_one("#inline_feedback_status_panel", Static).update(self.main_inline_feedback_status_panel())
         self.query_one("#composer_hint_panel", Static).update(self.main_composer_hint_panel())
         self.query_one("#runtime_chyron_panel", Static).update(self.main_runtime_chyron_panel())
 
@@ -2083,7 +2071,9 @@ class ChatScreen(Screen):
         composer_hint = self.query_one("#composer_hint_panel", Static)
         chyron = self.query_one("#runtime_chyron_panel", Static)
         signal_field = self.query_one("#signal_field", SignalField)
+        hum_panel = self.query_one("#hum_panel", Static)
         aperture_panel = self.query_one("#active_aperture_panel", Static)
+        reasoning_mode_row = self.query_one("#reasoning_mode_row", Horizontal)
         thinking_panel = self.query_one("#thinking_panel", Static)
 
         if compact:
@@ -2108,37 +2098,43 @@ class ChatScreen(Screen):
                 chat_primary.display = False
                 chat_secondary.display = True
                 signal_field.display = False
+                hum_panel.display = False
+                reasoning_mode_row.display = False
                 thinking_panel.display = False
                 aperture_panel.styles.height = "1fr"
             else:
                 chat_primary.display = True
                 chat_secondary.display = False
                 signal_field.display = True
+                hum_panel.display = True
+                reasoning_mode_row.display = True
                 thinking_panel.display = True
-                aperture_panel.styles.height = 16
+                aperture_panel.styles.height = 12
         else:
             action_panel.display = True
             status_strip.display = True
             chat_primary.display = True
             chat_secondary.display = True
             signal_field.display = True
+            hum_panel.display = True
+            reasoning_mode_row.display = True
             thinking_panel.display = True
             topbar.styles.height = 11
             action_bus.styles.width = 56
             action_bus.styles.min_width = 56
             chat_deck.styles.min_height = 28
-            chat_primary.styles.width = "55%"
-            chat_primary.styles.min_width = 70
-            chat_secondary.styles.width = "45%"
-            chat_secondary.styles.min_width = 54
-            chat_tape.styles.min_height = 14
+            chat_primary.styles.width = "62%"
+            chat_primary.styles.min_width = 78
+            chat_secondary.styles.width = "38%"
+            chat_secondary.styles.min_width = 46
+            chat_tape.styles.min_height = 20
             chat_tape.styles.margin_bottom = 1
-            composer.styles.height = 6
-            composer_hint.styles.height = 5
+            composer.styles.height = 5
+            composer_hint.styles.height = 4
             chyron.styles.height = 6
             chyron.styles.min_height = 6
-            aperture_panel.styles.height = 16
-            aperture_panel.styles.min_height = 14
+            aperture_panel.styles.height = 12
+            aperture_panel.styles.min_height = 10
 
     def on_resize(self, _event: events.Resize) -> None:
         if self.is_mounted:
@@ -2369,6 +2365,40 @@ class ChatScreen(Screen):
             session_id=app.ui_state.session_id,
         )
 
+    def _current_hum_snapshot(self) -> dict[str, Any]:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        if not app.ui_state.session_id:
+            return {
+                "present": False,
+                "generated_at": None,
+                "latest_turn_id": None,
+                "turn_window_size": 0,
+                "cross_turn_recurrence_present": False,
+                "text_surface": "",
+            }
+        return app.runtime.hum_snapshot(app.ui_state.session_id)
+
+    def _chain_like_lines(self, text: str, *, limit: int = 6, line_limit: int = 96) -> list[str]:
+        segments = [segment.strip(" -") for segment in str(text or "").replace("\r", "\n").splitlines() if segment.strip()]
+        if not segments and text.strip():
+            segments = [segment.strip() for segment in text.split(". ") if segment.strip()]
+        return [f"{index + 1}. {safe_excerpt(segment, limit=line_limit)}" for index, segment in enumerate(segments[:limit])]
+
+    def _sync_reasoning_mode_controls(self) -> None:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        controls = {
+            "reasoning": ("#reasoning_mode_reasoning_btn", "Reasoning"),
+            "chain_like": ("#reasoning_mode_chain_btn", "Chain-Like"),
+            "hum_live": ("#reasoning_mode_hum_btn", "Hum Live"),
+        }
+        for mode, (selector, label) in controls.items():
+            button = self.query_one(selector, Button)
+            active = app.ui_state.reasoning_mode == mode
+            button.label = f"● {label}" if active else label
+            button.variant = "primary" if active else "default"
+
     def _sync_aperture_drawer(self) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
@@ -2379,7 +2409,7 @@ class ChatScreen(Screen):
             return
         drawer.display = app.ui_state.aperture_drawer_open
         if app.ui_state.aperture_drawer_open:
-            drawer.styles.height = max(16, int((self.size.height or 40) * 0.4))
+            drawer.styles.height = max(11, int((self.size.height or 40) * 0.28))
         else:
             drawer.styles.height = 0
 
@@ -2513,7 +2543,7 @@ class ChatScreen(Screen):
         if draft:
             return ("ask", "Draft ready. Press Ctrl+S to send.")
         if feedback_state == "pending":
-            return ("review", "Adam replied. Review below or press F7.")
+            return ("review", "Adam replied. Press F7 to open the reply-review popup.")
         if turns:
             return ("continue", "Conversation active. Keep typing below, or press F5 for a clean session.")
         return ("start", "Session is armed. Begin when ready.")
@@ -2813,6 +2843,8 @@ class ChatScreen(Screen):
         assert isinstance(app, EdenTuiApp)
         profile = app.ui_state.current_profile or {}
         budget = app.ui_state.current_budget or {}
+        hum = self._current_hum_snapshot()
+        reasoning_mode = app.ui_state.reasoning_mode
         trace_lines = [
             f">> {item.get('label', 'untitled')} sel={float(item.get('selection', 0.0)):.2f} "
             f"reg={float(item.get('regard', 0.0)):.2f} act={float(item.get('activation', 0.0)):.2f}"
@@ -2824,10 +2856,32 @@ class ChatScreen(Screen):
         body = Text.from_markup(
             f"[bold {AMBER}]Reasoning surface[/]\n"
             f"state={state} mode={profile.get('requested_mode', 'pending')} -> {profile.get('effective_mode', 'pending')}\n"
-            f"pressure={budget.get('pressure_level', 'n/a')} cap={profile.get('response_char_cap', 'n/a')}\n\n"
+            f"pressure={budget.get('pressure_level', 'n/a')} cap={profile.get('response_char_cap', 'n/a')} lens={reasoning_mode}\n\n"
         )
-        if app.ui_state.last_reasoning:
-            body.append(safe_excerpt(app.ui_state.last_reasoning, limit=520), style=TEXT)
+        if reasoning_mode == "hum_live":
+            hum_lines = self._chain_like_lines(hum.get("text_surface") or "", limit=5, line_limit=88)
+            if hum_lines:
+                body.append("Hum-live chain\n", style=f"bold {ICE}")
+                body.append("\n".join(hum_lines), style=ICE)
+                body.append("\n\n", style=TEXT)
+            else:
+                body.append(
+                    "No bounded hum artifact yet. Once persisted continuity exists, this lens mirrors the live hum in chain-like beats.\n\n",
+                    style=MUTED,
+                )
+        elif reasoning_mode == "chain_like":
+            chain_lines = self._chain_like_lines(app.ui_state.last_reasoning, limit=6, line_limit=88)
+            if chain_lines:
+                body.append("Operator-visible chain-like steps\n", style=f"bold {NEON}")
+                body.append("\n".join(chain_lines), style=TEXT)
+                body.append("\n\n", style=TEXT)
+            else:
+                body.append(
+                    "No model-emitted reasoning yet. This lens will number the visible reasoning artifact when one exists.\n\n",
+                    style=MUTED,
+                )
+        elif app.ui_state.last_reasoning:
+            body.append(safe_excerpt(app.ui_state.last_reasoning, limit=960), style=TEXT)
             body.append("\n\n", style=TEXT)
         else:
             body.append(
@@ -2836,7 +2890,32 @@ class ChatScreen(Screen):
             )
         body.append("Consideration trace\n", style=f"bold {NEON}")
         body.append("\n".join(trace_lines), style=ICE if app.ui_state.last_reasoning else TEXT)
-        return Panel(body, title="Thinking / Reasoning", border_style=NEON if app.ui_state.last_reasoning else AMBER, style=f"on {SHADE}")
+        panel_title = {
+            "reasoning": "Reasoning",
+            "chain_like": "Chain-Like Trace",
+            "hum_live": "Hum Live Trace",
+        }.get(reasoning_mode, "Reasoning")
+        border = ICE if reasoning_mode == "hum_live" and hum.get("present") else NEON if app.ui_state.last_reasoning else AMBER
+        return Panel(body, title=panel_title, border_style=border, style=f"on {SHADE}")
+
+    def main_hum_panel(self) -> Panel:
+        hum = self._current_hum_snapshot()
+        if hum.get("present"):
+            recurrence = "yes" if hum.get("cross_turn_recurrence_present") else "seed-state"
+            body = Text.from_markup(
+                f"[bold {AMBER}]Hum fact surface[/]\n"
+                f"generated={hum.get('generated_at') or 'n/a'}\n"
+                f"window={hum.get('turn_window_size', 0)} recurrence={recurrence}\n"
+                f"turn={hum.get('latest_turn_id') or 'n/a'}\n\n"
+            )
+            body.append(safe_excerpt(hum.get("text_surface") or "", limit=260), style=TEXT)
+            return Panel(body, title="Hum / Continuity", border_style=ICE, style=f"on {SHADE_ALT}")
+        body = Text.from_markup(
+            f"[bold {AMBER}]Hum fact surface[/]\n"
+            "No bounded hum artifact yet.\n"
+            "After persisted turns or explicit feedback exist, this panel reports the current continuity artifact as a matter of fact."
+        )
+        return Panel(body, title="Hum / Continuity", border_style=AMBER, style=f"on {SHADE_ALT}")
 
     def main_event_bus_panel(self) -> Panel:
         app = self.app
@@ -2850,7 +2929,7 @@ class ChatScreen(Screen):
             for item in reversed(recent_feedback)
         ]
         if not feedback_lines:
-            feedback_lines = ["No feedback events yet. Review Adam's latest reply in the inline strip or press F7 to jump there."]
+            feedback_lines = ["No feedback events yet. Press F7 to open the latest-turn review popup in a separate terminal."]
         recent_events = self._event_lines[-6:]
         if not recent_events:
             recent_events = ["[INFO] Event bus is quiet. Start a turn or ingest a document to populate it."]
@@ -3015,7 +3094,7 @@ class ChatScreen(Screen):
                 f"latest verdict={verdict} for T{latest_entry.get('turn_index', '?')} at {latest_entry.get('created_at', 'n/a')}\n"
                 f"explanation={safe_excerpt(latest_entry.get('explanation') or 'none', limit=180)}\n"
                 "This feedback is already written into the graph through reward / risk / edit channels. "
-                "To revise it, type a new review code below: A, E, R, or S, then confirm with Y."
+                "Press F7 to reopen the popup review surface if you want to revise the latest turn."
             )
             return Panel(text, title="Reply Review", border_style=border, style=f"on {SHADE_ALT}")
         if state == "pending":
@@ -3024,9 +3103,9 @@ class ChatScreen(Screen):
             text = Text.from_markup(
                 f"[bold {AMBER}]Reply review[/]\n"
                 f"Adam / {turn_label} is awaiting operator judgment.\n"
-                "Type a review code here under the reply: A=accept, E=edit, R=reject, S=skip.\n"
-                "A / E / R require explanation. E also requires corrected text. All verdicts submit only after confirm=Y.\n"
-                "Submitting here writes a feedback event and updates the graph."
+                "Press F7 or choose Review Last Reply in the Action Bus to open a dedicated terminal popup.\n"
+                "A / E / R require explanation. E also requires corrected text.\n"
+                "Submitting there writes a feedback event and updates the graph."
             )
             return Panel(text, title="Reply Review", border_style=ROSE, style=f"on {SHADE_ALT}")
         if app.ui_state.last_ingest_result:
@@ -3242,6 +3321,31 @@ class ChatScreen(Screen):
                 line += f" | {payload}"
             self._record_event_line(line)
         self._seen_log_count = len(events)
+        latest_feedback = self._recent_feedback_entries(limit=1)
+        feedback_signature = None
+        if latest_feedback:
+            feedback_signature = (
+                str(latest_feedback[0].get("id") or ""),
+                str(latest_feedback[0].get("created_at") or ""),
+            )
+        hum = self._current_hum_snapshot()
+        hum_signature = (
+            str(hum.get("generated_at") or ""),
+            str(hum.get("latest_turn_id") or ""),
+        )
+        if feedback_signature != self._last_feedback_signature or hum_signature != self._last_hum_signature:
+            self._last_feedback_signature = feedback_signature
+            self._last_hum_signature = hum_signature
+            if latest_feedback:
+                latest = latest_feedback[0]
+                app.ui_state.last_feedback = (
+                    f"Popup review stored {str(latest.get('verdict', 'skip')).upper()} for "
+                    f"T{latest.get('turn_index', '?')}."
+                )
+            self._invalidate_transcript_cache()
+            self._mark_graph_dirty()
+            if self.is_mounted:
+                self.refresh_panels()
         if app.ui_state.action_progress is not None and self.is_mounted:
             self.query_one("#action_bus_panel", Static).update(self.main_action_bus_panel())
 
@@ -3252,10 +3356,7 @@ class ChatScreen(Screen):
         self.query_one(selector, TextArea).load_text(value)
 
     def _reset_inline_feedback_inputs(self) -> None:
-        self.query_one("#inline_feedback_verdict_input", Input).value = ""
-        self.query_one("#inline_feedback_confirm_input", Input).value = ""
-        self.query_one("#inline_feedback_explanation_input", TextArea).load_text("")
-        self.query_one("#inline_feedback_corrected_input", TextArea).load_text("")
+        return
 
     def focus_composer(self) -> TextArea:
         composer = self.query_one("#composer_input", TextArea)
@@ -3380,14 +3481,14 @@ class ChatScreen(Screen):
         app.ui_state.current_budget = outcome.budget
         app.ui_state.current_profile = outcome.profile
         self._mark_graph_dirty()
-        app.ui_state.last_feedback = f"Saved turn T{outcome.turn['turn_index']} from Brian."
+        app.ui_state.last_feedback = f"Saved turn T{outcome.turn['turn_index']} from Brian. Press F7 to review in a popup."
         self._write_forensic(
             f"[INFO] Turn T{outcome.turn['turn_index']} stored :: active_set={len(outcome.active_set)} pressure={outcome.budget.get('pressure_level', 'n/a')}"
         )
         self._set_text_area("#composer_input", "")
         await self._sync_conversation_log()
         self.refresh_panels()
-        self.focus_inline_feedback()
+        self.focus_composer()
         self._scroll_chat_to_end()
         self._schedule_preview_refresh()
 
@@ -3560,12 +3661,43 @@ class ChatScreen(Screen):
         self.refresh_panels()
 
     def focus_inline_feedback(self) -> None:
+        self.focus_composer()
+
+    def _feedback_popup_command(self) -> str:
         app = self.app
         assert isinstance(app, EdenTuiApp)
-        if not app.ui_state.last_turn_id:
-            self.focus_composer()
-            return
-        self.query_one("#inline_feedback_verdict_input", Input).focus()
+        python_bin = self.app.repo_root / ".venv" / "bin" / "python"
+        return (
+            f"cd {shlex.quote(str(self.app.repo_root))} && "
+            f"{shlex.quote(str(python_bin))} -m eden feedback "
+            f"{shlex.quote(str(app.ui_state.session_id or ''))} "
+            f"{shlex.quote(str(app.ui_state.last_turn_id or ''))}; exit"
+        )
+
+    def _launch_feedback_popup(self) -> tuple[bool, str]:
+        python_bin = self.app.repo_root / ".venv" / "bin" / "python"
+        if not python_bin.exists():
+            return False, f"Missing repo-local Python at {python_bin}."
+        command = self._feedback_popup_command()
+        if sys.platform == "darwin":
+            escaped = command.replace("\\", "\\\\").replace('"', '\\"')
+            script = (
+                'tell application "Terminal"\n'
+                f'    do script "{escaped}"\n'
+                "    activate\n"
+                "end tell"
+            )
+            try:
+                subprocess.Popen(
+                    ["osascript", "-e", script],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+                return True, "Opened review popup in Terminal."
+            except Exception as exc:
+                return False, f"Failed to open Terminal feedback popup: {exc}"
+        return False, "Feedback popup launch is currently wired for Terminal.app on macOS."
 
     async def handle_review(self) -> None:
         app = self.app
@@ -3575,8 +3707,13 @@ class ChatScreen(Screen):
             app.ui_state.last_feedback = "No Adam reply is available to review yet. Send a turn first."
             self.refresh_panels()
             return
-        self.focus_inline_feedback()
-        app.ui_state.last_feedback = "Reply review is inline below Adam's latest answer. Type A, E, R, or S, then confirm with Y."
+        ok, detail = await asyncio.to_thread(self._launch_feedback_popup)
+        app.ui_state.last_feedback = (
+            f"{detail} Review latest reply there and return here for the refreshed hum and transcript."
+            if ok
+            else detail
+        )
+        self._write_forensic(f"[INFO] Feedback popup :: {detail}")
         self.refresh_panels()
 
     async def handle_deck(self) -> None:
@@ -3602,6 +3739,21 @@ class ChatScreen(Screen):
 
     async def handle_ingest(self) -> None:
         await self.app.push_screen(IngestModal(self))
+
+    @on(Button.Pressed, "#reasoning_mode_reasoning_btn")
+    def handle_reasoning_mode_reasoning(self) -> None:
+        self.app.ui_state.reasoning_mode = "reasoning"
+        self.refresh_panels()
+
+    @on(Button.Pressed, "#reasoning_mode_chain_btn")
+    def handle_reasoning_mode_chain(self) -> None:
+        self.app.ui_state.reasoning_mode = "chain_like"
+        self.refresh_panels()
+
+    @on(Button.Pressed, "#reasoning_mode_hum_btn")
+    def handle_reasoning_mode_hum(self) -> None:
+        self.app.ui_state.reasoning_mode = "hum_live"
+        self.refresh_panels()
 
     def toggle_aperture_drawer(self) -> None:
         app = self.app
@@ -4032,8 +4184,8 @@ class EdenTuiApp(App):
         padding-right: 1;
     }}
     #chat_primary {{
-        width: 55%;
-        min-width: 70;
+        width: 62%;
+        min-width: 78;
     }}
     #startup_right, #chat_secondary {{
         width: 62%;
@@ -4041,8 +4193,8 @@ class EdenTuiApp(App):
         padding-left: 1;
     }}
     #chat_secondary {{
-        width: 45%;
-        min-width: 54;
+        width: 38%;
+        min-width: 46;
     }}
     #startup_aperture_panel {{
         height: 1fr;
@@ -4081,7 +4233,7 @@ class EdenTuiApp(App):
     }}
     #chat_tape {{
         height: 1fr;
-        min-height: 14;
+        min-height: 20;
         margin-bottom: 1;
         border: tall {ROSE};
         background: {CHIARO_SHADOW};
@@ -4103,44 +4255,38 @@ class EdenTuiApp(App):
         width: 100%;
     }}
     #signal_field {{
-        height: 20;
-        min-height: 18;
+        height: 15;
+        min-height: 13;
+    }}
+    #hum_panel {{
+        height: 8;
+        min-height: 7;
     }}
     #active_aperture_panel {{
-        height: 16;
-        min-height: 14;
+        height: 12;
+        min-height: 10;
+    }}
+    #reasoning_mode_row {{
+        height: 3;
+    }}
+    #reasoning_mode_row Button {{
+        width: 1fr;
+        margin-bottom: 0;
     }}
     #thinking_panel {{
-        height: 10;
-        min-height: 8;
+        height: 12;
+        min-height: 10;
     }}
     #runtime_chyron_panel {{
         height: 6;
         min-height: 6;
         margin: 0 1 1 1;
     }}
-    #inline_feedback_surface {{
-        border: tall {ROSE};
-        background: {CHIARO_WINE};
-        padding: 0 1;
-        height: 16;
-        margin-bottom: 1;
-    }}
     #feedback_loop_panel {{
-        height: 7;
-    }}
-    #inline_feedback_command_row {{
-        height: 3;
-    }}
-    #inline_feedback_command_row Input {{
-        width: 1fr;
-        margin-right: 1;
-    }}
-    #inline_feedback_command_row Input:last-child {{
-        margin-right: 0;
+        height: 6;
     }}
     #composer_input {{
-        height: 6;
+        height: 5;
         background: {CHIARO_SHADOW};
         border: tall {AMBER};
         color: {TEXT};
@@ -4161,44 +4307,13 @@ class EdenTuiApp(App):
         border: tall {ICE};
     }}
     #composer_hint_panel {{
-        height: 5;
+        height: 4;
     }}
     #review_explanation_input, #review_corrected_input, #ingest_prompt_input {{
         height: 6;
         background: #11070d;
         border: tall {AMBER};
         color: {TEXT};
-    }}
-    #inline_feedback_explanation_input {{
-        height: 4;
-        background: #14080f;
-        border: tall {ROSE};
-        color: {TEXT};
-        scrollbar-gutter: stable;
-        scrollbar-size-vertical: 2;
-        scrollbar-color: {ROSE};
-        scrollbar-color-hover: {ICE};
-        scrollbar-color-active: {TEXT};
-        scrollbar-background: #22131b;
-        scrollbar-background-hover: #2b1822;
-        scrollbar-background-active: #331d29;
-    }}
-    #inline_feedback_corrected_input {{
-        height: 4;
-        background: #0d1019;
-        border: tall {ICE};
-        color: {TEXT};
-        scrollbar-gutter: stable;
-        scrollbar-size-vertical: 2;
-        scrollbar-color: {ICE};
-        scrollbar-color-hover: {VIOLET};
-        scrollbar-color-active: {TEXT};
-        scrollbar-background: #141923;
-        scrollbar-background-hover: #19202b;
-        scrollbar-background-active: #1f2733;
-    }}
-    #inline_feedback_status_panel {{
-        height: 4;
     }}
     Static, Input, RichLog, Select, TextArea {{
         margin-bottom: 1;
@@ -4417,10 +4532,6 @@ class EdenTuiApp(App):
     .look-typewriter-light #chat_tape:focus {{
         border: tall {TYPEWRITER_LIGHT.ice};
     }}
-    .look-typewriter-light #inline_feedback_surface {{
-        border: tall {TYPEWRITER_LIGHT.rose};
-        background: {TYPEWRITER_LIGHT.chiaro_wine};
-    }}
     .look-typewriter-light #composer_input {{
         background: {TYPEWRITER_LIGHT.marble_light};
         border: tall {TYPEWRITER_LIGHT.amber};
@@ -4469,28 +4580,6 @@ class EdenTuiApp(App):
     }}
     .look-typewriter-light .field_label {{
         color: {TYPEWRITER_LIGHT.muted};
-    }}
-    .look-typewriter-light #inline_feedback_explanation_input {{
-        background: #f0dfd6;
-        border: tall {TYPEWRITER_LIGHT.rose};
-        color: {TYPEWRITER_LIGHT.text};
-        scrollbar-color: {TYPEWRITER_LIGHT.rose};
-        scrollbar-color-hover: {TYPEWRITER_LIGHT.ice};
-        scrollbar-color-active: {TYPEWRITER_LIGHT.text};
-        scrollbar-background: #ead6cd;
-        scrollbar-background-hover: #e1cac1;
-        scrollbar-background-active: #d8bdb5;
-    }}
-    .look-typewriter-light #inline_feedback_corrected_input {{
-        background: {TYPEWRITER_LIGHT.chiaro_slate};
-        border: tall {TYPEWRITER_LIGHT.ice};
-        color: {TYPEWRITER_LIGHT.text};
-        scrollbar-color: {TYPEWRITER_LIGHT.ice};
-        scrollbar-color-hover: {TYPEWRITER_LIGHT.violet};
-        scrollbar-color-active: {TYPEWRITER_LIGHT.text};
-        scrollbar-background: #d4dbdf;
-        scrollbar-background-hover: #c9d2d7;
-        scrollbar-background-active: #bcc8cd;
     }}
     .look-typewriter-light Button {{
         background: {TYPEWRITER_LIGHT.panel};

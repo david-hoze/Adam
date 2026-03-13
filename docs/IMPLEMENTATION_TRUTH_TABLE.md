@@ -13,18 +13,18 @@
 | Repo-local Qwen 3.5 MLX backend | Implemented | repo-local 4-shard model completed and real MLX generation succeeded |
 | Multiline composer | Implemented | `TextArea`-based; covered by TUI smoke test |
 | Composer focus recovery | Implemented | `Esc` returns focus to the composer, compact aperture view also collapses back to dialogue, and printable keys outside editable widgets are routed there automatically |
-| Dialogue-first chat layout | Implemented | primary left dialogue deck keeps transcript + inline review + composer visible; right telemetry stack now uses full-width memgraph/aperture/thinking/event slices plus a thin runtime chyron |
+| Dialogue-first chat layout | Implemented | primary left dialogue deck now biases harder toward transcript length by keeping a compact reply-review status strip plus composer visible, while the right telemetry stack carries memgraph, hum, aperture, reasoning, and the runtime chyron |
 | Scrolling dialogue tape | Implemented | prime transcript now renders the persisted session inside a focusable scroll container instead of a bounded fixed pane |
 | Static chiaroscuro transcript shading | Implemented | chat cards now use static shaded panel treatments instead of animated decorative glyph bands inside the message surface |
 | Event-driven prime-screen refresh | Implemented | removed the 450ms whole-screen repaint loop; transcript and graph-health surfaces now cache and refresh on state changes |
 | Operator-facing answer sanitization | Implemented | membrane now strips `Answer` / `Basis` / `Next Step` scaffolding and keeps model reasoning separate from Adam's visible reply |
 | Aperture pull-down drawer | Implemented | `F8` opens a full-width readable active-set scan on wide terminals and a compact aperture-only swap view on small terminals |
-| Inline reply review | Implemented | typed `A` / `E` / `R` / `S` plus `Y` confirmation now live directly under Adam's latest answer; `Review` keeps focus in the composer and explains the missing prerequisite if no Adam reply exists yet |
+| Latest-turn reply review popup | Implemented | `Review` / `F7` now launches a repo-local terminal popup for `accept` / `edit` / `reject` / `skip` on Adam's latest answer, while the prime dialogue deck keeps only compact review status |
 | Conversation log artifact | Implemented | active session transcript is written to markdown under `exports/conversations/` and surfaced via the action bus + merged runtime/event chyron |
 | Conversation atlas archive surface | Implemented | modal archive browser exposes all saved sessions through sort/filter plus virtual folder/tag projections stored in session metadata; the `F10`/binding path now opens it through the same worker-safe flow as the action bus |
 | Fixed local-MLX runtime contract | Implemented | the live TUI no longer exposes backend selection on the primary surface; local MLX is the normal runtime contract |
 | Deck + Review secondary surfaces | Implemented | detailed budget / thinking / history remain in `Deck`; explicit feedback remains in `Review` |
-| Dedicated model thinking panel | Implemented | MLX/Qwen reasoning is kept on and surfaced separately from the final answer via Deck |
+| Dedicated model reasoning panel | Implemented | MLX/Qwen reasoning is kept on and surfaced separately from the final answer, with direct reasoning, chain-like, and hum-live lenses in the prime TUI plus a browser reasoning radio group in the observatory continuity strip |
 | Operator-label turn persistence | Implemented | saved turns and graph-ingested operator text are punctuated as `Brian the operator: ...` |
 | Session-start inference profile flow | Implemented | new-session and blank/seeded session modal |
 | Manual inference mode | Implemented | persisted in session metadata and surfaced per turn |
@@ -36,7 +36,7 @@
 | Edit stores rationale and corrected answer separately | Implemented | persisted in `feedback_events` |
 | Persistent memes and memodes | Implemented | SQLite tables + edges + retrieval |
 | Regard math in code | Implemented | `eden/regard.py` |
-| Hum continuity artifact | Implemented as a bounded read-only runtime artifact | `eden/hum.py` now derives `current_hum.md` plus `current_hum.json` from persisted `active_set_json`, `feedback_events`, and membrane events, refreshes after `chat()` and `apply_feedback()`, surfaces hum through `session_state_snapshot()`, observatory overview/session turns, `observatory_index.json`, and the conversation-log footer, and is proved by `tests/test_hum_runtime.py`, `tests/test_hum_user_journey_audit.py`, and `scripts/run_hum_user_journey_audit.py --out exports/hum_audit/latest`. Historical artifact lineage remains in `/Users/brianray/Desktop/adam_hum_ALL.md`. See `docs/HUM_SPEC.md`. |
+| Hum continuity artifact | Implemented as a bounded read-only runtime artifact | `eden/hum.py` derives `current_hum.md` plus `current_hum.json` from persisted `active_set_json`, `feedback_events`, and membrane events, refreshes after `chat()` and `apply_feedback()`, and now surfaces the bounded text surface through `session_state_snapshot()`, observatory overview/session turns, `observatory_index.json`, the prime-TUI hum box, the observatory continuity strip, and the conversation-log footer. Historical artifact lineage remains in `/Users/brianray/Desktop/adam_hum_ALL.md`. See `docs/HUM_SPEC.md`. |
 | PDF ingest | Implemented | validated on `eden_whitepaper_v14.pdf` |
 | CSV/TXT/Markdown ingest | Implemented | validated in tests |
 | Ingest framing prompt | Implemented | document ingest modal indexes operator framing text into the memgraph as persistent document-conditioning material |

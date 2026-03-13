@@ -10,6 +10,7 @@ type GraphMode = "Semantic Map" | "Assemblies" | "Runtime" | "Active Set" | "Com
 type AssemblyRenderMode = "hulls" | "collapsed-meta-node" | "hidden";
 type LiftMode = "flat" | "time_lift" | "density_lift" | "session_offset";
 type InspectorTab = "cards" | "json";
+type ReasoningLens = "reasoning" | "chain_like" | "hum_live";
 type PayloadKey = "overview" | "measurements" | "basin" | "graph" | "geometry" | "tanakh" | "transcript" | "runtimeStatus" | "runtimeModel";
 type PayloadStatusKind = "idle" | "loading" | "ready" | "error" | "deferred";
 
@@ -69,9 +70,11 @@ type OverviewPayload = {
   basin?: Record<string, any>;
   measurements?: Record<string, any>;
   tanakh?: Record<string, any>;
+  hum?: Record<string, any>;
 };
 
 type TranscriptPayload = {
+  hum?: Record<string, any>;
   turns?: any[];
 };
 
@@ -227,6 +230,23 @@ function cappedItems<T>(items: T[], limit = TEXT_ACCESS_LIMIT): { items: T[]; ca
   };
 }
 
+function excerptText(value: unknown, limit = 560): string {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  return text.length > limit ? `${text.slice(0, limit - 1).trimEnd()}…` : text;
+}
+
+function chainLikeSteps(value: unknown, limit = 6): string[] {
+  const raw = String(value ?? "").replace(/\r/g, "\n").trim();
+  if (!raw) return [];
+  const segments = raw
+    .split(/\n+/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  const source = segments.length ? segments : raw.split(/(?<=[.!?])\s+/).map((segment) => segment.trim()).filter(Boolean);
+  return source.slice(0, limit).map((segment, index) => `${index + 1}. ${excerptText(segment, 120)}`);
+}
+
 function nodeLabel(node: any): string {
   return String(node?.label ?? node?.id ?? "unknown node");
 }
@@ -286,6 +306,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
   const [assemblyRenderMode, setAssemblyRenderMode] = useState<AssemblyRenderMode>(DEFAULT_ASSEMBLY_RENDER_MODE);
   const [liftMode, setLiftMode] = useState<LiftMode>(DEFAULT_LIFT_MODE);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("cards");
+  const [reasoningLens, setReasoningLens] = useState<ReasoningLens>("reasoning");
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [selectedAssemblyId, setSelectedAssemblyId] = useState<string | null>(null);
@@ -348,6 +369,11 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
   const visibleGraphEdges = useMemo(() => cappedItems(graphEdges), [graphEdges]);
   const visibleBasinTurns = useMemo(() => cappedItems(data.basin?.turns ?? []), [data.basin]);
   const visibleAssemblies = useMemo(() => cappedItems(data.graph?.assemblies ?? []), [data.graph]);
+  const latestTranscriptTurn = useMemo(() => {
+    const turns = data.transcript?.turns ?? [];
+    return turns.length ? turns[turns.length - 1] : null;
+  }, [data.transcript]);
+  const hum = data.overview?.hum ?? data.transcript?.hum ?? null;
 
   useEffect(() => {
     let nextGraphMode = DEFAULT_GRAPH_MODE;
@@ -798,6 +824,16 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
             ]}
           />
         </Card>
+        <Card title="Hum">
+          <MetricList
+            items={[
+              ["Present", hum?.present ? "yes" : "no"],
+              ["Generated", hum?.generated_at],
+              ["Window", hum?.turn_window_size],
+              ["Recurrence", hum?.cross_turn_recurrence_present ? "yes" : "seed-state / no"],
+            ]}
+          />
+        </Card>
       </div>
     );
   }
@@ -901,6 +937,89 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
           <span className={badgeClass("derived")}>Derived</span>
         </div>
       </div>
+    );
+  }
+
+  function renderContinuityStrip() {
+    const visibleReasoning = latestTranscriptTurn?.reasoning_text ?? "";
+    const humSurface = hum?.text_surface ?? "";
+    const steps = chainLikeSteps(reasoningLens === "hum_live" ? humSurface : visibleReasoning);
+    const reasoningBody =
+      reasoningLens === "reasoning"
+        ? excerptText(visibleReasoning, 720)
+        : reasoningLens === "hum_live"
+          ? excerptText(humSurface, 720)
+          : "";
+    return (
+      <section className="continuity-strip">
+        <article className="continuity-card">
+          <header>
+            <p className="eyebrow">Hum</p>
+            <h2>Bounded continuity fact</h2>
+          </header>
+          <div className="continuity-meta">
+            <span>present={hum?.present ? "yes" : "no"}</span>
+            <span>generated={hum?.generated_at ?? "n/a"}</span>
+            <span>window={hum?.turn_window_size ?? 0}</span>
+            <span>recurrence={hum?.cross_turn_recurrence_present ? "yes" : "seed-state / no"}</span>
+          </div>
+          <p className="reasoning-copy">
+            {hum?.present
+              ? excerptText(humSurface, 360) || "Hum present but the bounded text surface is empty."
+              : "No bounded hum artifact is present yet for this session."}
+          </p>
+        </article>
+        <article className="continuity-card">
+          <header>
+            <p className="eyebrow">Reasoning</p>
+            <h2>Operator-visible reasoning lens</h2>
+          </header>
+          <div className="toolbar">
+            <div aria-label="Reasoning lens" className="toolbar-group" role="radiogroup">
+              {([
+                ["reasoning", "Reasoning"],
+                ["chain_like", "Chain-Like"],
+                ["hum_live", "Hum Live"],
+              ] as Array<[ReasoningLens, string]>).map(([mode, label]) => (
+                <button
+                  aria-checked={mode === reasoningLens}
+                  key={mode}
+                  className={mode === reasoningLens ? "toolbar-button is-active" : "toolbar-button"}
+                  onClick={() => setReasoningLens(mode)}
+                  role="radio"
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="continuity-note">
+            {reasoningLens === "hum_live"
+              ? "Hum-live mode reformats the bounded hum artifact as chain-like continuity beats. It is not hidden chain-of-thought."
+              : "This lens only renders operator-visible reasoning artifacts. Hidden chain-of-thought remains out of scope."}
+          </p>
+          {reasoningLens === "chain_like" || reasoningLens === "hum_live" ? (
+            steps.length ? (
+              <ol className="reasoning-steps">
+                {steps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            ) : (
+              <p className="reasoning-copy">
+                {reasoningLens === "hum_live"
+                  ? "Hum-live steps appear after the bounded hum artifact has been generated."
+                  : "No operator-visible reasoning artifact is loaded yet from the live session transcript."}
+              </p>
+            )
+          ) : (
+            <p className="reasoning-copy">
+              {reasoningBody || "No operator-visible reasoning artifact is loaded yet from the live session transcript."}
+            </p>
+          )}
+        </article>
+      </section>
     );
   }
 
@@ -1362,6 +1481,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
       </nav>
 
       {renderPayloadStatus()}
+      {renderContinuityStrip()}
       {error ? <div className="status-banner status-error">{error}</div> : null}
 
       <main className="layout">

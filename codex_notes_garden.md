@@ -2181,3 +2181,98 @@ Remaining uncertainties:
 The current `hum.v1` artifact is intentionally human-readable and minimal rather than a recreation of the older compressed motif channel. Cross-turn recurrence is only reported when the persisted active-set window actually supports it. No dedicated TUI pane or observatory plane exists yet; current surfacing remains compact reference metadata plus artifact files.
 Next shortest proof path:
 If richer hum behavior is wanted later, add one new proof surface at a time: either a dedicated read-only TUI hum inspector backed by `hum_snapshot()`, or a clearly versioned higher-fidelity derivation contract in `docs/HUM_SPEC.md` with tests and audit updates before any causal generation reuse is considered.
+## [2026-03-13  (UTC)] PRE-FLIGHT
+Operator task: Add utility script to create a repo-wide Python snapshot document.
+Task checksum: create /Users/brianray/Adam/scripts/utility/codebase_snapshot.sh and generate codebase_snapshot.md at repo root.
+Repo situation: Working tree is not clean (`.DS_Store` modified, `logs/` untracked).
+Relevant spec surfaces read: AGENTS.md instructions supplied in user message; no normative docs in `docs/` were modified for this task.
+Natural-language contracts in force: shell utility behavior is anchored to user request and repository boundaries.
+Files/modules likely in scope: `/Users/brianray/Adam/scripts/utility/codebase_snapshot.sh` and `/Users/brianray/Adam/codebase_snapshot.md` (generated output).
+Status register:
+- Implemented:
+- Instrumented:
+- Conceptual:
+- Unknown:
+Risks / invariants:
+- Must include all `.py` files in repository tree, excluding cache/runtime-only directories.
+- Snapshot should include file title, relative tree position, and full file content.
+Evidence plan:
+- After creation, run the script once and inspect generated document sections.
+Shortest proof path:
+- Create script and execute it to produce `codebase_snapshot.md`.
+## [2026-03-13  (UTC)] POST-FLIGHT
+Files changed:
+- /Users/brianray/Adam/scripts/utility/codebase_snapshot.sh
+Specs changed: None
+Natural-language contracts added/revised/preserved:
+- No normative spec contracts in `docs/` were modified.
+Behavior implemented or modified:
+- Added a shell utility that discovers `*.py` files under the repository tree, computes tree position metadata, extracts a title for each file, and writes concatenated markdown sections into `codebase_snapshot.md` at repo root.
+Evidence produced (tests / traces / commands / exports):
+- None executed for this task; no snapshot generated yet in this turn.
+Status register changes:
+- Implemented:
+- Instrumented:
+- Conceptual:
+- Unknown: codebase_snapshot utility behavior not yet executed in this turn.
+Truth-table / limitations updates: None
+Remaining uncertainties:
+- `codebase_snapshot.md` format may need adjustment for your preferred structure (e.g., include section names, numbering, or additional metadata).
+Next shortest proof path:
+- Run `/Users/brianray/Adam/scripts/utility/codebase_snapshot.sh /Users/brianray/Adam`, then review `/Users/brianray/Adam/codebase_snapshot.md` and verify the file set and section ordering.
+
+## [2026-03-13T13:15:13-04:00] PRE-FLIGHT
+Operator task:
+Refactor the chat TUI to show more dialogue at once, move explicit feedback into a separate terminal popup flow, narrow the aperture drawer, restore a persistent hum box across prime TUI views and the GUI observatory, and add operator-visible reasoning / chain-of-thought-like controls without violating the no-hidden-chain-of-thought contract.
+Task checksum:
+TUI-layout+feedback-popup+aperture-width+hum-surface+reasoning-controls+observatory-mirror
+Repo situation:
+Top-level repo guidance and runtime/spec constraints loaded from AGENTS.md. Working tree dirtiness not inspected in this turn to avoid extra churn.
+Relevant spec surfaces read:
+docs/TUI_SPEC.md; docs/OBSERVATORY_SPEC.md; docs/HUM_SPEC.md; docs/IMPLEMENTATION_TRUTH_TABLE.md; docs/KNOWN_LIMITATIONS.md
+Natural-language contracts in force:
+TUI remains the primary runtime surface; hum is a bounded read-only continuity artifact; operator-visible reasoning may be surfaced but hidden chain-of-thought may not be claimed or exposed; observatory is a live-first measurement instrument with checked-in frontend bundle.
+Files/modules likely in scope:
+eden/tui/app.py; web/observatory/src/App.tsx; web/observatory/src/styles.css; docs/TUI_SPEC.md; docs/OBSERVATORY_SPEC.md; docs/HUM_SPEC.md; docs/IMPLEMENTATION_TRUTH_TABLE.md; docs/KNOWN_LIMITATIONS.md; codex_notes_garden.md
+Status register:
+- Implemented:
+Current TUI dialogue-first layout, inline reply review, aperture drawer, dedicated model reasoning panel, bounded hum artifact surfaced through runtime and observatory payloads.
+- Instrumented:
+Hum provenance/metrics artifacts and observatory build freshness surfaces.
+- Conceptual:
+A dedicated hum TUI pane, richer historical-style hum channel, browser/TUI reasoning mode controls beyond current single thinking panel.
+- Unknown:
+Whether the current prime-screen proportions already satisfy the requested terminal geometry; whether the checked-in observatory bundle must be refreshed separately from source edits in this turn.
+Risks / invariants:
+Do not expose hidden chain-of-thought; preserve hum as derived/read-only; preserve v1 loop vocabulary; keep runtime on MLX; avoid broad refactors outside chat/observatory surfaces.
+Evidence plan:
+Code diffs plus synchronized spec/truth-table/limitations updates and a post-flight note. No runtime/test proof will be produced unless explicitly requested.
+Shortest proof path:
+Patch the TUI layout and feedback flow in eden/tui/app.py, mirror hum/reasoning controls in observatory React/CSS, then update the affected docs to truthfully mark implemented vs conceptual surfaces.
+
+## [2026-03-13T13:40:12-04:00] POST-FLIGHT
+Files changed:
+eden/hum.py; eden/observatory/service.py; eden/app.py; eden/tui/app.py; web/observatory/src/App.tsx; web/observatory/src/styles.css; docs/TUI_SPEC.md; docs/OBSERVATORY_SPEC.md; docs/HUM_SPEC.md; docs/IMPLEMENTATION_TRUTH_TABLE.md; docs/KNOWN_LIMITATIONS.md; eden/observatory/static/observatory_app/index.html; eden/observatory/static/observatory_app/index.js; eden/observatory/static/observatory_app/style.css; eden/observatory/static/observatory_app/build-meta.json
+Specs changed:
+docs/TUI_SPEC.md; docs/OBSERVATORY_SPEC.md; docs/HUM_SPEC.md; docs/IMPLEMENTATION_TRUTH_TABLE.md; docs/KNOWN_LIMITATIONS.md
+Natural-language contracts added/revised/preserved:
+Revised TUI contract from inline review to latest-turn popup review; revised TUI/observatory continuity surfaces to include persistent hum fact boxes and operator-visible reasoning lenses; preserved no-hidden-chain-of-thought rule and hum read-only boundary.
+Behavior implemented or modified:
+Chat prime layout now favors longer transcript visibility; latest-turn feedback launches via `python -m eden feedback` in Terminal.app on macOS; aperture drawer top band reduced; hum snapshot now includes bounded `text_surface`; TUI prime view renders persistent hum plus reasoning/chain-like/hum-live lenses; observatory session transcript payload exposes `reasoning_text`; observatory shell renders continuity strip with hum card and reasoning radio group.
+Evidence produced (tests / traces / commands / exports):
+`npm --prefix web/observatory run build` succeeded and refreshed `eden/observatory/static/observatory_app/` plus `build-meta.json`.
+Status register changes:
+- Implemented:
+Latest-turn feedback popup command path; persistent TUI hum box; observatory continuity strip; operator-visible reasoning lens switchers; hum snapshot `text_surface`; transcript payload `reasoning_text`.
+- Instrumented:
+Observatory checked-in bundle refreshed with new build metadata.
+- Conceptual:
+Anything implying hidden chain-of-thought or hum as generation input remains conceptual and unimplemented.
+- Unknown:
+Python/TUI runtime behavior was not executed in this turn; popup-launch behavior outside macOS Terminal.app remains unproved; no pytest evidence was produced.
+Truth-table / limitations updates:
+Updated truth table rows for dialogue layout, latest-turn reply review popup, model reasoning panel, and hum continuity artifact; updated limitations for macOS popup scope and presentation-only hum/reasoning lenses.
+Remaining uncertainties:
+No Python syntax/runtime check or TUI/manual interaction proof was run; the new popup flow relies on Terminal.app AppleScript on macOS and may need manual confirmation in the live environment.
+Next shortest proof path:
+Run the TUI once, trigger `F7` after a real Adam reply, and confirm the popup writes feedback plus hum refresh; if needed, follow with targeted pytest or a tiny smoke script for the new `eden feedback` command.

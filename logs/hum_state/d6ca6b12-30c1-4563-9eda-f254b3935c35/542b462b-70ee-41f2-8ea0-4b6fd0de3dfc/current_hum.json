@@ -1,0 +1,82 @@
+{
+  "artifact_version": "hum.v1",
+  "generated_at": "2026-03-13T07:35:36+00:00",
+  "experiment_id": "d6ca6b12-30c1-4563-9eda-f254b3935c35",
+  "session_id": "542b462b-70ee-41f2-8ea0-4b6fd0de3dfc",
+  "latest_turn_id": "f610df71-3957-40a9-bf5b-5c016e758e92",
+  "turn_ids": [
+    "5b5f4203-4c67-496b-afeb-a8cb145b916e",
+    "f610df71-3957-40a9-bf5b-5c016e758e92"
+  ],
+  "turn_indices": [
+    0,
+    1
+  ],
+  "derived_from": [
+    "turns.active_set_json",
+    "feedback_events",
+    "membrane_events"
+  ],
+  "boundedness": {
+    "artifact_version": "hum.v1",
+    "turn_window": 3,
+    "max_text_chars": 320,
+    "max_lines": 6,
+    "max_recurring_items": 4,
+    "max_table_rows": 6,
+    "max_feedback_events": 4,
+    "max_membrane_events": 6
+  },
+  "status": {
+    "cross_turn_recurrence_present": false,
+    "feedback_present": true,
+    "membrane_activity_present": true
+  },
+  "continuity": {
+    "recurring_items": [],
+    "active_set_overlap": {
+      "latest_turn_id": "f610df71-3957-40a9-bf5b-5c016e758e92",
+      "previous_turn_id": "5b5f4203-4c67-496b-afeb-a8cb145b916e",
+      "count": 0,
+      "labels": []
+    },
+    "feedback_summary": {
+      "counts": {
+        "accept": 1
+      },
+      "recent": [
+        {
+          "turn_index": 0,
+          "verdict": "accept",
+          "explanation": "Excellent. Informed, context-aware and personal feeling. Thank you, Adam. Good job, here."
+        }
+      ]
+    },
+    "membrane_summary": {
+      "counts": {
+        "PASSTHROUGH": 2
+      },
+      "recent": [
+        {
+          "turn_id": "f610df71-3957-40a9-bf5b-5c016e758e92",
+          "event_type": "PASSTHROUGH",
+          "detail": "Response passed the membrane unchanged."
+        },
+        {
+          "turn_id": "5b5f4203-4c67-496b-afeb-a8cb145b916e",
+          "event_type": "PASSTHROUGH",
+          "detail": "Response passed the membrane unchanged."
+        }
+      ]
+    }
+  },
+  "metrics": {
+    "char_count": 110,
+    "line_count": 1,
+    "turn_window_size": 2,
+    "recurring_item_count": 0,
+    "feedback_event_count": 1,
+    "membrane_event_count": 2
+  },
+  "text_surface": "continuity: 2 turns persisted; no recurring active-set items yet. feedback: acceptx1. membrane: PASSTHROUGHx2."
+}
