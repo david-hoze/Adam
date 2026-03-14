@@ -62,9 +62,15 @@ async def test_tui_boots_blank_mode_and_uses_multiline_composer(runtime, sample_
         assert app.screen.query_one("#thinking_panel")
         assert app.screen.query_one("#chat_tape")
         assert app.screen.query_one("#chat_exchange_panel")
-        assert app.screen.query_one("#feedback_loop_panel")
         assert app.screen.query_one("#signal_field")
         assert app.screen.query_one("#runtime_chyron_panel")
+        assert app.screen.query_one("#runtime_chyron_panel").display is False
+        await pilot.press("f11")
+        await pilot.pause(0.3)
+        assert app.screen.query_one("#runtime_chyron_panel").display is True
+        await pilot.press("f11")
+        await pilot.pause(0.3)
+        assert app.screen.query_one("#runtime_chyron_panel").display is False
         assert app.ui_state.conversation_log_path is not None
         transcript_path = Path(app.ui_state.conversation_log_path)
         assert transcript_path.exists()
@@ -418,10 +424,14 @@ async def test_tui_compact_layout_keeps_first_action_and_escape_recovery(runtime
         assert app.screen.query_one("#runtime_status_strip").display is False
         assert app.screen.query_one("#chat_secondary").display is False
 
-        hint = app.screen.main_composer_hint_panel().renderable
-        assert "Start here:" in hint.plain
-        assert "Enter" in hint.plain
-        assert "F10 atlas" in hint.plain
+        chyron = app.screen.query_one("#runtime_chyron_panel")
+        assert chyron.display is False
+        await pilot.press("f11")
+        await pilot.pause(0.2)
+        assert chyron.display is True
+        await pilot.press("f11")
+        await pilot.pause(0.2)
+        assert chyron.display is False
 
         await pilot.press("tab")
         await pilot.pause(0.2)

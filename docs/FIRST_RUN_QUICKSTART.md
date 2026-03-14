@@ -4,7 +4,7 @@ If this is your first time in Adam, do this:
 
 1. Run `.venv/bin/python -m eden`.
 2. Wait for the live chat screen.
-3. Type in `Message Input`.
+3. Type in the composer.
 4. Press `Ctrl+S`.
 5. Read Adam's reply in `Adam Dialogue`.
 6. Press `Esc` if you want to go straight back to typing.

@@ -42,8 +42,7 @@ Repair:
 
 - added a compact responsive mode
 - compact mode hides the right telemetry stack by default
-- compact mode keeps transcript + composer + chyron on screen
-- compact mode repeats critical keys in `Message Input`
+- compact mode keeps transcript + composer visible and makes the runtime chyron drawer available via `F11`
 
 Verified after repair:
 
@@ -77,8 +76,8 @@ Verified after repair:
 
 Observed before repair:
 
-- `F7` always said the inline review strip existed
-- if no Adam reply existed yet, focus returned to the composer but the message still implied a reviewable reply
+- `F7` always suggested an inline review surface existed
+- if no Adam reply existed yet, focus returned to the composer but the message still implied a reviewable reply target
 
 Operator impact:
 
@@ -124,7 +123,7 @@ Before:
 
 After:
 
-- `Message Input` now carries the start instruction and the critical keys in compact mode
+- `Composer` now carries the start instruction and the critical keys in compact mode
 
 ### Aperture behavior on small terminals
 

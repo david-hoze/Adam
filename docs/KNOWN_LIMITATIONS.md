@@ -15,7 +15,7 @@
 - Seeded geometry exports cap per-memode local reports to a bounded, relevance-sorted subset so observatory/export remains responsive on this machine. The browser payload is intentionally not an exhaustive local-report dump for every memode.
 - `current_active_set` geometry export is based on the latest persisted active set for the selected session, not the unsent live composer preview.
 - `Resume Latest` restores the latest persisted session state, not an unsent draft from the composer.
-- The merged runtime/event chyron is intentionally bounded and concise. It exposes the latest runtime/event state, but it is not a full infinite-scroll event browser in the prime screen.
+- The merged runtime/event chyron is intentionally bounded and concise. It starts hidden as a bottom-up drawer (`F11` opens/closes it), and it exposes the latest runtime/event state without a full infinite-scroll event history in the prime screen.
 - On compact terminals, EDEN now prioritizes transcript + composer legibility by hiding the right telemetry stack until the operator explicitly opens aperture/deeper surfaces. You can still work entirely from the keyboard, but simultaneous dialogue-and-telemetry visibility still wants a wider/taller terminal.
 - Reply review is scoped to Adam's latest turn in the live session. The popup launcher is currently wired for Terminal.app on macOS, and older turns keep their stored verdict labels in the transcript without reopening as separate popup flows.
 - Conversation logs are written as markdown transcript artifacts for operator access, but they are not yet a richer replay/index surface with per-turn jump links, filters, or diff views.

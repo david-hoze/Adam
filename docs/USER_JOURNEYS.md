@@ -18,33 +18,24 @@ Steps:
 
 1. Run `.venv/bin/python -m eden` or `.venv/bin/python -m eden app`.
 2. Wait for the live chat surface to boot. Adam resumes the latest session if one exists; otherwise it creates a live blank session.
-3. Look for `Message Input`. That is the place to type.
+3. Look for the composer. That is the place to type.
 
 Expected result:
 
 - Focus starts in the composer.
 - On wide terminals, you see:
   - `Action Bus` at the top
-  - `Adam Dialogue` and `Message Input` on the left
+  - `Adam Dialogue` and `Composer` on the left
   - `Memgraph Bus`, `Aperture / Active Set`, and `Thinking / Reasoning` on the right
-  - `Runtime / Event Chyron` at the bottom
+  - `Runtime / Event Chyron` hidden as a bottom drawer (open with `F11`)
 - On compact terminals, the right telemetry stack is hidden by default so the transcript and composer stay visible.
 
 Verified notes:
 
-- The `Message Input` panel repeats the critical first-run keys on compact terminals:
-  - `Ctrl+S`
-  - `F9`
-  - `F5`
-  - `F6`
-  - `F10`
-- The launch stage note is visible in the composer hint:
-  - `Start here: type below, press Ctrl+S to send, or press F9 to ingest first.`
-
 Caveats:
 
 - The stock footer still truncates later function-key labels on narrow terminals.
-- Use `F1` or the `Message Input` hint if the footer does not show everything you need.
+- Use `F1` or the footer if it does not show everything you need.
 
 ## Journey 2 - Start A Basic Conversation
 
@@ -63,13 +54,12 @@ Expected result:
 - Your prompt is added to `Adam Dialogue`.
 - Adam's reply appears above the composer in the same transcript tape.
 - A markdown conversation log is written for the active session.
-- Focus moves to the inline review strip so you can judge Adam's reply immediately.
+- Focus stays in the composer while the review popup opens for feedback after a reply.
 
 Verified notes:
 
-- After a reply exists, focus moves to the review strip.
-- `Esc` returns focus to the composer if you want to keep chatting instead of reviewing first.
-- `F7` jumps to the review strip again later.
+- After a reply exists, the popup review opens and can be revisited with `F7`.
+- `Esc` returns focus to the composer if you want to keep chatting.
 
 Caveats:
 
@@ -283,7 +273,7 @@ Verified focus behavior:
   4. aperture button
   5. dialogue tape
   6. composer
-- After an Adam reply, the inline review fields enter the tab order ahead of the composer.
+- After an Adam reply, the popup review is launched separately and focus stays in chat controls.
 
 Verified key behaviors:
 

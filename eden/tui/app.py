@@ -139,6 +139,7 @@ TYPEWRITER_LIGHT = LOOK_PALETTES["typewriter_light"]
 
 ACTION_MENU_OPTIONS = [
     ("Toggle Aperture Drawer", "toggle_aperture"),
+    ("Toggle Runtime Chyron", "toggle_chyron"),
     ("Ingest PDF / Doc", "ingest_pdf"),
     ("Review Last Reply", "review"),
     ("Open Conversation Log", "conversation_log"),
@@ -188,6 +189,7 @@ class UiState:
     session_id: str | None = None
     session_title: str | None = None
     aperture_drawer_open: bool = False
+    runtime_chyron_open: bool = False
     model_status: dict[str, Any] | None = None
     last_turn_id: str | None = None
     last_user_text: str = ""
@@ -294,9 +296,9 @@ class HelpModal(ModalScreen[None]):
             "The top action bus keeps the menu plus quick ingest/aperture controls visible.\n"
             "F8 opens a full-width aperture drawer for a wider active-set scan.\n"
             "F9 opens the ingest bay so you can load a PDF or other document with a framing prompt.\n"
-            "The large left column is the Adam dialogue: longer scrolling transcript tape, reply-review status, and live composer.\n"
+            "The large left column is the Adam dialogue: longer scrolling transcript tape and live composer.\n"
             "The right column stacks the memgraph bus, a persistent hum fact box, a larger aperture/active-set read, and a lower reasoning surface with chain-like and hum-live lenses.\n"
-            "The runtime loop and session/event state ride in the merged bottom chyron so they stay visible without stealing panel width.\n"
+            "The runtime loop and session/event state live in a bottom-docked runtime/event chyron drawer that is hidden until pulled up.\n"
             "Use Action Bus -> Open Conversation Log to open the saved markdown transcript for the live session.\n"
             "Use Action Bus -> Open Conversation Atlas to browse saved sessions through folder and tag projections.\n"
             "Open Utilities Deck for detailed budget, thinking, history, ingest, launch utilities, and the UI look selector.\n"
@@ -312,6 +314,7 @@ class HelpModal(ModalScreen[None]):
             "[bold]F8[/] toggle the narrower top-band aperture drawer\n"
             "[bold]F9[/] open document ingest with framing prompt\n"
             "[bold]F10[/] open the conversation atlas\n"
+            "[bold]F11[/] toggle the runtime/event chyron drawer\n"
             "[bold]Esc[/] focus the composer on the main chat screen\n"
             "[bold]Esc[/] close this overlay\n\n"
             "Printable keys typed outside editable widgets are routed back into the composer automatically.\n"
@@ -2052,41 +2055,24 @@ class ChatScreen(Screen):
                     with Vertical(id="chat_deck"):
                         with VerticalScroll(id="chat_tape", can_focus=True):
                             yield Static(id="chat_exchange_panel")
-                        yield Static(id="feedback_loop_panel")
-                        with Vertical(id="inline_feedback_surface"):
-                            with Horizontal(id="inline_feedback_command_row"):
-                                yield Input(placeholder="Verdict code: A / E / R / S", id="inline_feedback_verdict_input")
-                            yield Static(id="inline_feedback_status_panel")
-                            yield ReviewTextArea(
-                                id="inline_feedback_explanation_input",
-                                soft_wrap=True,
-                                show_line_numbers=False,
-                                placeholder="Explain the review decision. Press Enter to submit. Shift+Enter adds a newline.",
-                            )
-                            yield ReviewTextArea(
-                                id="inline_feedback_corrected_input",
-                                soft_wrap=True,
-                                show_line_numbers=False,
-                                placeholder="Corrected text for EDIT. Press Enter to submit. Shift+Enter adds a newline.",
-                            )
                         yield ComposerTextArea(
                             id="composer_input",
                             soft_wrap=True,
                             show_line_numbers=False,
                             placeholder="Message Adam here. Ask a question, continue the session, or correct the draft. Enter sends. F9 ingests a document first if needed.",
                         )
-                        yield Static(id="composer_hint_panel")
-                with Vertical(id="chat_secondary"):
-                    yield SignalField(id="signal_field")
-                    yield Static(id="hum_panel")
-                    yield Static(id="active_aperture_panel")
-                    with Horizontal(id="reasoning_mode_row"):
-                        yield Button("Reasoning", id="reasoning_mode_reasoning_btn")
-                        yield Button("Chain-Like", id="reasoning_mode_chain_btn")
-                        yield Button("Hum Live", id="reasoning_mode_hum_btn")
-                    with VerticalScroll(id="thinking_scroller", can_focus=True):
-                        yield Static(id="thinking_panel")
-            yield Static(id="runtime_chyron_panel")
+                    with Vertical(id="chat_secondary"):
+                        yield SignalField(id="signal_field")
+                        yield Static(id="hum_panel")
+                        yield Static(id="active_aperture_panel")
+                        with Horizontal(id="reasoning_mode_row"):
+                            yield Button("Reasoning", id="reasoning_mode_reasoning_btn")
+                            yield Button("Chain-Like", id="reasoning_mode_chain_btn")
+                            yield Button("Hum Live", id="reasoning_mode_hum_btn")
+                        with VerticalScroll(id="thinking_scroller", can_focus=True):
+                            yield Static(id="thinking_panel")
+            with Vertical(id="runtime_chyron_drawer"):
+                yield Static(id="runtime_chyron_panel")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -2100,6 +2086,7 @@ class ChatScreen(Screen):
         self._sync_responsive_layout()
         self._health()
         self._sync_aperture_drawer()
+        self._sync_runtime_chyron_drawer()
         self._sync_header_controls()
         self.query_one("#action_bus_panel", Static).update(self.main_action_bus_panel())
         self.query_one("#runtime_status_strip", Static).update(self.main_action_status_panel())
@@ -2109,17 +2096,12 @@ class ChatScreen(Screen):
         self._sync_reasoning_mode_controls()
         self.query_one("#thinking_panel", Static).update(self.main_thinking_panel())
         self.query_one("#chat_exchange_panel", Static).update(self.main_chat_exchange_panel())
-        self.query_one("#feedback_loop_panel", Static).update(self.main_feedback_loop_panel())
-        self._sync_inline_feedback_surface()
-        self.query_one("#inline_feedback_status_panel", Static).update(self.main_inline_feedback_status_panel())
-        self.query_one("#composer_hint_panel", Static).update(self.main_composer_hint_panel())
         self.query_one("#runtime_chyron_panel", Static).update(self.main_runtime_chyron_panel())
 
     def _refresh_composer_surfaces(self) -> None:
         self.query_one("#action_bus_panel", Static).update(self.main_action_bus_panel())
         self.query_one("#runtime_status_strip", Static).update(self.main_action_status_panel())
         self.query_one("#chat_exchange_panel", Static).update(self.main_chat_exchange_panel())
-        self.query_one("#composer_hint_panel", Static).update(self.main_composer_hint_panel())
 
     def _is_compact_layout(self) -> bool:
         return (self.size.width or 0) < 100 or (self.size.height or 0) < 30
@@ -2136,10 +2118,7 @@ class ChatScreen(Screen):
         chat_secondary = self.query_one("#chat_secondary", Vertical)
         chat_deck = self.query_one("#chat_deck", Vertical)
         chat_tape = self.query_one("#chat_tape", VerticalScroll)
-        feedback_loop = self.query_one("#feedback_loop_panel", Static)
         composer = self.query_one("#composer_input", TextArea)
-        composer_hint = self.query_one("#composer_hint_panel", Static)
-        chyron = self.query_one("#runtime_chyron_panel", Static)
         signal_field = self.query_one("#signal_field", SignalField)
         hum_panel = self.query_one("#hum_panel", Static)
         aperture_panel = self.query_one("#active_aperture_panel", Static)
@@ -2160,10 +2139,6 @@ class ChatScreen(Screen):
             chat_tape.styles.min_height = 3
             chat_tape.styles.margin_bottom = 0
             composer.styles.height = 4
-            composer_hint.styles.height = 2
-            feedback_loop.styles.height = 3
-            chyron.styles.height = 4
-            chyron.styles.min_height = 4
             aperture_panel.styles.min_height = 0
             if app.ui_state.aperture_drawer_open:
                 chat_primary.display = False
@@ -2201,10 +2176,6 @@ class ChatScreen(Screen):
             chat_tape.styles.min_height = 22
             chat_tape.styles.margin_bottom = 1
             composer.styles.height = 5
-            composer_hint.styles.height = 2
-            feedback_loop.styles.height = 4
-            chyron.styles.height = 6
-            chyron.styles.min_height = 6
             aperture_panel.styles.height = 12
             aperture_panel.styles.min_height = 10
 
@@ -2457,6 +2428,26 @@ class ChatScreen(Screen):
             segments = [segment.strip() for segment in text.split(". ") if segment.strip()]
         return [f"{index + 1}. {safe_excerpt(segment, limit=line_limit)}" for index, segment in enumerate(segments[:limit])]
 
+    def _sync_runtime_chyron_drawer(self) -> None:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        drawer = self.query_one("#runtime_chyron_drawer", Vertical)
+        chyron = self.query_one("#runtime_chyron_panel", Static)
+        if app.ui_state.runtime_chyron_open:
+            drawer.styles.display = True
+            chyron.display = True
+            chyron.styles.height = 5 if self._is_compact_layout() else 6
+            chyron.styles.min_height = chyron.styles.height
+            drawer.styles.height = chyron.styles.height
+            drawer.styles.min_height = chyron.styles.height
+        else:
+            drawer.styles.display = False
+            chyron.display = False
+            drawer.styles.height = 0
+            drawer.styles.min_height = 0
+            chyron.styles.height = 0
+            chyron.styles.min_height = 0
+
     def _sync_reasoning_mode_controls(self) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
@@ -2484,17 +2475,6 @@ class ChatScreen(Screen):
             drawer.styles.height = max(11, int((self.size.height or 40) * 0.28))
         else:
             drawer.styles.height = 0
-
-    def _sync_inline_feedback_surface(self) -> None:
-        app = self.app
-        assert isinstance(app, EdenTuiApp)
-        surface = self.query_one("#inline_feedback_surface", Vertical)
-        has_reply = bool(app.ui_state.last_turn_id)
-        surface.display = False
-        if not has_reply:
-            surface.styles.height = 0
-            return
-        surface.styles.height = 0
 
     def _sync_header_controls(self) -> None:
         app = self.app
@@ -2549,37 +2529,6 @@ class ChatScreen(Screen):
         if latest_entry is not None and latest_entry.get("turn_id") == app.ui_state.last_turn_id:
             return ("reviewed", latest_entry)
         return ("pending", latest_entry)
-
-    def _inline_feedback_intent(self) -> tuple[str | None, str]:
-        raw_code = self.query_one("#inline_feedback_verdict_input", Input).value.strip().upper()
-        verdict_map = {
-            "A": "accept",
-            "E": "edit",
-            "R": "reject",
-            "S": "skip",
-        }
-        return verdict_map.get(raw_code), raw_code
-
-    def _inline_feedback_form_state(self) -> dict[str, Any]:
-        verdict, raw_code = self._inline_feedback_intent()
-        explanation = self.query_one("#inline_feedback_explanation_input", TextArea).text.strip()
-        corrected = self.query_one("#inline_feedback_corrected_input", TextArea).text.strip()
-        needs_explanation = verdict in {"accept", "edit", "reject"}
-        needs_corrected = verdict == "edit"
-        ready = verdict is not None
-        if needs_explanation:
-            ready = ready and bool(explanation)
-        if needs_corrected:
-            ready = ready and bool(corrected)
-        return {
-            "verdict": verdict,
-            "raw_code": raw_code,
-            "explanation": explanation,
-            "corrected": corrected,
-            "needs_explanation": needs_explanation,
-            "needs_corrected": needs_corrected,
-            "ready": ready,
-        }
 
     def _conversation_stage(self) -> tuple[str, str]:
         app = self.app
@@ -3136,108 +3085,6 @@ class ChatScreen(Screen):
             )
         return Group(*transcript)
 
-    def main_feedback_loop_panel(self) -> Panel:
-        state, latest_entry = self._feedback_loop_state()
-        app = self.app
-        assert isinstance(app, EdenTuiApp)
-        if state == "reviewed" and latest_entry is not None:
-            verdict = str(latest_entry.get("verdict", "skip")).upper()
-            border = NEON if verdict == "ACCEPT" else ROSE if verdict == "EDIT" else EMBER if verdict == "REJECT" else AMBER
-            text = Text.from_markup(
-                f"[bold {AMBER}]Reply review[/]\n"
-                f"latest verdict={verdict} for T{latest_entry.get('turn_index', '?')} at {latest_entry.get('created_at', 'n/a')}\n"
-                f"explanation={safe_excerpt(latest_entry.get('explanation') or 'none', limit=180)}\n"
-                "This feedback is already written into the graph through reward / risk / edit channels. "
-                "Press F7 to reopen the popup review surface if you want to revise the latest turn."
-            )
-            return Panel(text, title="Reply Review", border_style=border, style=f"on {SHADE_ALT}")
-        if state == "pending":
-            latest_turn = self._recent_turns(limit=1)
-            turn_label = f"T{latest_turn[0]['turn_index']}" if latest_turn else "latest"
-            text = Text.from_markup(
-                f"[bold {AMBER}]Reply review[/]\n"
-                f"Adam / {turn_label} is awaiting operator judgment.\n"
-                "A / E / R / S feedback is captured in the terminal popup.\n"
-                "The popup opens automatically after each submit and can be reopened with F7.\n"
-                "Submitting there writes a feedback event and updates the graph."
-            )
-            return Panel(text, title="Reply Review", border_style=ROSE, style=f"on {SHADE_ALT}")
-        if app.ui_state.last_ingest_result:
-            ingest = app.ui_state.last_ingest_result
-            text = Text.from_markup(
-                f"[bold {AMBER}]Reply review[/]\n"
-                f"Latest corpus root: {safe_excerpt(ingest.get('title', 'document'), limit=56)}.\n"
-                f"Framing brief={'present' if ingest.get('briefing') else 'absent'} | "
-                f"new memes={ingest.get('meme_count', 0)} + brief memes={ingest.get('brief_meme_count', 0)}.\n"
-                "Ask Adam about the document in this same session to exploit persistent recall."
-            )
-            return Panel(text, title="Reply Review", border_style=ICE, style=f"on {SHADE_ALT}")
-        text = Text.from_markup(
-            f"[bold {AMBER}]Reply review[/]\n"
-            "No turn needs review yet.\n"
-            "Once Adam answers, this strip will show whether the turn is pending review or already judged.\n"
-            "You can also start by ingesting a document with F9."
-        )
-        return Panel(text, title="Reply Review", border_style=AMBER, style=f"on {SHADE_ALT}")
-
-    def main_inline_feedback_status_panel(self) -> Panel:
-        state, latest_entry = self._feedback_loop_state()
-        app = self.app
-        assert isinstance(app, EdenTuiApp)
-        form = self._inline_feedback_form_state()
-        if state == "pending":
-            text = Text.from_markup(
-                "code="
-                + (form["raw_code"] or "·")
-                + " -> "
-                + str(form["verdict"] or "pending")
-                + " | enter="
-                + ("submits" if form["ready"] else "awaiting fields")
-                + " | explanation="
-                + ("ready" if form["explanation"] else ("needed" if form["needs_explanation"] else "n/a"))
-                + " | corrected="
-                + ("ready" if form["corrected"] else ("needed" if form["needs_corrected"] else "n/a"))
-                + " | submit="
-                + ("armed" if form["ready"] else "waiting")
-            )
-            border = NEON if form["ready"] else ROSE
-        elif state == "reviewed" and latest_entry is not None:
-            text = Text.from_markup(
-                f"Latest stored verdict={str(latest_entry.get('verdict', 'skip')).upper()} | "
-                f"turn=T{latest_entry.get('turn_index', '?')} | "
-                f"{safe_excerpt(latest_entry.get('explanation') or 'no explanation', limit=96)}"
-            )
-            border = NEON if str(latest_entry.get("verdict", "")).lower() == "accept" else AMBER
-        else:
-            text = Text.from_markup("Reply review unlocks after Adam answers.")
-            border = AMBER
-        return Panel(text, title="Graph Impact", border_style=border, style=f"on {SHADE_ALT}")
-
-    def main_composer_hint_panel(self) -> Panel:
-        app = self.app
-        assert isinstance(app, EdenTuiApp)
-        draft = self._composer_text().strip()
-        state = "draft-loaded" if draft else "idle"
-        stage, _ = self._conversation_stage()
-        stage_note = self._conversation_stage()[1]
-        compact = self._is_compact_layout()
-        if compact:
-            text = Text.from_markup(
-                f"[bold {AMBER}]Message composer[/]\n"
-                f"state={state} chars={len(draft)} convo={stage}\n"
-                f"{stage_note}\n"
-                "Esc returns here | Enter send | Shift+Enter newline | Ctrl+S send | F9 ingest | F5 new | F6 deck | F10 atlas"
-            )
-        else:
-            text = Text.from_markup(
-                f"[bold {AMBER}]Message composer[/]\n"
-                f"state={state} chars={len(draft)} backend={self._active_backend_label()} convo={stage}\n"
-                "Type below to talk to Adam. Esc returns focus here. Printable keys outside menus jump here automatically.\n"
-                "Tab can reach the dialogue tape and Hum Live pane; Up/Down/PageUp/PageDown scroll the focused viewport.\n"
-                "Enter send | Shift+Enter newline | Ctrl+S send | F9 ingest | F8 aperture | F5 new session | Shift+Tab header controls | F7 review | F10 atlas"
-            )
-        return Panel(text, title="Message Input", border_style=NEON if self.app.focused and getattr(self.app.focused, 'id', None) == "composer_input" else AMBER, style=f"on {SHADE_ALT}")
-
     def deck_summary_panel(self) -> Panel:
         app = self.app
         assert isinstance(app, EdenTuiApp)
@@ -3461,7 +3308,6 @@ class ChatScreen(Screen):
             self.query_one("#runtime_status_strip", Static).update(self.main_action_status_panel())
             self.query_one("#active_aperture_panel", Static).update(self.main_aperture_panel())
             self.query_one("#thinking_panel", Static).update(self.main_thinking_panel())
-            self.query_one("#composer_hint_panel", Static).update(self.main_composer_hint_panel())
             self.query_one("#runtime_chyron_panel", Static).update(self.main_runtime_chyron_panel())
         finally:
             self._preview_running = False
@@ -3473,54 +3319,6 @@ class ChatScreen(Screen):
     def handle_composer_changed(self, _event) -> None:
         self._refresh_composer_surfaces()
         self._schedule_preview_refresh()
-
-    async def _submit_inline_feedback_from_fields(self) -> None:
-        form = self._inline_feedback_form_state()
-        verdict = form["verdict"]
-        if verdict is None:
-            self.app.ui_state.last_feedback = "Review code must be A, E, R, or S."
-            self.refresh_panels()
-            return
-        await self.submit_feedback(
-            verdict,
-            explanation=form["explanation"],
-            corrected=form["corrected"],
-        )
-
-    @on(Input.Changed, "#inline_feedback_verdict_input")
-    def handle_inline_feedback_input_changed(self, _event: Input.Changed) -> None:
-        self._sync_inline_feedback_surface()
-        self.query_one("#inline_feedback_status_panel", Static).update(self.main_inline_feedback_status_panel())
-
-    @on(TextArea.Changed, "#inline_feedback_explanation_input")
-    @on(TextArea.Changed, "#inline_feedback_corrected_input")
-    def handle_inline_feedback_text_changed(self, _event: TextArea.Changed) -> None:
-        self.query_one("#inline_feedback_status_panel", Static).update(self.main_inline_feedback_status_panel())
-
-    @on(Input.Submitted, "#inline_feedback_verdict_input")
-    async def handle_inline_feedback_verdict_submitted(self, _event: Input.Submitted) -> None:
-        verdict, _ = self._inline_feedback_intent()
-        if verdict == "skip":
-            await self._submit_inline_feedback_from_fields()
-            return
-        if verdict in {"accept", "edit", "reject"}:
-            self.query_one("#inline_feedback_explanation_input", TextArea).focus()
-            return
-        self.app.ui_state.last_feedback = "Review code must be A, E, R, or S."
-        self.refresh_panels()
-        self.query_one("#inline_feedback_verdict_input", Input).focus()
-
-    @on(ReviewTextArea.Submitted, "#inline_feedback_explanation_input")
-    async def handle_inline_feedback_explanation_submitted(self, _event: ReviewTextArea.Submitted) -> None:
-        verdict, _ = self._inline_feedback_intent()
-        if verdict == "edit":
-            self.query_one("#inline_feedback_corrected_input", TextArea).focus()
-            return
-        await self._submit_inline_feedback_from_fields()
-
-    @on(ReviewTextArea.Submitted, "#inline_feedback_corrected_input")
-    async def handle_inline_feedback_corrected_submitted(self, _event: ReviewTextArea.Submitted) -> None:
-        await self._submit_inline_feedback_from_fields()
 
     async def _send_turn(self) -> None:
         app = self.app
@@ -3549,7 +3347,7 @@ class ChatScreen(Screen):
         self._set_text_area("#composer_input", "")
         await self._sync_conversation_log()
         self.refresh_panels()
-        await self.handle_review(open_inline_feedback=False)
+        await self.handle_review()
         self.focus_composer()
         self._scroll_chat_to_end()
         self._schedule_preview_refresh()
@@ -3726,12 +3524,6 @@ class ChatScreen(Screen):
         app.ui_state.last_feedback = f"Opened transcript log at {path}"
         self.refresh_panels()
 
-    def focus_inline_feedback(self) -> None:
-        try:
-            self.query_one("#inline_feedback_verdict_input", Input).focus()
-        except Exception:
-            self.focus_composer()
-
     def _feedback_popup_command(self) -> str:
         app = self.app
         assert isinstance(app, EdenTuiApp)
@@ -3768,7 +3560,7 @@ class ChatScreen(Screen):
                 return False, f"Failed to open Terminal feedback popup: {exc}"
         return False, "Feedback popup launch is currently wired for Terminal.app on macOS."
 
-    async def handle_review(self, *, open_inline_feedback: bool = True) -> None:
+    async def handle_review(self) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
         if not app.ui_state.last_turn_id:
@@ -3784,8 +3576,6 @@ class ChatScreen(Screen):
         )
         self._write_forensic(f"[INFO] Feedback popup :: {detail}")
         self.refresh_panels()
-        if open_inline_feedback:
-            self.call_after_refresh(self.focus_inline_feedback)
 
     async def handle_deck(self) -> None:
         await self.app.push_screen(DeckModal(self))
@@ -3826,6 +3616,17 @@ class ChatScreen(Screen):
         self.app.ui_state.reasoning_mode = "hum_live"
         self.refresh_panels()
 
+    def toggle_runtime_chyron(self) -> None:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        app.ui_state.runtime_chyron_open = not app.ui_state.runtime_chyron_open
+        app.ui_state.last_feedback = (
+            "Runtime event chyron opened from the bottom."
+            if app.ui_state.runtime_chyron_open
+            else "Runtime event chyron closed."
+        )
+        self.refresh_panels()
+
     def toggle_aperture_drawer(self) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
@@ -3845,7 +3646,7 @@ class ChatScreen(Screen):
         self.refresh_panels()
         if self._is_compact_layout() and app.ui_state.aperture_drawer_open:
             self.query_one("#header_aperture_btn", Button).focus()
-        elif not app.ui_state.aperture_drawer_open:
+        elif not app.ui_state.aperture_drawer_open and not app.ui_state.runtime_chyron_open:
             self.focus_composer()
 
     def _route_printable_to_composer(self, event) -> bool:
@@ -4079,6 +3880,8 @@ class ChatScreen(Screen):
             self.run_worker(self.handle_conversation_log(), exclusive=True, group="conversation_log")
         elif normalized == "toggle_aperture":
             self.toggle_aperture_drawer()
+        elif normalized == "toggle_chyron":
+            self.toggle_runtime_chyron()
         elif normalized == "ingest_pdf":
             self.run_worker(self.handle_ingest(), exclusive=True, group="ingest")
         elif normalized == "prepare_mlx":
@@ -4140,7 +3943,6 @@ class ChatScreen(Screen):
         if not self.is_mounted:
             return
         self.query_one("#runtime_status_strip", Static).update(self.main_action_status_panel())
-        self.query_one("#composer_hint_panel", Static).update(self.main_composer_hint_panel())
 
     def _handle_scroll_keys(self, event: events.Key) -> bool:
         focused_id = getattr(self.app.focused, "id", None)
@@ -4162,6 +3964,12 @@ class ChatScreen(Screen):
         return True
 
     def on_key(self, event) -> None:
+        if event.key == "escape" and self.app.ui_state.runtime_chyron_open:
+            self.app.ui_state.runtime_chyron_open = False
+            self.app.ui_state.last_feedback = "Runtime chyron closed."
+            self.refresh_panels()
+            event.stop()
+            return
         if event.key == "escape":
             message = "Composer focused."
             if self._is_compact_layout() and self.app.ui_state.aperture_drawer_open:
@@ -4362,12 +4170,16 @@ class EdenTuiApp(App):
         margin-bottom: 0;
     }}
     #runtime_chyron_panel {{
-        height: 6;
-        min-height: 6;
+        height: 0;
+        min-height: 0;
         margin: 0 1 1 1;
     }}
-    #feedback_loop_panel {{
-        height: 4;
+    #runtime_chyron_drawer {{
+        height: 0;
+        min-height: 0;
+        width: 100%;
+        dock: bottom;
+        margin: 0 1 1 1;
     }}
     #composer_input {{
         height: 5;
@@ -4389,9 +4201,6 @@ class EdenTuiApp(App):
     }}
     #runtime_action_menu:focus, #header_ingest_btn:focus, #header_aperture_btn:focus {{
         border: tall {ICE};
-    }}
-    #composer_hint_panel {{
-        height: 2;
     }}
     #review_explanation_input, #review_corrected_input, #ingest_prompt_input {{
         height: 6;
@@ -4714,6 +4523,7 @@ class EdenTuiApp(App):
         ("f8", "toggle_aperture", "Aperture"),
         ("f9", "open_ingest", "Ingest"),
         ("f10", "show_archive", "Archive"),
+        ("f11", "toggle_runtime_chyron", "Runtime Chyron"),
     ]
 
     def __init__(self, runtime: EdenRuntime) -> None:
@@ -4790,6 +4600,10 @@ class EdenTuiApp(App):
     async def action_new_session(self) -> None:
         if isinstance(self.screen, ChatScreen):
             self.screen.begin_new_session_flow()
+
+    async def action_toggle_runtime_chyron(self) -> None:
+        if isinstance(self.screen, ChatScreen):
+            self.screen.toggle_runtime_chyron()
 
     async def action_toggle_aperture(self) -> None:
         if isinstance(self.screen, ChatScreen):

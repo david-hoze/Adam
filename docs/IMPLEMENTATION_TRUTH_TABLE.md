@@ -13,13 +13,13 @@
 | Repo-local Qwen 3.5 MLX backend | Implemented | repo-local 4-shard model completed and real MLX generation succeeded |
 | Multiline composer | Implemented | `TextArea`-based; covered by TUI smoke test |
 | Composer focus recovery | Implemented | `Esc` returns focus to the composer, compact aperture view also collapses back to dialogue, and printable keys outside editable widgets are routed there automatically |
-| Dialogue-first chat layout | Implemented | primary left dialogue deck now biases harder toward transcript length by keeping a compact reply-review status strip plus composer visible, while the right telemetry stack carries memgraph, hum, aperture, reasoning, and the runtime chyron |
+| Dialogue-first chat layout | Implemented | primary left dialogue deck now keeps transcript plus composer visible while the right telemetry stack carries memgraph, hum, aperture, reasoning, and a bottom runtime chyron drawer that is hidden by default (`F11` to open) |
 | Scrolling dialogue tape | Implemented | prime transcript now renders the persisted session inside a focusable scroll container instead of a bounded fixed pane |
 | Static chiaroscuro transcript shading | Implemented | chat cards now use static shaded panel treatments instead of animated decorative glyph bands inside the message surface |
 | Event-driven prime-screen refresh | Implemented | removed the 450ms whole-screen repaint loop; transcript and graph-health surfaces now cache and refresh on state changes |
 | Operator-facing answer sanitization | Implemented | membrane now strips `Answer` / `Basis` / `Next Step` scaffolding and keeps model reasoning separate from Adam's visible reply |
 | Aperture pull-down drawer | Implemented | `F8` opens a full-width readable active-set scan on wide terminals and a compact aperture-only swap view on small terminals |
-| Latest-turn reply review popup | Implemented | `Review` / `F7` now launches a repo-local terminal popup for `accept` / `edit` / `reject` / `skip` on Adam's latest answer, while the prime dialogue deck keeps only compact review status |
+| Latest-turn reply review popup | Implemented | `Review` / `F7` now launches a repo-local terminal popup for `accept` / `edit` / `reject` / `skip` on Adam's latest answer |
 | Conversation log artifact | Implemented | active session transcript is written to markdown under `exports/conversations/` and surfaced via the action bus + merged runtime/event chyron |
 | Conversation atlas archive surface | Implemented | modal archive browser exposes all saved sessions through sort/filter plus virtual folder/tag projections stored in session metadata; the `F10`/binding path now opens it through the same worker-safe flow as the action bus |
 | Fixed local-MLX runtime contract | Implemented | the live TUI no longer exposes backend selection on the primary surface; local MLX is the normal runtime contract |

@@ -20,6 +20,33 @@ Docs updated:
 No feature docs changed; operational log appended and `.gitignore` updated to prevent future GitHub push failures.
 Remaining uncertainties or follow-ups:
 Older export artifacts remain tracked on `origin/main`; only the newly blocked oversized files were removed from the unpushed history.
+
+## [2026-03-14 11:14:12 EDT] PRE-FLIGHT
+Operator task:
+Align dialogue-window real-estate by removing obsolete inline review/messaging overhead and ensure runtime/event chyron behaves as a hidden-by-default bottom drawer.
+Task checksum:
+Remove inline review surface references from active operator-facing surfaces/docs and confirm runtime chyron toggle behavior remains available via F11 in a closed state until explicitly opened.
+Repo situation:
+Working tree already contains prior TUI edits from the current refactor, including popup-only review flow; continuing in-place in `/Users/brianray/Adam`.
+Relevant spec surfaces read:
+`docs/TUI_SPEC.md`, `docs/HOW_TO_USE_ADAM_TUI.md`, `docs/USER_JOURNEYS.md`, `docs/UX_AUDIT_AND_REPAIRS.md`.
+Natural-language contracts in force:
+`docs/PROJECT_CHARTER.md`, `docs/TUI_SPEC.md`, `docs/KNOWN_LIMITATIONS.md`, `docs/IMPLEMENTATION_TRUTH_TABLE.md`.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/docs/HOW_TO_USE_ADAM_TUI.md`, `/Users/brianray/Adam/docs/FIRST_RUN_QUICKSTART.md`, `/Users/brianray/Adam/docs/USER_JOURNEYS.md`, `/Users/brianray/Adam/docs/UX_AUDIT_AND_REPAIRS.md`, `/Users/brianray/Adam/codex_notes_garden.md`.
+Status register:
+- Implemented:
+- Instrumented:
+- Conceptual:
+  - UI surface text/docs synchronization for popup-only review and runtime-chyron discoverability
+- Unknown:
+  - Live terminal geometry verification of bottom-drawer behavior
+Risks / invariants:
+Keep drawer behavior and popup-only review intact; do not reintroduce inline review fields or extra composer/label widgets.
+Evidence plan:
+Apply single-pass patch to source/docs and report changed sections/line anchors for operator handoff.
+Shortest proof path:
+Reload TUI and confirm no `Reply Review`/`Message Input` inline panel is rendered and F11 toggles chyron visibility from hidden to shown state.
 ## [2026-03-07 09:51:43 EST] PRE-FLIGHT
 Task summary:
 Merge branch-held progress into `main` without losing work or reintroducing blocked oversized artifacts.
@@ -2654,3 +2681,59 @@ Remaining uncertainties: Existing tracked files under this path will remain trac
 Next shortest proof path:
 - Run `git status --short` after creating files in that directory to confirm they are ignored.
 - If files under that path are currently tracked, run `git rm -r --cached assets/cannonical_secondary_sources/` then commit.
+
+## [2026-03-14 11:16:20 EDT] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/codex_notes_garden.md`.
+Specs changed:
+No normative specs changed in this pass; existing `docs/TUI_SPEC.md` already documents a hidden bottom runtime/event chyron drawer and popup review.
+Natural-language contracts added/revised/preserved:
+Preserved existing contract alignment by keeping the popup-only feedback path and bottom-drawer semantics already established in TUI surface docs.
+Behavior implemented or modified:
+Refined the runtime chyron composition into a dedicated bottom docked drawer container that is hidden by default and toggled by `F11`.
+Retained runtime chyron content rendering in `main_runtime_chyron_panel` and popup-only review flow untouched.
+Evidence produced (tests / traces / commands / exports):
+`cd /Users/brianray/Adam && sed -n '2048,2076p' eden/tui/app.py && sed -n '2430,2450p' eden/tui/app.py && sed -n '4172,4184p' eden/tui/app.py` to verify layout, state sync, and drawer styles.
+Status register changes:
+- Implemented:
+  - Runtime event chyron drawer host container and visibility sync.
+- Instrumented:
+  - No new tracing/logging added in this pass.
+- Conceptual:
+  - Drawer pull-up behavior is visually constrained by runtime run-time geometry in the environment and needs confirmation.
+- Unknown:
+  - No live terminal screenshot proof of bottom pull-up animation was captured this turn.
+Truth-table / limitations updates:
+No updates to `docs/IMPLEMENTATION_TRUTH_TABLE.md` or `docs/KNOWN_LIMITATIONS.md` were required for this narrow layout patch.
+Remaining uncertainties:
+Live visual geometry verification (terminal size/perceived pull-up animation) has not been executed in this turn.
+Next shortest proof path:
+Open the TUI and verify `runtime_chyron_open` toggles from hidden (`F11` once) to visible and back (`F11` again) at the bottom band.
+
+## [2026-03-14 11:16:20 EDT] PRE-FLIGHT
+Operator task:
+Make runtime-loop real-estate fit by removing obsolete in-band review/composer framing and converting runtime event chyron to a bottom drawer that is hidden until `F11` opens it.
+Task checksum:
+1) keep review on popup-only flow,
+2) confirm no composer label/text box remains in dialogue column,
+3) make chyron reveal behavior explicit in bottom-drawer composition/state sync.
+Repo situation:
+Chat-screen refactor is already present and active in this working tree; no parallel branch merge context is active for this turn.
+Relevant spec surfaces read:
+`docs/TUI_SPEC.md`, `AGENTS.md`, `docs/HOW_TO_USE_ADAM_TUI.md`, `docs/USER_JOURNEYS.md`, `docs/UX_AUDIT_AND_REPAIRS.md`.
+Natural-language contracts in force:
+`docs/TUI_SPEC.md`, `docs/PROJECT_CHARTER.md`, and TUI runtime-control-path constraints.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/codex_notes_garden.md`.
+Status register:
+- Implemented:
+- Instrumented:
+- Conceptual:
+- Unknown:
+Risks / invariants:
+- The drawer should not reintroduce inline review surfaces or composer-owned status boxes.
+- Default visibility must remain hidden until toggled by `toggle_runtime_chyron`.
+Evidence plan:
+- Single apply_patch change plus operator-visible confirmation of `F11` reveal/close behavior and compact layout impact.
+Shortest proof path:
+- Reload TUI, issue `F11` from hidden state, verify chyron appears from bottom band, and issue `F11` again to hide.

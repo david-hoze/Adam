@@ -5,14 +5,14 @@ This is the operator manual for the current Adam terminal interface as verified 
 ## What To Do In The First Two Minutes
 
 1. Launch Adam with `.venv/bin/python -m eden`.
-2. Look for `Message Input`.
+2. Find the composer.
 3. Type a question.
 4. Press `Ctrl+S`.
 5. Read Adam's reply in `Adam Dialogue`.
 6. Press `Esc` if you want to get back to typing immediately.
 7. Press `F9` before the first turn if you want to load a document first.
 
-If the terminal is small, Adam now switches into a compact layout. In compact mode the transcript and composer stay visible, and the `Message Input` panel repeats the critical keys.
+If the terminal is small, Adam now switches into a compact layout. In compact mode the transcript and composer stay visible, and compact mode highlights the critical keys.
 
 ## What Each Panel Is For
 
@@ -56,27 +56,20 @@ When the tape has focus and there is enough history to scroll, `PageUp` and `Pag
 
 ### Reply Review
 
-The inline feedback strip that appears after Adam replies.
+The post-reply feedback surface is a dedicated popup (not inline).
 
 Use it to judge the latest answer:
 
-- `A` = accept
-- `E` = edit
-- `R` = reject
-- `S` = skip
+ - `A` = accept
+ - `E` = edit
+ - `R` = reject
+ - `S` = skip
 
-Press `Enter` to move into the next required field.
+- `F7` opens the review popup after an Adam reply.
+- `A`, `E`, and `R` use popup-required fields.
+- If there is no Adam reply yet, `F7` keeps you in the composer and tells you to send a turn first.
 
-When the last required field is filled, press `Enter` again to submit.
-
-Important:
-
-- `A`, `E`, and `R` require explanation
-- `E` also requires corrected text
-- `Shift+Enter` inserts a newline inside explanation or corrected text
-- if there is no Adam reply yet, `F7` now tells you that instead of pretending the review form exists
-
-### Message Input
+### Composer
 
 The composer.
 
@@ -165,7 +158,7 @@ Verified focus rules:
   - aperture button
   - dialogue tape
   - composer
-- After Adam replies, the inline review fields join the tab order ahead of the composer.
+- After Adam replies, the popup review is the dedicated review path; focus remains keyboard-first in chat.
 - `Esc` returns to the composer.
 
 Best recovery rule:
@@ -174,14 +167,12 @@ Best recovery rule:
 
 ## How To Start A Conversation
 
-1. Type in `Message Input`.
+1. Type in the composer.
 2. Press `Ctrl+S`.
 3. Read Adam's reply in `Adam Dialogue`.
 4. Either:
-   - review it immediately in the inline strip
+   - review it immediately in the popup
    - or press `Esc` and continue chatting
-
-After a send, Adam moves focus into the review strip on purpose. That is useful if you want to score the reply right away.
 
 ## How To Ingest Documents
 
@@ -227,7 +218,7 @@ Important:
 ### Review
 
 - Press `F7` after Adam replies.
-- Fill verdict, explanation, corrected text if needed, then confirm.
+- Fill the popup fields: verdict, explanation, and corrected text (for edit) as prompted.
 
 ### Deck
 
@@ -251,6 +242,6 @@ Typical export files:
 
 ## Practical Advice
 
-- If you are new, ignore most telemetry at first. Stay in `Message Input`, send one turn, then decide whether you need `F9`, `F6`, `F8`, or `F10`.
+- If you are new, ignore most telemetry at first. Stay in the composer, send one turn, then decide whether you need `F9`, `F6`, `F8`, or `F10`.
 - If the terminal feels cramped, keep working in compact mode and use `F6` or `F8` only when you need inspection.
 - If you want to find a saved conversation later, use `F10` rather than digging through files by hand.

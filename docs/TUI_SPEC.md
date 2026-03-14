@@ -67,10 +67,8 @@ Primary split:
 - left primary dialogue bay:
   - longer scrolling dialogue tape with persisted Brian / Adam turn boxes for the active session
   - static chiaroscuro-shaded transcript cards; decorative interior glyph bands are no longer rendered inside the chat text surface
-  - compact reply-review status strip for pending/reviewed latest-turn state
   - live Brian draft box when the composer is loaded
   - multiline `TextArea` composer for Brian the operator with strong focus styling
-  - message-input hint surface directly under the composer; `Enter` (or `Ctrl+S`) sends
   - keyboard-scrollable tape container so the operator can move up/down through the session history
 - right secondary telemetry bay:
   - enlarged slower-pulsing signal field / memgraph bus with explicit symbol legend and live update explanation
@@ -81,8 +79,9 @@ Primary split:
     - chain-like numbered steps derived from the visible reasoning artifact
     - hum-live chain-like rendering derived from the bounded hum artifact
     - focusable scroll viewport so longer reasoning or hum-live traces can be read in-place from the prime chat surface
-- bottom runtime strip:
+- bottom runtime drawer:
   - merged runtime/event chyron with loop phase, active-set summary, feedback state, transcript pointer, and latest event flow
+  - hidden by default and revealed via `F11` from the bottom
 
 Wide aperture drawer:
 
@@ -152,9 +151,9 @@ Secondary surfaces:
 - the signal field is explicitly explanatory: it renders a live orthographic memgraph slice using active-set nodes, recall anchors, recent trace events, and ingest roots while remaining separate from any claim about hidden activations
 - the memgraph bus keeps an always-visible legend for its glyph vocabulary so the operator can read it as a tool rather than decorative telemetry
 - the aperture is rendered as both a compact but more verbose bus-to-active-set read and a full-width pull-down readable scan with natural-language summaries plus a ranked queue
-- the prime surface keeps transcript, reply-review status, composer, memgraph, hum, aperture, reasoning, and the merged runtime/event chyron visible while the operator types; Deck still carries the detailed trace and budget surfaces
-- on compact terminals, the prime surface prioritizes transcript + composer + chyron and hides the right telemetry stack until the operator explicitly opens aperture/deeper surfaces
-- feedback is integrated into the primary dialogue bay through a compact latest-turn review status strip plus a dedicated terminal popup launched from `Review` / `F7`
+- the prime surface keeps transcript, composer, memgraph, hum, aperture, and reasoning visible while the operator types; Deck still carries the detailed trace and budget surfaces
+- on compact terminals, the prime surface prioritizes transcript + composer + runtime chyron trigger and hides the right telemetry stack until the operator explicitly opens aperture/deeper surfaces
+- feedback is integrated through a dedicated terminal popup launched from `Review` / `F7`
 - explicit review is now collected in that popup; it opens automatically after each successful turn submission, with `F7` available to reopen when needed
 - popup review reuses the graph-backed feedback path and therefore updates regard, reward, risk, and edit channels
 - `Review` only opens the popup when Adam has already replied; otherwise the composer keeps focus and the status line explains that there is nothing to review yet
@@ -198,4 +197,5 @@ Secondary surfaces:
 - `F8`: toggle the full-width aperture drawer
 - `F9`: open document ingest with framing prompt
 - `F10`: open the conversation atlas
+- `F11`: toggle runtime/event chyron drawer
 - `Esc`: return focus to the composer on the main chat screen
