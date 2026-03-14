@@ -22,6 +22,9 @@ async def test_tui_boots_blank_mode_and_uses_multiline_composer(runtime, sample_
         chat_secondary = app.screen.query_one("#chat_secondary")
         assert app.screen.query_one("#chat_deck").parent is chat_primary
         assert app.screen.query_one("#signal_field").parent is chat_secondary
+        assert app.screen.query_one("#aperture_drawer_panel").display is True
+        assert app.screen.query_one("#active_aperture_panel").display is False
+        assert app.screen.query_one_optional("#hum_panel") is None
         menu = app.screen.query_one("#runtime_action_menu", ActionStrip)
         assert menu.value == "review"
         rendered_strip = menu.render().plain
@@ -60,6 +63,9 @@ async def test_tui_boots_blank_mode_and_uses_multiline_composer(runtime, sample_
         assert app.ui_state.last_response
         assert "Answer:" not in app.ui_state.last_response
         assert "Basis:" not in app.ui_state.last_response
+        chat_group = app.screen.main_chat_exchange_panel()
+        assert getattr(chat_group.renderables[0], "style", None) == "on #000000"
+        assert getattr(chat_group.renderables[1], "style", None) == "on #321221"
         assert app.screen.query_one("#active_aperture_panel")
         assert app.screen.query_one("#thinking_panel")
         assert app.screen.query_one("#chat_tape")
@@ -226,6 +232,70 @@ async def test_tui_hum_live_pane_scrolls_when_focused(runtime) -> None:
         await pilot.press("home")
         await pilot.pause(0.1)
         assert thinking_scroller.scroll_y == 0
+
+
+@pytest.mark.asyncio
+async def test_reasoning_mode_buttons_switch_feed_titles(runtime) -> None:
+    app = EdenTuiApp(runtime)
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.pause(1.0)
+        app.ui_state.last_reasoning = "First visible reasoning beat.\nSecond visible reasoning beat."
+        app.ui_state.current_profile = {
+            "profile_name": "manual-balanced",
+            "requested_mode": "manual",
+            "effective_mode": "manual",
+            "response_char_cap": 1600,
+            "retrieval_depth": 8,
+            "max_context_items": 12,
+        }
+        app.ui_state.current_budget = {
+            "pressure_level": "LOW",
+            "prompt_budget_tokens": 1200,
+            "remaining_input_tokens": 900,
+            "count_method": "heuristic",
+        }
+
+        def hum_snapshot(_session_id: str) -> dict[str, object]:
+            return {
+                "present": True,
+                "artifact_version": "hum.v1",
+                "generated_at": "2026-03-13T21:10:00Z",
+                "latest_turn_id": "turn-hum",
+                "turn_window_size": 3,
+                "cross_turn_recurrence_present": True,
+                "text_surface": "continuity beat one\ncontinuity beat two\ncontinuity beat three",
+            }
+
+        runtime.hum_snapshot = hum_snapshot  # type: ignore[method-assign]
+        app.screen._recent_membrane_events = lambda limit=4: [  # type: ignore[method-assign]
+            {
+                "event_type": "PASSTHROUGH",
+                "detail": "Response passed the membrane unchanged.",
+            }
+        ]
+        app.screen.refresh_panels()
+        await pilot.pause(0.2)
+
+        assert str(app.screen.main_thinking_panel().title) == "Reasoning"
+        assert "Output contract" in app.screen.main_thinking_panel().renderable.plain
+        assert "Membrane record" in app.screen.main_thinking_panel().renderable.plain
+
+        app.screen.query_one("#reasoning_mode_chain_btn", Button).press()
+        await pilot.pause(0.2)
+        assert app.ui_state.reasoning_mode == "chain_like"
+        assert str(app.screen.main_thinking_panel().title) == "Chain-Like Trace"
+        assert "Turn assembly" in app.screen.main_thinking_panel().renderable.plain
+
+        app.screen.query_one("#reasoning_mode_hum_btn", Button).press()
+        await pilot.pause(0.2)
+        assert app.ui_state.reasoning_mode == "hum_live"
+        assert str(app.screen.main_thinking_panel().title) == "Hum Live Trace"
+        assert "Continuity telemetry" in app.screen.main_thinking_panel().renderable.plain
+
+        app.screen.query_one("#reasoning_mode_reasoning_btn", Button).press()
+        await pilot.pause(0.2)
+        assert app.ui_state.reasoning_mode == "reasoning"
+        assert str(app.screen.main_thinking_panel().title) == "Reasoning"
 
 
 @pytest.mark.asyncio

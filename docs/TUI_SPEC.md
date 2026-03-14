@@ -70,19 +70,18 @@ Primary split:
 
 - left primary dialogue bay:
   - longer scrolling dialogue tape with persisted Brian / Adam turn boxes for the active session
-  - static chiaroscuro-shaded transcript cards; decorative interior glyph bands are no longer rendered inside the chat text surface
+  - static alternating transcript cards for faster scanning: Brian cards sit on a true-black field and Adam cards on a slightly lifted rose-black shade; decorative interior glyph bands are no longer rendered inside the chat text surface
   - live Brian draft box when the composer is loaded
   - multiline `TextArea` composer for Brian the operator with strong focus styling
   - keyboard-scrollable tape container so the operator can move up/down through the session history
 - right secondary telemetry bay:
+  - top-right aperture / active-set slice beside the action shelf on wide terminals, so the current retrieval surface stays visible without consuming the lower telemetry stack
   - enlarged slower-pulsing signal field / memgraph bus with explicit symbol legend and live update explanation
-  - persistent hum fact box showing the bounded continuity artifact as a read-only matter of fact
-  - enlarged aperture / active-set slice that speaks directly to the bus lanes: docs, knowledge memes, behavior memes, memodes, and relation read
-  - lower reasoning slice with three operator lenses:
-    - direct visible reasoning
-    - chain-like numbered steps derived from the visible reasoning artifact
-    - hum-live chain-like rendering derived from the bounded hum artifact
-    - focusable scroll viewport so longer reasoning or hum-live traces can be read in-place from the prime chat surface
+  - lower reasoning/feed slice with three operator lenses:
+    - `Reasoning`: current linguistic condition, output contract, budget/scope, membrane record, and live consideration trace
+    - `Chain-Like`: numbered turn-assembly telemetry derived from live runtime state rather than raw model prose
+    - `Hum Live`: bounded continuity telemetry derived from the persisted hum artifact plus live membrane/feedback state
+    - focusable scroll viewport so longer reasoning or hum-live traces can be read in-place from the prime chat surface, directly beneath the memgraph bus
 - bottom runtime drawer:
   - merged runtime/event chyron with loop phase, active-set summary, feedback state, transcript pointer, and latest event flow
   - hidden by default and revealed via `F11` from the bottom
@@ -151,11 +150,11 @@ Secondary surfaces:
 - the dialogue tape is scrollable and can be navigated by focusing it, then using `Up`, `Down`, `PageUp`, `PageDown`, `Home`, or `End`
 - the reasoning / hum-live viewport is also scrollable when focused, using the same navigation keys as the dialogue tape
 - operator turns are persisted and graph-ingested as `Brian the operator: ...`
-- MLX/Qwen model-emitted thinking is surfaced as a dedicated panel instead of leaking into the main Adam response
+- MLX/Qwen model-emitted thinking is kept out of the main Adam response; the prime feed now emphasizes runtime linguistic condition, membrane behavior, continuity, and active consideration telemetry, while deeper raw reasoning remains a secondary surface
 - the signal field is explicitly explanatory: it renders a live orthographic memgraph slice using active-set nodes, recall anchors, recent trace events, and ingest roots while remaining separate from any claim about hidden activations
 - the memgraph bus keeps an always-visible legend for its glyph vocabulary so the operator can read it as a tool rather than decorative telemetry
-- the aperture is rendered as both a compact but more verbose bus-to-active-set read and a full-width pull-down readable scan with natural-language summaries plus a ranked queue
-- the prime surface keeps transcript, composer, memgraph, hum, aperture, and reasoning visible while the operator types; Deck still carries the detailed trace and budget surfaces
+- the aperture is rendered as both a compact top-right bus-to-active-set read and a wider pull-down readable scan with natural-language summaries plus a ranked queue
+- the prime surface keeps transcript, composer, aperture, memgraph, and reasoning/feed lenses visible while the operator types; the standalone hum fact box is removed from the prime screen, while `Hum Live` remains available as a reasoning/feed lens and Deck still carries the detailed trace and budget surfaces
 - on compact terminals, the prime surface prioritizes transcript + composer + runtime chyron trigger and hides the right telemetry stack until the operator explicitly opens aperture/deeper surfaces
 - feedback is integrated through a dedicated terminal popup launched from `Review` / `F7`
 - explicit review is now collected in that popup; it opens automatically after each successful turn submission, with `F7` available to reopen when needed

@@ -4,7 +4,7 @@ This document governs what `the hum` means in the current EDEN/ADAM build, where
 
 ## Status Register
 
-Implemented: The current build generates a bounded persisted hum artifact after turn persistence and after explicit feedback persistence. It is written per session as `logs/hum_state/<experiment_id>/<session_id>/current_hum.md` and `current_hum.json`, and surfaced read-only through `session_state_snapshot()`, observatory overview/session-turn payloads, `observatory_index.json`, the prime-TUI hum box, the observatory continuity strip, and the conversation-log footer.  
+Implemented: The current build generates a bounded persisted hum artifact after turn persistence and after explicit feedback persistence. It is written per session as `logs/hum_state/<experiment_id>/<session_id>/current_hum.md` and `current_hum.json`, and surfaced read-only through `session_state_snapshot()`, observatory overview/session-turn payloads, `observatory_index.json`, the prime-TUI `Hum Live` feed lens, the observatory continuity strip, and the conversation-log footer.  
 Instrumented: Historical hum artifact evidence still exists in `/Users/brianray/Desktop/adam_hum_ALL.md`, and the current build now records hum provenance, continuity summaries, and bounded metrics in machine-readable form.  
 Conceptual: Anything richer than the current bounded read-only artifact remains conceptual, including prompt injection, membrane consumption of hum, generation-input use, and a fuller historical-style compressed motif channel.  
 Unknown: Whether the hum should later grow beyond the current bounded observability surface, and how much higher-order recurrence the present derivation can truthfully support across broader workloads.
@@ -79,7 +79,7 @@ It is surfaced in these current truth surfaces:
 - `ObservatoryService.experiment_overview(... )["hum"]`
 - `ObservatoryService.session_turns(... )["hum"]`
 - exported `observatory_index.json["hum"]`
-- the prime chat-screen `Hum / Continuity` box in the TUI
+- the prime chat-screen `Hum Live` reasoning/feed lens in the TUI
 - the observatory continuity-strip hum card
 - the `### Hum` footer in the conversation log
 

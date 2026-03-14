@@ -94,14 +94,22 @@ Use it to answer practical questions like:
 
 Verified terminal behavior:
 
-- wide terminals: `F8` opens a full-width aperture drawer at the top
+- wide terminals: the compact aperture panel sits at the top right beside the action shelf, and `F8` expands that top panel into the wider drawer view
 - compact terminals: `F8` swaps the main view into an aperture-focused screen and `Esc` returns to dialogue
 
 ### Thinking / Reasoning
 
-The panel for model-emitted reasoning text plus the current trace summary.
+The lower-right feed surface for Adam's live linguistic condition and alignment constraints.
 
-Use it when you want to inspect how the runtime is weighting the turn. This is visible model output only.
+Use it when you want to inspect:
+
+- the current output contract
+- prompt-budget and scope pressure
+- recent membrane behavior
+- live consideration trace
+- bounded continuity state through `Hum Live`
+
+`Reasoning`, `Chain-Like`, and `Hum Live` are all views into this same feed surface. They now render structured runtime telemetry rather than dumping raw reasoning prose into the prime screen. There is no separate prime-screen hum box anymore; use `Hum Live` when you want the bounded continuity artifact in feed form.
 
 ### Runtime / Event Chyron
 

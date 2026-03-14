@@ -13,7 +13,7 @@
 | Repo-local Qwen 3.5 MLX backend | Implemented | repo-local 4-shard model completed and real MLX generation succeeded |
 | Multiline composer | Implemented | `TextArea`-based; covered by TUI smoke test |
 | Composer focus recovery | Implemented | `Esc` returns focus to the composer, compact aperture view also collapses back to dialogue, and printable keys outside editable widgets are routed there automatically |
-| Dialogue-first chat layout | Implemented | primary left dialogue deck now keeps transcript plus composer visible while the right telemetry stack carries memgraph, hum, aperture, reasoning, and a bottom runtime chyron drawer that is hidden by default (`F11` to open) |
+| Dialogue-first chat layout | Implemented | primary left dialogue deck now keeps transcript plus composer visible while the top row carries the action shelf plus aperture, the right telemetry stack carries memgraph plus the reasoning/feed surface, and the bottom runtime chyron drawer remains hidden by default (`F11` to open) |
 | Scrolling dialogue tape | Implemented | prime transcript now renders the persisted session inside a focusable scroll container instead of a bounded fixed pane |
 | Static chiaroscuro transcript shading | Implemented | chat cards now use static shaded panel treatments instead of animated decorative glyph bands inside the message surface |
 | Event-driven prime-screen refresh | Implemented | removed the 450ms whole-screen repaint loop; transcript and graph-health surfaces now cache and refresh on state changes |
@@ -24,7 +24,7 @@
 | Conversation atlas archive surface | Implemented | modal archive browser exposes all saved sessions through sort/filter plus virtual folder/tag projections stored in session metadata; the `F10`/binding path now opens it through the same worker-safe flow as the action strip |
 | Fixed local-MLX runtime contract | Implemented | the live TUI no longer exposes backend selection on the primary surface; local MLX is the normal runtime contract |
 | Deck + Review secondary surfaces | Implemented | detailed budget / thinking / history remain in `Deck`; explicit feedback remains in `Review` |
-| Dedicated model reasoning panel | Implemented | MLX/Qwen reasoning is kept on and surfaced separately from the final answer, with direct reasoning, chain-like, and hum-live lenses in the prime TUI plus a browser reasoning radio group in the observatory continuity strip; the prime-TUI reasoning pane is now a focusable scroll viewport for longer live traces |
+| Dedicated runtime reasoning/feed surface | Implemented | MLX/Qwen reasoning is kept separate from the final answer, but the prime TUI feed now centers runtime linguistic condition, membrane record, chain-like turn assembly, hum-live continuity, and consideration trace telemetry; the pane remains a focusable scroll viewport for longer live traces |
 | Operator-label turn persistence | Implemented | saved turns and graph-ingested operator text are punctuated as `Brian the operator: ...` |
 | Session-start inference profile flow | Implemented | new-session and blank/seeded session modal |
 | Manual inference mode | Implemented | persisted in session metadata and surfaced per turn |
@@ -36,7 +36,7 @@
 | Edit stores rationale and corrected answer separately | Implemented | persisted in `feedback_events` |
 | Persistent memes and memodes | Implemented | SQLite tables + edges + retrieval |
 | Regard math in code | Implemented | `eden/regard.py` |
-| Hum continuity artifact | Implemented as a bounded read-only runtime artifact | `eden/hum.py` derives `current_hum.md` plus `current_hum.json` from persisted `active_set_json`, `feedback_events`, and membrane events, refreshes after `chat()` and `apply_feedback()`, and now surfaces the bounded text surface through `session_state_snapshot()`, observatory overview/session turns, `observatory_index.json`, the prime-TUI hum box, the observatory continuity strip, and the conversation-log footer. Historical artifact lineage remains in `/Users/brianray/Desktop/adam_hum_ALL.md`. See `docs/HUM_SPEC.md`. |
+| Hum continuity artifact | Implemented as a bounded read-only runtime artifact | `eden/hum.py` derives `current_hum.md` plus `current_hum.json` from persisted `active_set_json`, `feedback_events`, and membrane events, refreshes after `chat()` and `apply_feedback()`, and now surfaces the bounded text surface through `session_state_snapshot()`, observatory overview/session turns, `observatory_index.json`, the prime-TUI `Hum Live` feed lens, the observatory continuity strip, and the conversation-log footer. Historical artifact lineage remains in `/Users/brianray/Desktop/adam_hum_ALL.md`. See `docs/HUM_SPEC.md`. |
 | PDF ingest | Implemented | validated on `eden_whitepaper_v14.pdf` |
 | CSV/TXT/Markdown ingest | Implemented | validated in tests |
 | Ingest framing prompt | Implemented | document ingest modal indexes operator framing text into the memgraph as persistent document-conditioning material |

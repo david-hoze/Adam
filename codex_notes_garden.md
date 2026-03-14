@@ -3023,3 +3023,191 @@ Remaining uncertainties:
 - Manual aesthetic judgment at the operator's preferred terminal geometry.
 Next shortest proof path:
 Launch `.venv/bin/python -m eden` at the operator's normal window size and verify the taller cyan action shelf spacing before any further visual micro-tuning.
+## [2026-03-14 13:08:47 EDT] PRE-FLIGHT
+Operator task:
+Change the Brian/Adam transcript turn backgrounds for clearer alternation: one party should render on true black and the other on a slightly lighter pinkish shade.
+Task checksum:
+Keep the existing transcript card structure and distinct speaker titles, but restyle the per-turn panel backgrounds so alternating turns are easier to scan visually without changing runtime behavior.
+Repo situation:
+Current worktree appears clean apart from `.DS_Store`. The prior top-action-shelf refactor is already present in the working copy. This append-only notes file is now back in scope.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`, current transcript rendering in `/Users/brianray/Adam/eden/tui/app.py`.
+Natural-language contracts in force:
+The TUI remains the primary runtime surface. Dialogue-first readability is the priority. Transcript cards are static, operator-readable surfaces; visual differentiation may change, but keyboard/runtime behavior must not.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/docs/TUI_SPEC.md`, append-only `/Users/brianray/Adam/codex_notes_garden.md`.
+Status register:
+- Implemented:
+  - Separate Brian/Adam transcript panels with distinct titles and borders.
+  - Static transcript card shading instead of animated glyph decoration.
+- Instrumented:
+  - None specifically tied to transcript coloration.
+- Conceptual:
+  - Alternating true-black versus soft-pink transcript background treatment for clearer speaker separation.
+- Unknown:
+  - Exact pink/black balance that reads cleanly in both amber-dark and current terminal rendering until visual verification.
+Risks / invariants:
+- Do not collapse Brian and Adam cards into the same background again.
+- Do not reduce text contrast or make verdict borders harder to read.
+- Do not change transcript ordering, review state, or message content handling.
+Evidence plan:
+- Patch the transcript panel styles, update the TUI spec wording for transcript card shading, then rerun full `./.venv/bin/pytest -q`.
+Shortest proof path:
+- Change only the transcript `Panel(..., style=...)` backgrounds in `main_chat_exchange_panel()`, revise the transcript-card design note in `docs/TUI_SPEC.md`, and rerun pytest.
+## [2026-03-14 13:11:00 EDT] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/tests/test_tui_smoke.py`, `/Users/brianray/Adam/docs/TUI_SPEC.md`, append-only `/Users/brianray/Adam/codex_notes_garden.md`.
+Specs changed:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`.
+Natural-language contracts added/revised/preserved:
+Preserved the dialogue-first transcript-card contract while revising its visual grammar: Brian and Adam cards remain separate static panels, but now use stronger alternating backgrounds for scan clarity.
+Behavior implemented or modified:
+Added `_dialogue_card_backgrounds()` to provide explicit speaker-surface backgrounds. On the dark look, Brian transcript panels and the live Brian draft now render on true black, while Adam transcript panels render on a slightly lighter rose-black field. Typewriter Light keeps the same alternation logic with lighter paper/rose tones instead of hard black.
+Evidence produced (tests / traces / commands / exports):
+`./.venv/bin/python -m py_compile /Users/brianray/Adam/eden/tui/app.py /Users/brianray/Adam/tests/test_tui_smoke.py`
+`./.venv/bin/pytest -q /Users/brianray/Adam/tests/test_tui_smoke.py -k "boots_blank_mode"` -> `1 passed, 11 deselected`
+`./.venv/bin/pytest -q` -> `70 passed in 51.72s`
+Status register changes:
+- Implemented:
+  - Alternating Brian/Adam transcript backgrounds with true-black versus rose-black separation in the dark look.
+  - Smoke-test ratchet for the default transcript panel background styles after a saved turn.
+- Instrumented:
+  - None newly added.
+- Conceptual:
+  - None newly introduced.
+- Unknown:
+  - Final operator preference on exact pink intensity still benefits from direct terminal viewing, but the alternation itself is now implemented and covered.
+Truth-table / limitations updates:
+No truth-table or limitations status change was required; updated `/Users/brianray/Adam/docs/TUI_SPEC.md` to keep the transcript-card description aligned with code.
+Remaining uncertainties:
+- Manual aesthetic preference on the exact rose-black shade.
+Next shortest proof path:
+Launch `.venv/bin/python -m eden` and visually confirm the new Brian/Adam turn contrast in the operator's normal terminal geometry.
+## [2026-03-14 15:22:10 EDT] PRE-FLIGHT
+Operator task:
+Slightly heighten Brian/Adam dialogue contrast again, move `Aperture / Active Set` into the top row beside the renovated menu, remove the standalone `Hum / Continuity` box from the prime chat surface, and give the reasoning/feed surface the freed right-column height.
+Task checksum:
+Rework the wide chat telemetry layout so the top row is action shelf + aperture, the right column keeps `Memgraph Bus` above the reasoning/feed stack, and the hum panel is removed from the prime screen without breaking the reasoning-mode controls or compact aperture behavior.
+Repo situation:
+Prior turn-color adjustment and integrated top action shelf are already in the working copy. This turn is a follow-on TUI layout polish/telemetry rationalization, still in the same repo state plus this append-only notes file.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`, current wide/compact layout and reasoning-panel code in `/Users/brianray/Adam/eden/tui/app.py`.
+Natural-language contracts in force:
+The TUI remains the primary runtime surface. Prime-screen telemetry should only show surfaces that help Brian the operator inspect Adam's live/runtime alignment. Dialogue-first operation, keyboard access, and truthful reasoning/hum semantics must remain intact even if the standalone hum box is removed from the prime screen.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/docs/TUI_SPEC.md`, `/Users/brianray/Adam/docs/HOW_TO_USE_ADAM_TUI.md`, `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`, `/Users/brianray/Adam/README.md`, `/Users/brianray/Adam/tests/test_tui_smoke.py`, append-only `/Users/brianray/Adam/codex_notes_garden.md`.
+Status register:
+- Implemented:
+  - Integrated top action shelf.
+  - Prime-screen `Hum / Continuity`, `Aperture / Active Set`, `Memgraph Bus`, and reasoning-mode surfaces.
+  - Reasoning-mode button wiring and panel rendering paths.
+- Instrumented:
+  - Hum artifact generation and reasoning text persistence remain available to the UI.
+- Conceptual:
+  - Telemetry layout reduced to aperture + memgraph + reasoning/feed surfaces on the prime screen.
+  - Slightly stronger Brian/Adam transcript contrast than the last turn's black/rose baseline.
+- Unknown:
+  - Exact right-column proportions needed for the reasoning feed to feel usable at `200x60` until runtime/test verification.
+Risks / invariants:
+- Do not break the reasoning-mode buttons or the actual panel content switching while resizing the right column.
+- Do not remove hum artifacts from the runtime; only remove the standalone prime-screen box unless evidence shows a deeper bug.
+- Do not regress compact layout recovery or wide aperture drawer behavior.
+Evidence plan:
+- Patch the layout/rendering code, update the TUI contract/docs for the new telemetry arrangement, add/adjust smoke coverage, and rerun full `./.venv/bin/pytest -q`.
+Shortest proof path:
+- Move `#active_aperture_panel` into `#runtime_topbar`, remove `#hum_panel` from `ChatScreen.compose()` and layout sync, enlarge the reasoning/feed region, slightly deepen the turn-card contrast, update docs/tests, and rerun pytest.
+## [2026-03-14 15:28:33 EDT] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/tests/test_tui_smoke.py`, `/Users/brianray/Adam/docs/TUI_SPEC.md`, `/Users/brianray/Adam/docs/HOW_TO_USE_ADAM_TUI.md`, `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`, `/Users/brianray/Adam/docs/HUM_SPEC.md`, `/Users/brianray/Adam/docs/USER_JOURNEYS.md`, `/Users/brianray/Adam/README.md`, append-only `/Users/brianray/Adam/codex_notes_garden.md`.
+Specs changed:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`, `/Users/brianray/Adam/docs/HOW_TO_USE_ADAM_TUI.md`, `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`, `/Users/brianray/Adam/docs/HUM_SPEC.md`, `/Users/brianray/Adam/docs/USER_JOURNEYS.md`, `/Users/brianray/Adam/README.md`.
+Natural-language contracts added/revised/preserved:
+Revised the prime-screen telemetry contract so only alignment-relevant surfaces stay in the live chat CLI: top action shelf plus aperture, right-column memgraph plus reasoning/feed lens, bottom runtime chyron. Preserved the hum artifact as a bounded runtime/observatory surface, but removed its standalone prime-screen fact box.
+Behavior implemented or modified:
+Removed `#hum_panel` from the chat-screen compose tree. Kept the topbar second slot and now use it as a persistent wide-terminal aperture panel that shows the compact aperture view by default and the wider drawer view when `F8` is active. Shrunk/removed the compact-only aperture widget outside aperture mode, widened the reasoning/feed region to occupy the space beneath `Memgraph Bus`, and added a smoke test proving the reasoning-mode buttons switch the feed titles. Slightly increased the Adam rose-black background contrast again while keeping Brian on true black.
+Evidence produced (tests / traces / commands / exports):
+`./.venv/bin/python -m py_compile /Users/brianray/Adam/eden/tui/app.py /Users/brianray/Adam/tests/test_tui_smoke.py`
+`./.venv/bin/pytest -q /Users/brianray/Adam/tests/test_tui_smoke.py -k "boots_blank_mode or hum_live or reasoning_mode_buttons or compact"` -> `4 passed, 9 deselected`
+`./.venv/bin/pytest -q` -> `71 passed in 53.48s`
+Status register changes:
+- Implemented:
+  - Wide-terminal top row now pairs the action shelf with the aperture surface.
+  - Prime-screen hum fact box removed; `Hum Live` remains as the feed/lens path for the bounded hum artifact.
+  - Reasoning-mode button smoke coverage now proves title/mode switching.
+  - Slightly stronger Adam transcript-card contrast (`#321221`) while Brian remains true black.
+- Instrumented:
+  - Hum artifact generation/persistence remain unchanged and still surface through observatory/session artifacts.
+- Conceptual:
+  - None newly introduced.
+- Unknown:
+  - Final operator preference on exact top-row proportions and rose-black intensity still benefits from direct runtime viewing.
+Truth-table / limitations updates:
+Updated `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md` and `/Users/brianray/Adam/docs/HUM_SPEC.md` to remove the stale prime-screen hum-box claim and to describe the aperture/memgraph/reasoning telemetry layout truthfully.
+Remaining uncertainties:
+- Aesthetic preference only: top-row aperture width and Adam-card pink intensity.
+Next shortest proof path:
+Launch `.venv/bin/python -m eden` at `200x60` and verify the top-row aperture placement and the enlarged reasoning/feed surface feel right before any further micro-tuning.
+## [2026-03-14 15:43:35 EDT] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/tests/test_tui_smoke.py`, `/Users/brianray/Adam/docs/TUI_SPEC.md`, `/Users/brianray/Adam/docs/HOW_TO_USE_ADAM_TUI.md`, `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`, `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`, `/Users/brianray/Adam/README.md`, append-only `/Users/brianray/Adam/codex_notes_garden.md`.
+Specs changed:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`, `/Users/brianray/Adam/docs/HOW_TO_USE_ADAM_TUI.md`, `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`, `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`, `/Users/brianray/Adam/README.md`.
+Natural-language contracts added/revised/preserved:
+Revised the prime feed contract again: the lower-right tabs remain `Reasoning`, `Chain-Like`, and `Hum Live`, but they now expose structured runtime telemetry about linguistic condition, output contract, budget/scope, membrane behavior, continuity, and consideration trace instead of leaning on raw reasoning prose.
+Behavior implemented or modified:
+Added `_recent_membrane_events()`, `_dominant_active_lane()`, `_feedback_status_phrase()`, and `_membrane_record_lines()` to build feed content from persisted runtime facts. Rewrote `main_thinking_panel()` so `Reasoning` shows output contract + budget/scope + membrane record, `Chain-Like` shows numbered turn-assembly telemetry, and `Hum Live` shows bounded continuity telemetry plus membrane/feedback state. The feed still ends with the live consideration trace. Raw model reasoning remains outside the main dialogue answer and is no longer the primary prime-screen feed content.
+Evidence produced (tests / traces / commands / exports):
+`./.venv/bin/python -m py_compile /Users/brianray/Adam/eden/tui/app.py /Users/brianray/Adam/tests/test_tui_smoke.py`
+`./.venv/bin/pytest -q /Users/brianray/Adam/tests/test_tui_smoke.py -k "reasoning_mode_buttons or hum_live or boots_blank_mode"` -> `3 passed, 10 deselected`
+`./.venv/bin/pytest -q` -> `71 passed in 53.60s`
+Status register changes:
+- Implemented:
+  - Prime feed tabs now render structured runtime telemetry instead of raw reasoning prose.
+  - Smoke coverage now proves mode-specific feed content sections (`Output contract`, `Turn assembly`, `Continuity telemetry`).
+- Instrumented:
+  - Membrane-event history is now surfaced directly in the prime feed as a runtime record.
+- Conceptual:
+  - None newly introduced.
+- Unknown:
+  - Operator preference on the exact amount of feed detail versus density still benefits from live terminal use.
+Truth-table / limitations updates:
+Updated `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md` and `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md` so they describe the feed as structured runtime telemetry rather than a raw reasoning artifact surface.
+Remaining uncertainties:
+- Visual density and copy calibration only; no known correctness gap remains in the telemetry feed wiring.
+Next shortest proof path:
+Launch `.venv/bin/python -m eden`, flip through `Reasoning` / `Chain-Like` / `Hum Live`, and confirm the new sections read as live alignment telemetry rather than narrative filler.
+## [2026-03-14 15:53:40 EDT] PRE-FLIGHT
+Operator task:
+Add clearer live status updates during Adam generation in the topbar gap between the action shelf and aperture panel, and make the `Reasoning` / `Chain-Like` / `Hum Live` feeds surface more useful material than mostly generation constraints.
+Task checksum:
+Keep the current wide-screen layout and telemetry ontology, but insert a dedicated live generation-status strip in the top row and rework the lower-right feed so it leads with actual captured reasoning / continuity artifacts and only secondarily shows runtime constraints.
+Repo situation:
+Worktree already contains the recent action-shelf, aperture-topbar, transcript shading, and structured-feed refactors from the same patch cycle. This is a follow-on correction turn inside that dirty-but-understood state. Append-only notes file remains in scope.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`, `/Users/brianray/Adam/docs/TURN_LOOP_AND_MEMBRANE.md`, `/Users/brianray/Adam/docs/HUM_SPEC.md`.
+Natural-language contracts in force:
+The TUI is the primary runtime surface. Prime-screen telemetry should help Brian the operator inspect Adam's live linguistic condition and alignment, but it must not overclaim hidden cognition. Visible model-emitted reasoning may be surfaced as an artifact; hidden chain-of-thought must not be fabricated or implied. The hum remains a bounded read-only continuity artifact.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/eden/runtime.py`, `/Users/brianray/Adam/eden/hum.py`, `/Users/brianray/Adam/tests/test_tui_smoke.py`, `/Users/brianray/Adam/docs/TUI_SPEC.md`, `/Users/brianray/Adam/docs/HOW_TO_USE_ADAM_TUI.md`, `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`, `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`, `/Users/brianray/Adam/README.md`, append-only `/Users/brianray/Adam/codex_notes_garden.md`.
+Status register:
+- Implemented:
+  - Top action shelf plus top-right aperture surface.
+  - Prime feed tabs wired to runtime state and bounded hum snapshot.
+  - Model-emitted reasoning text is persisted on turns when the backend emits it.
+- Instrumented:
+  - Runtime log carries start/complete generation events.
+  - Hum JSON artifact carries recurring items, overlap, feedback summary, and membrane summary.
+- Conceptual:
+  - A dedicated live topbar generation-status strip.
+  - Prime feed tabs that foreground actual reasoning/hum material instead of mostly constraints.
+- Unknown:
+  - Whether the current MLX path emits enough intermediate runtime signal to support richer live progress without new backend instrumentation.
+Risks / invariants:
+- Do not imply hidden reasoning when only visible reasoning artifacts are available.
+- Do not regress compact layout, action shelf behavior, or aperture placement.
+- Do not weaken the bounded/read-only hum contract by treating it as a generation input.
+- Do not block the UI further while adding status updates.
+Evidence plan:
+- Patch the topbar compose/layout and feed rendering, update the TUI/docs truthfully, add smoke coverage for the new topbar status and artifact-first feed content, and rerun `./.venv/bin/pytest -q`.
+Shortest proof path:
+- Add a small `#turn_status_panel` between the action shelf and aperture panel, track send-turn progress phases in UI state plus runtime-log polling, rework `main_thinking_panel()` to surface visible reasoning excerpts / numbered reasoning beats / detailed hum artifact content, then update docs/tests and rerun pytest.

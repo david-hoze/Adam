@@ -2291,7 +2291,6 @@ class ChatScreen(Screen):
                         )
                 with Vertical(id="chat_secondary"):
                     yield SignalField(id="signal_field")
-                    yield Static(id="hum_panel")
                     yield Static(id="active_aperture_panel")
                     with Horizontal(id="reasoning_mode_row"):
                         yield Button("Reasoning", id="reasoning_mode_reasoning_btn")
@@ -2319,9 +2318,9 @@ class ChatScreen(Screen):
             self._sync_aperture_drawer()
             self._sync_runtime_chyron_drawer()
             self._sync_header_controls()
-            self.query_one("#aperture_drawer_panel", Static).update(self.main_aperture_drawer_panel())
-            self.query_one("#active_aperture_panel", Static).update(self.main_aperture_panel())
-            self.query_one("#hum_panel", Static).update(self.main_hum_panel())
+            top_aperture = self.main_aperture_drawer_panel() if self.app.ui_state.aperture_drawer_open else self.main_aperture_panel()
+            self.query_one("#aperture_drawer_panel", Static).update(top_aperture)
+            self.query_one("#active_aperture_panel", Static).update(top_aperture)
             self._sync_reasoning_mode_controls()
             self.query_one("#thinking_panel", Static).update(self.main_thinking_panel())
             self.query_one("#chat_exchange_panel", Static).update(self.main_chat_exchange_panel())
@@ -2356,7 +2355,6 @@ class ChatScreen(Screen):
         chat_tape = self.query_one("#chat_tape", VerticalScroll)
         composer = self.query_one("#composer_input", TextArea)
         signal_field = self.query_one("#signal_field", SignalField)
-        hum_panel = self.query_one("#hum_panel", Static)
         aperture_panel = self.query_one("#active_aperture_panel", Static)
         reasoning_mode_row = self.query_one("#reasoning_mode_row", Horizontal)
         thinking_scroller = self.query_one("#thinking_scroller", VerticalScroll)
@@ -2379,7 +2377,7 @@ class ChatScreen(Screen):
                 chat_primary.display = False
                 chat_secondary.display = True
                 signal_field.display = False
-                hum_panel.display = False
+                aperture_panel.display = True
                 reasoning_mode_row.display = False
                 thinking_scroller.display = False
                 aperture_panel.styles.height = "1fr"
@@ -2387,39 +2385,41 @@ class ChatScreen(Screen):
                 chat_primary.display = True
                 chat_secondary.display = False
                 signal_field.display = True
-                hum_panel.display = True
+                aperture_panel.display = False
                 reasoning_mode_row.display = True
                 thinking_scroller.display = True
-                aperture_panel.styles.height = 12
+                aperture_panel.styles.height = 0
         else:
             chat_primary.display = True
             chat_secondary.display = True
             signal_field.display = True
-            hum_panel.display = True
+            aperture_panel.display = False
             reasoning_mode_row.display = True
             thinking_scroller.display = True
             if app.ui_state.aperture_drawer_open:
-                action_strip.styles.width = "42%"
+                action_strip.styles.width = "44%"
                 action_strip.styles.min_width = 42
-                aperture_drawer.styles.width = "58%"
-                action_width = max(42, int((self.size.width or 120) * 0.42) - 4)
-                drawer_height = max(11, int((self.size.height or 40) * 0.28))
+                aperture_drawer.styles.width = "56%"
+                action_width = max(42, int((self.size.width or 120) * 0.44) - 4)
+                drawer_height = max(13, int((self.size.height or 40) * 0.30))
                 topbar.styles.height = max(action_strip.preferred_height(action_width), drawer_height)
             else:
-                action_strip.styles.width = "1fr"
-                action_strip.styles.min_width = 0
-                aperture_drawer.styles.width = 0
-                topbar.styles.height = action_strip.preferred_height(max(48, (self.size.width or 120) - 4))
+                action_strip.styles.width = "68%"
+                action_strip.styles.min_width = 68
+                aperture_drawer.styles.width = "32%"
+                action_width = max(42, int((self.size.width or 120) * 0.68) - 4)
+                topbar.styles.height = max(action_strip.preferred_height(action_width), 11)
             chat_deck.styles.min_height = 28
-            chat_primary.styles.width = "62%"
-            chat_primary.styles.min_width = 78
-            chat_secondary.styles.width = "38%"
-            chat_secondary.styles.min_width = 46
+            chat_primary.styles.width = "60%"
+            chat_primary.styles.min_width = 76
+            chat_secondary.styles.width = "40%"
+            chat_secondary.styles.min_width = 50
             chat_tape.styles.min_height = 22
             chat_tape.styles.margin_bottom = 1
             composer.styles.height = 5
-            aperture_panel.styles.height = 12
-            aperture_panel.styles.min_height = 10
+            aperture_panel.styles.height = 0
+            thinking_scroller.styles.height = "1fr"
+            thinking_scroller.styles.min_height = 16
 
     def on_resize(self, _event: events.Resize) -> None:
         if self.is_mounted:
@@ -2664,11 +2664,55 @@ class ChatScreen(Screen):
             }
         return app.runtime.hum_snapshot(app.ui_state.session_id)
 
+    def _recent_membrane_events(self, *, limit: int = 4) -> list[dict[str, Any]]:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        if not app.ui_state.experiment_id:
+            return []
+        return app.runtime.store.list_membrane_events(
+            app.ui_state.experiment_id,
+            limit=limit,
+            session_id=app.ui_state.session_id,
+        )
+
     def _chain_like_lines(self, text: str, *, limit: int = 6, line_limit: int = 96) -> list[str]:
         segments = [segment.strip(" -") for segment in str(text or "").replace("\r", "\n").splitlines() if segment.strip()]
         if not segments and text.strip():
             segments = [segment.strip() for segment in text.split(". ") if segment.strip()]
         return [f"{index + 1}. {safe_excerpt(segment, limit=line_limit)}" for index, segment in enumerate(segments[:limit])]
+
+    def _dominant_active_lane(self, active_items: list[dict[str, Any]]) -> str:
+        if not active_items:
+            return "quiet"
+        behavior_mass = sum(float(item.get("selection", 0.0)) for item in active_items if item.get("domain") == "behavior")
+        knowledge_mass = sum(float(item.get("selection", 0.0)) for item in active_items if item.get("domain") != "behavior")
+        if knowledge_mass > behavior_mass * 1.15:
+            return "knowledge-led"
+        if behavior_mass > knowledge_mass * 1.15:
+            return "behavior-led"
+        return "balanced"
+
+    def _feedback_status_phrase(self, latest_feedback: dict[str, Any] | None) -> str:
+        feedback_state, _ = self._feedback_loop_state()
+        if latest_feedback is not None:
+            return (
+                f"{str(latest_feedback.get('verdict', 'skip')).upper()} on "
+                f"T{latest_feedback.get('turn_index', '?')}: "
+                f"{safe_excerpt(str(latest_feedback.get('explanation') or 'no explanation'), limit=52)}"
+            )
+        if feedback_state == "pending":
+            return "reply pending review"
+        return "no explicit feedback yet"
+
+    def _membrane_record_lines(self, membrane_events: list[dict[str, Any]], *, limit: int = 3, line_limit: int = 88) -> list[str]:
+        if not membrane_events:
+            return ["No membrane events recorded yet. The next Adam reply will log the operator-facing cleanup path."]
+        lines: list[str] = []
+        for event in membrane_events[:limit]:
+            event_type = str(event.get("event_type") or "UNKNOWN").upper()
+            detail = safe_excerpt(str(event.get("detail") or "no detail"), limit=line_limit)
+            lines.append(f"{event_type} :: {detail}")
+        return lines
 
     def _sync_runtime_chyron_drawer(self) -> None:
         app = self.app
@@ -2712,11 +2756,8 @@ class ChatScreen(Screen):
             drawer.display = False
             drawer.styles.height = 0
             return
-        drawer.display = app.ui_state.aperture_drawer_open
-        if app.ui_state.aperture_drawer_open:
-            drawer.styles.height = max(11, int((self.size.height or 40) * 0.28))
-        else:
-            drawer.styles.height = 0
+        drawer.display = True
+        drawer.styles.height = "1fr"
 
     def _sync_header_controls(self) -> None:
         self.query_one("#runtime_action_menu", ActionStrip).refresh()
@@ -3121,6 +3162,18 @@ class ChatScreen(Screen):
         budget = app.ui_state.current_budget or {}
         hum = self._current_hum_snapshot()
         reasoning_mode = app.ui_state.reasoning_mode
+        active_items = self._active_items()
+        membrane_events = self._recent_membrane_events(limit=4)
+        latest_feedback = self._recent_feedback_entries(limit=1)
+        latest_feedback_entry = latest_feedback[0] if latest_feedback else None
+        feedback_phrase = self._feedback_status_phrase(latest_feedback_entry)
+        reasoning_chars = len((app.ui_state.last_reasoning or "").strip())
+        dominant_lane = self._dominant_active_lane(active_items)
+        focus_item = (
+            max(active_items, key=lambda item: float(item.get("selection", 0.0)))
+            if active_items
+            else {"label": "none yet", "selection": 0.0, "regard": 0.0, "activation": 0.0}
+        )
         trace_lines = [
             f">> {item.get('label', 'untitled')} sel={float(item.get('selection', 0.0)):.2f} "
             f"reg={float(item.get('regard', 0.0)):.2f} act={float(item.get('activation', 0.0)):.2f}"
@@ -3130,48 +3183,71 @@ class ChatScreen(Screen):
             trace_lines = [">> no active consideration trace yet"]
         state = "draft-armed" if self._composer_text().strip() else "persisted"
         body = Text.from_markup(
-            f"[bold {AMBER}]Reasoning surface[/]\n"
-            f"state={state} mode={profile.get('requested_mode', 'pending')} -> {profile.get('effective_mode', 'pending')}\n"
-            f"pressure={budget.get('pressure_level', 'n/a')} cap={profile.get('response_char_cap', 'n/a')} lens={reasoning_mode}\n\n"
+            f"[bold {AMBER}]Linguistic condition[/]\n"
+            f"state={state} profile={profile.get('profile_name', 'pending')} mode={profile.get('requested_mode', 'pending')} -> {profile.get('effective_mode', 'pending')}\n"
+            f"pressure={budget.get('pressure_level', 'n/a')} response_cap={profile.get('response_char_cap', 'n/a')} retrieval_depth={profile.get('retrieval_depth', 'n/a')}\n"
+            f"lane={dominant_lane} focus={safe_excerpt(str(focus_item.get('label', 'none yet')), limit=32)} reasoning_artifact={'present' if reasoning_chars else 'quiet'} lens={reasoning_mode}\n\n"
         )
         if reasoning_mode == "hum_live":
             hum_lines = self._chain_like_lines(hum.get("text_surface") or "", limit=5, line_limit=88)
+            body.append("Continuity telemetry\n", style=f"bold {ICE}")
+            body.append(
+                f"artifact={hum.get('artifact_version', 'hum.v1')} generated={hum.get('generated_at') or 'pending'}\n"
+                f"latest_turn={hum.get('latest_turn_id') or 'none'} window={hum.get('turn_window_size', 0)} recurrence={'yes' if hum.get('cross_turn_recurrence_present') else 'no'}\n"
+                f"feedback={feedback_phrase} | membrane_events={len(membrane_events)}\n\n",
+                style=TEXT,
+            )
             if hum_lines:
-                body.append("Hum-live chain\n", style=f"bold {ICE}")
+                body.append("Hum-live continuity beats\n", style=f"bold {ICE}")
                 body.append("\n".join(hum_lines), style=ICE)
                 body.append("\n\n", style=TEXT)
             else:
                 body.append(
-                    "No bounded hum artifact yet. Once persisted continuity exists, this lens mirrors the live hum in chain-like beats.\n\n",
+                    "No bounded hum artifact yet. Once persisted continuity exists, this lens reports the bounded continuity record rather than model prose.\n\n",
                     style=MUTED,
                 )
+            body.append("Membrane record\n", style=f"bold {NEON}")
+            body.append("\n".join(f"- {line}" for line in self._membrane_record_lines(membrane_events, limit=3)), style=TEXT)
+            body.append("\n\n", style=TEXT)
         elif reasoning_mode == "chain_like":
-            chain_lines = self._chain_like_lines(app.ui_state.last_reasoning, limit=6, line_limit=88)
-            if chain_lines:
-                body.append("Operator-visible chain-like steps\n", style=f"bold {NEON}")
-                body.append("\n".join(chain_lines), style=TEXT)
-                body.append("\n\n", style=TEXT)
-            else:
-                body.append(
-                    "No model-emitted reasoning yet. This lens will number the visible reasoning artifact when one exists.\n\n",
-                    style=MUTED,
-                )
-        elif app.ui_state.last_reasoning:
-            body.append(safe_excerpt(app.ui_state.last_reasoning, limit=960), style=TEXT)
+            chain_steps = [
+                f"Session is {state}; profile {profile.get('profile_name', 'pending')} keeps mode {profile.get('requested_mode', 'pending')} -> {profile.get('effective_mode', 'pending')}.",
+                f"Retrieval is {dominant_lane} with {len(active_items)} active items; current focus is {safe_excerpt(str(focus_item.get('label', 'none yet')), limit=44)}.",
+                f"Output contract holds one operator-facing reply in Adam's voice with response cap {profile.get('response_char_cap', 'n/a')}; headings and hidden reasoning stay blocked.",
+                f"Budget pressure is {budget.get('pressure_level', 'n/a')} with remaining_input={budget.get('remaining_input_tokens', 'n/a')} and count_method={budget.get('count_method', 'n/a')}.",
+                f"Feedback state is {feedback_phrase}.",
+                f"Membrane record shows {', '.join(str(event.get('event_type') or 'UNKNOWN').upper() for event in membrane_events[:3]) or 'no events yet'}.",
+                f"Continuity signal is {'present' if hum.get('present') else 'not yet present'} with recurrence={'yes' if hum.get('cross_turn_recurrence_present') else 'no'}.",
+            ]
+            body.append("Turn assembly\n", style=f"bold {NEON}")
+            body.append("\n".join(f"{index + 1}. {safe_excerpt(step, limit=118)}" for index, step in enumerate(chain_steps[:6])), style=TEXT)
             body.append("\n\n", style=TEXT)
         else:
+            body.append("Output contract\n", style=f"bold {NEON}")
             body.append(
-                "No model-emitted reasoning yet. The live trace below shows what the runtime is weighting before the next turn.\n\n",
-                style=MUTED,
+                f"- Adam voice stays operator-facing and single-reply bounded.\n"
+                f"- Headings such as Answer / Basis / Next Step are scrubbed if emitted.\n"
+                f"- Hidden reasoning stays out of the visible answer; artifact stored separately={('yes' if reasoning_chars else 'no')} chars={reasoning_chars}.\n"
+                f"- Recent feedback stays binding for the next reply: {feedback_phrase}.\n\n",
+                style=TEXT,
             )
+            body.append("Budget / scope\n", style=f"bold {AMBER}")
+            body.append(
+                f"- prompt_budget={budget.get('prompt_budget_tokens', 'n/a')} remaining_input={budget.get('remaining_input_tokens', 'n/a')} count_method={budget.get('count_method', 'n/a')}\n"
+                f"- retrieval_depth={profile.get('retrieval_depth', 'n/a')} max_context={profile.get('max_context_items', 'n/a')} active_items={len(active_items)}\n\n",
+                style=TEXT,
+            )
+            body.append("Membrane record\n", style=f"bold {ICE}")
+            body.append("\n".join(f"- {line}" for line in self._membrane_record_lines(membrane_events, limit=3)), style=TEXT)
+            body.append("\n\n", style=TEXT)
         body.append("Consideration trace\n", style=f"bold {NEON}")
-        body.append("\n".join(trace_lines), style=ICE if app.ui_state.last_reasoning else TEXT)
+        body.append("\n".join(trace_lines), style=ICE if active_items else TEXT)
         panel_title = {
             "reasoning": "Reasoning",
             "chain_like": "Chain-Like Trace",
             "hum_live": "Hum Live Trace",
         }.get(reasoning_mode, "Reasoning")
-        border = ICE if reasoning_mode == "hum_live" and hum.get("present") else NEON if app.ui_state.last_reasoning else AMBER
+        border = ICE if reasoning_mode == "hum_live" and hum.get("present") else NEON if active_items or membrane_events else AMBER
         return Panel(body, title=panel_title, border_style=border, style=f"on {SHADE}")
 
     def main_hum_panel(self) -> Panel:
@@ -3270,9 +3346,17 @@ class ChatScreen(Screen):
         )
         return Panel(text, title="Runtime / Event Chyron", border_style=AMBER, style=f"on {SHADE_ALT}")
 
+    def _dialogue_card_backgrounds(self) -> tuple[str, str]:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        if app.current_ui_look() == "typewriter_light":
+            return ("#fbf7f0", "#efd1de")
+        return ("#000000", "#321221")
+
     def main_chat_exchange_panel(self):
         app = self.app
         assert isinstance(app, EdenTuiApp)
+        brian_background, adam_background = self._dialogue_card_backgrounds()
         turns = self._all_turns()
         if self._transcript_cache_session_id != app.ui_state.session_id:
             self._invalidate_transcript_cache()
@@ -3302,7 +3386,7 @@ class ChatScreen(Screen):
                         Text(brian_text, style=TEXT),
                         title=f"Brian / T{turn['turn_index']}",
                         border_style=MUTED,
-                        style=f"on {CHIARO_BRONZE}",
+                        style=f"on {brian_background}",
                     )
                 )
                 transcript.append(
@@ -3310,7 +3394,7 @@ class ChatScreen(Screen):
                         Text(adam_text, style=TEXT),
                         title=adam_title,
                         border_style=adam_border,
-                        style=f"on {CHIARO_WINE}",
+                        style=f"on {adam_background}",
                     )
                 )
             self._transcript_cache_session_id = app.ui_state.session_id
@@ -3323,7 +3407,7 @@ class ChatScreen(Screen):
                     Text(operator_live, style=TEXT),
                     title="Brian / Draft",
                     border_style=ROSE,
-                    style=f"on {CHIARO_WINE}",
+                    style=f"on {brian_background}",
                 )
             )
         if not transcript:
@@ -3601,7 +3685,9 @@ class ChatScreen(Screen):
             if not self.is_mounted:
                 return
             self.query_one("#runtime_action_menu", ActionStrip).refresh()
-            self.query_one("#active_aperture_panel", Static).update(self.main_aperture_panel())
+            top_aperture = self.main_aperture_drawer_panel() if app.ui_state.aperture_drawer_open else self.main_aperture_panel()
+            self.query_one("#aperture_drawer_panel", Static).update(top_aperture)
+            self.query_one("#active_aperture_panel", Static).update(top_aperture)
             self.query_one("#thinking_panel", Static).update(self.main_thinking_panel())
             self.query_one("#runtime_chyron_panel", Static).update(self.main_runtime_chyron_panel())
         finally:
@@ -4351,7 +4437,8 @@ class EdenTuiApp(App):
     }}
     #aperture_drawer_panel {{
         display: none;
-        margin: 0 1 1 1;
+        margin: 0 0 1 1;
+        min-width: 34;
     }}
     #startup_topbar {{
         height: 8;
@@ -4456,16 +4543,13 @@ class EdenTuiApp(App):
         width: 100%;
     }}
     #signal_field {{
-        height: 15;
-        min-height: 13;
-    }}
-    #hum_panel {{
-        height: 8;
-        min-height: 7;
+        height: 14;
+        min-height: 12;
     }}
     #active_aperture_panel {{
-        height: 12;
-        min-height: 10;
+        display: none;
+        height: 0;
+        min-height: 0;
     }}
     #reasoning_mode_row {{
         height: 3;
@@ -4475,8 +4559,8 @@ class EdenTuiApp(App):
         margin-bottom: 0;
     }}
     #thinking_scroller {{
-        height: 12;
-        min-height: 10;
+        height: 1fr;
+        min-height: 16;
         background: {CHIARO_SHADOW};
         scrollbar-gutter: stable;
         scrollbar-size-vertical: 2;

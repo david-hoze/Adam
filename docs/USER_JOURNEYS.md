@@ -24,9 +24,9 @@ Expected result:
 
 - Focus starts in the composer.
 - On wide terminals, you see:
-  - `Action Strip` at the top
+  - `Action Strip` plus `Aperture / Active Set` across the top
   - `Adam Dialogue` and `Composer` on the left
-  - `Memgraph Bus`, `Aperture / Active Set`, and `Thinking / Reasoning` on the right
+  - `Memgraph Bus` and `Thinking / Reasoning` on the right
   - `Runtime / Event Chyron` hidden as a bottom drawer (open with `F11`)
 - On compact terminals, the right telemetry stack is hidden by default so the transcript and composer stay visible.
 
