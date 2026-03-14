@@ -233,6 +233,30 @@ class ReviewTextArea(TextArea):
         await super()._on_key(event)
 
 
+class ComposerTextArea(TextArea):
+    @dataclass
+    class Submitted(Message):
+        textarea: "ComposerTextArea"
+        value: str
+
+        @property
+        def control(self) -> "ComposerTextArea":
+            return self.textarea
+
+    async def _on_key(self, event: events.Key) -> None:
+        if event.key == "enter":
+            event.stop()
+            event.prevent_default()
+            self.post_message(self.Submitted(self, self.text))
+            return
+        if event.key == "shift+enter":
+            event.stop()
+            event.prevent_default()
+            self._replace_via_keyboard("\n", *self.selection)
+            return
+        await super()._on_key(event)
+
+
 def _sync_node_look(node: Any) -> str:
     app = getattr(node, "app", None)
     runtime = getattr(app, "runtime", None)
@@ -278,7 +302,7 @@ class HelpModal(ModalScreen[None]):
             "Open Utilities Deck for detailed budget, thinking, history, ingest, launch utilities, and the UI look selector.\n"
             "Review Last Reply opens a dedicated terminal popup for graph-backed feedback on Adam's latest answer.\n\n"
             "[bold]F1[/] help overlay\n"
-            "[bold]Ctrl+S[/] send current input\n"
+            "[bold]Enter[/] send current input (or [bold]Ctrl+S[/] as a shortcut)\n"
             "[bold]F2[/] export graph, basin, and geometry artifacts\n"
             "[bold]F3[/] ensure observatory is running and open the current export surface\n"
             "[bold]F4[/] toggle low motion for the current session request\n"
@@ -2045,11 +2069,11 @@ class ChatScreen(Screen):
                                 show_line_numbers=False,
                                 placeholder="Corrected text for EDIT. Press Enter to submit. Shift+Enter adds a newline.",
                             )
-                        yield TextArea(
+                        yield ComposerTextArea(
                             id="composer_input",
                             soft_wrap=True,
                             show_line_numbers=False,
-                            placeholder="Message Adam here. Ask a question, continue the session, or correct the draft. Ctrl+S sends. F9 ingests a document first if needed.",
+                            placeholder="Message Adam here. Ask a question, continue the session, or correct the draft. Enter sends. F9 ingests a document first if needed.",
                         )
                         yield Static(id="composer_hint_panel")
                 with Vertical(id="chat_secondary"):
@@ -2112,6 +2136,7 @@ class ChatScreen(Screen):
         chat_secondary = self.query_one("#chat_secondary", Vertical)
         chat_deck = self.query_one("#chat_deck", Vertical)
         chat_tape = self.query_one("#chat_tape", VerticalScroll)
+        feedback_loop = self.query_one("#feedback_loop_panel", Static)
         composer = self.query_one("#composer_input", TextArea)
         composer_hint = self.query_one("#composer_hint_panel", Static)
         chyron = self.query_one("#runtime_chyron_panel", Static)
@@ -2132,10 +2157,11 @@ class ChatScreen(Screen):
             chat_primary.styles.min_width = 0
             chat_secondary.styles.width = "1fr"
             chat_secondary.styles.min_width = 0
-            chat_tape.styles.min_height = 4
+            chat_tape.styles.min_height = 3
             chat_tape.styles.margin_bottom = 0
             composer.styles.height = 4
-            composer_hint.styles.height = 4
+            composer_hint.styles.height = 2
+            feedback_loop.styles.height = 3
             chyron.styles.height = 4
             chyron.styles.min_height = 4
             aperture_panel.styles.min_height = 0
@@ -2172,10 +2198,11 @@ class ChatScreen(Screen):
             chat_primary.styles.min_width = 78
             chat_secondary.styles.width = "38%"
             chat_secondary.styles.min_width = 46
-            chat_tape.styles.min_height = 20
+            chat_tape.styles.min_height = 22
             chat_tape.styles.margin_bottom = 1
             composer.styles.height = 5
-            composer_hint.styles.height = 4
+            composer_hint.styles.height = 2
+            feedback_loop.styles.height = 4
             chyron.styles.height = 6
             chyron.styles.min_height = 6
             aperture_panel.styles.height = 12
@@ -2295,7 +2322,7 @@ class ChatScreen(Screen):
         snapshot = await asyncio.to_thread(partial(app.runtime.session_state_snapshot, session["id"]))
         app.apply_session_snapshot(snapshot)
         self._mark_graph_dirty()
-        app.ui_state.last_feedback = "Live dialogue surface armed. Ask a question with Ctrl+S or ingest a document with F9."
+        app.ui_state.last_feedback = "Live dialogue surface armed. Ask a question with Enter (or Ctrl+S) or ingest a document with F9."
         self._write_forensic(f"[INFO] Armed session :: {snapshot['session_title']}")
         self.refresh_panels()
         self.focus_composer()
@@ -2461,29 +2488,13 @@ class ChatScreen(Screen):
     def _sync_inline_feedback_surface(self) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
-        state, _ = self._feedback_loop_state()
         surface = self.query_one("#inline_feedback_surface", Vertical)
         has_reply = bool(app.ui_state.last_turn_id)
-        surface.display = has_reply
+        surface.display = False
         if not has_reply:
             surface.styles.height = 0
             return
-        command_row = self.query_one("#inline_feedback_command_row", Horizontal)
-        explanation = self.query_one("#inline_feedback_explanation_input", TextArea)
-        corrected = self.query_one("#inline_feedback_corrected_input", TextArea)
-        verdict, _ = self._inline_feedback_intent()
-        show_controls = state in {"pending", "reviewed"}
-        needs_explanation = verdict in {"accept", "edit", "reject"}
-        needs_corrected = verdict == "edit"
-        command_row.display = show_controls
-        explanation.display = show_controls and needs_explanation
-        corrected.display = show_controls and needs_corrected
-        height = 16
-        if needs_explanation:
-            height += 5
-        if needs_corrected:
-            height += 5
-        surface.styles.height = height if show_controls else 7
+        surface.styles.height = 0
 
     def _sync_header_controls(self) -> None:
         app = self.app
@@ -2582,11 +2593,11 @@ class ChatScreen(Screen):
                     "start",
                     f"Document armed: {safe_excerpt(app.ui_state.last_ingest_result.get('title', 'recent ingest'), limit=32)}. Ask below or press F9 to ingest again.",
                 )
-            return ("start", "Start here: type below, press Ctrl+S to send, or press F9 to ingest first.")
+            return ("start", "Start here: type below, press Enter to send, or press F9 to ingest first.")
         if draft:
-            return ("ask", "Draft ready. Press Ctrl+S to send.")
+            return ("ask", "Draft ready. Press Enter to send.")
         if feedback_state == "pending":
-            return ("review", "Adam replied. Press F7 to open the reply-review popup.")
+            return ("review", "Adam replied. Popup review opens automatically after submission; press F7 to reopen it if needed.")
         if turns:
             return ("continue", "Conversation active. Keep typing below, or press F5 for a clean session.")
         return ("start", "Session is armed. Begin when ready.")
@@ -3115,7 +3126,7 @@ class ChatScreen(Screen):
             transcript.append(
                 Panel(
                     Text(
-                        "Start here: type in the composer below and press Ctrl+S to send. Press F9 first if you want to ingest a document with a framing note.",
+                        "Start here: type in the composer below and press Enter to send. Press F9 first if you want to ingest a document with a framing note.",
                         style=MUTED,
                     ),
                     title="Adam Dialogue",
@@ -3146,8 +3157,8 @@ class ChatScreen(Screen):
             text = Text.from_markup(
                 f"[bold {AMBER}]Reply review[/]\n"
                 f"Adam / {turn_label} is awaiting operator judgment.\n"
-                "Inline review now submits with Enter on the last required field; Shift+Enter inserts a newline.\n"
-                "A / E / R require explanation. E also requires corrected text. Press F7 for the terminal popup if you prefer.\n"
+                "A / E / R / S feedback is captured in the terminal popup.\n"
+                "The popup opens automatically after each submit and can be reopened with F7.\n"
                 "Submitting there writes a feedback event and updates the graph."
             )
             return Panel(text, title="Reply Review", border_style=ROSE, style=f"on {SHADE_ALT}")
@@ -3215,7 +3226,7 @@ class ChatScreen(Screen):
                 f"[bold {AMBER}]Message composer[/]\n"
                 f"state={state} chars={len(draft)} convo={stage}\n"
                 f"{stage_note}\n"
-                "Esc returns here | Ctrl+S send | F9 ingest | F5 new | F6 deck | F10 atlas"
+                "Esc returns here | Enter send | Shift+Enter newline | Ctrl+S send | F9 ingest | F5 new | F6 deck | F10 atlas"
             )
         else:
             text = Text.from_markup(
@@ -3223,7 +3234,7 @@ class ChatScreen(Screen):
                 f"state={state} chars={len(draft)} backend={self._active_backend_label()} convo={stage}\n"
                 "Type below to talk to Adam. Esc returns focus here. Printable keys outside menus jump here automatically.\n"
                 "Tab can reach the dialogue tape and Hum Live pane; Up/Down/PageUp/PageDown scroll the focused viewport.\n"
-                "Ctrl+S send | F9 ingest | F8 aperture | F5 new session | Shift+Tab header controls | F7 review | F10 atlas"
+                "Enter send | Shift+Enter newline | Ctrl+S send | F9 ingest | F8 aperture | F5 new session | Shift+Tab header controls | F7 review | F10 atlas"
             )
         return Panel(text, title="Message Input", border_style=NEON if self.app.focused and getattr(self.app.focused, 'id', None) == "composer_input" else AMBER, style=f"on {SHADE_ALT}")
 
@@ -3531,16 +3542,21 @@ class ChatScreen(Screen):
         app.ui_state.current_budget = outcome.budget
         app.ui_state.current_profile = outcome.profile
         self._mark_graph_dirty()
-        app.ui_state.last_feedback = f"Saved turn T{outcome.turn['turn_index']} from Brian. Press F7 to review in a popup."
+        app.ui_state.last_feedback = f"Saved turn T{outcome.turn['turn_index']} from Brian. Opening review popup..."
         self._write_forensic(
             f"[INFO] Turn T{outcome.turn['turn_index']} stored :: active_set={len(outcome.active_set)} pressure={outcome.budget.get('pressure_level', 'n/a')}"
         )
         self._set_text_area("#composer_input", "")
         await self._sync_conversation_log()
         self.refresh_panels()
+        await self.handle_review(open_inline_feedback=False)
         self.focus_composer()
         self._scroll_chat_to_end()
         self._schedule_preview_refresh()
+
+    @on(ComposerTextArea.Submitted, "#composer_input")
+    async def handle_composer_submitted(self, _event: ComposerTextArea.Submitted) -> None:
+        await self._send_turn()
 
     async def submit_feedback(self, verdict: str, *, explanation: str, corrected: str) -> None:
         app = self.app
@@ -3752,7 +3768,7 @@ class ChatScreen(Screen):
                 return False, f"Failed to open Terminal feedback popup: {exc}"
         return False, "Feedback popup launch is currently wired for Terminal.app on macOS."
 
-    async def handle_review(self) -> None:
+    async def handle_review(self, *, open_inline_feedback: bool = True) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
         if not app.ui_state.last_turn_id:
@@ -3768,7 +3784,8 @@ class ChatScreen(Screen):
         )
         self._write_forensic(f"[INFO] Feedback popup :: {detail}")
         self.refresh_panels()
-        self.call_after_refresh(self.focus_inline_feedback)
+        if open_inline_feedback:
+            self.call_after_refresh(self.focus_inline_feedback)
 
     async def handle_deck(self) -> None:
         await self.app.push_screen(DeckModal(self))
@@ -4350,7 +4367,7 @@ class EdenTuiApp(App):
         margin: 0 1 1 1;
     }}
     #feedback_loop_panel {{
-        height: 6;
+        height: 4;
     }}
     #composer_input {{
         height: 5;
@@ -4374,7 +4391,7 @@ class EdenTuiApp(App):
         border: tall {ICE};
     }}
     #composer_hint_panel {{
-        height: 4;
+        height: 2;
     }}
     #review_explanation_input, #review_corrected_input, #ingest_prompt_input {{
         height: 6;

@@ -420,7 +420,7 @@ async def test_tui_compact_layout_keeps_first_action_and_escape_recovery(runtime
 
         hint = app.screen.main_composer_hint_panel().renderable
         assert "Start here:" in hint.plain
-        assert "Ctrl+S" in hint.plain
+        assert "Enter" in hint.plain
         assert "F10 atlas" in hint.plain
 
         await pilot.press("tab")

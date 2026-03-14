@@ -70,7 +70,7 @@ Primary split:
   - compact reply-review status strip for pending/reviewed latest-turn state
   - live Brian draft box when the composer is loaded
   - multiline `TextArea` composer for Brian the operator with strong focus styling
-  - message-input hint surface directly under the composer; `Ctrl+S` sends
+  - message-input hint surface directly under the composer; `Enter` (or `Ctrl+S`) sends
   - keyboard-scrollable tape container so the operator can move up/down through the session history
 - right secondary telemetry bay:
   - enlarged slower-pulsing signal field / memgraph bus with explicit symbol legend and live update explanation
@@ -155,12 +155,12 @@ Secondary surfaces:
 - the prime surface keeps transcript, reply-review status, composer, memgraph, hum, aperture, reasoning, and the merged runtime/event chyron visible while the operator types; Deck still carries the detailed trace and budget surfaces
 - on compact terminals, the prime surface prioritizes transcript + composer + chyron and hides the right telemetry stack until the operator explicitly opens aperture/deeper surfaces
 - feedback is integrated into the primary dialogue bay through a compact latest-turn review status strip plus a dedicated terminal popup launched from `Review` / `F7`
-- inline review is keyboard-first: `Enter` advances to the next required field and submits from the final required field; `Shift+Enter` inserts a newline inside explanation/corrected-response fields
-- popup review still reuses the graph-backed feedback path and therefore updates regard, reward, risk, and edit channels
+- explicit review is now collected in that popup; it opens automatically after each successful turn submission, with `F7` available to reopen when needed
+- popup review reuses the graph-backed feedback path and therefore updates regard, reward, risk, and edit channels
 - `Review` only opens the popup when Adam has already replied; otherwise the composer keeps focus and the status line explains that there is nothing to review yet
 - conversation logs are written as markdown artifacts under `exports/conversations/` for the active session and surfaced on-screen plus via `Open Conversation Log`
 - the conversation atlas treats saved sessions as a relational transcript library: all logs remain under the single export root while folder/tag organization is stored as session metadata and projected in the atlas
-- conversation boundaries are explicit through the live contract, transcript state, and inline review flow: ask or ingest, review when Adam answers, and end by opening a new session
+- conversation boundaries are explicit through the live contract, transcript state, automatic popup review after each assistant turn, and new-session flow: ask or ingest, review when Adam answers, and end by opening a new session
 - budget changes remain visible, but now live in Deck instead of the prime chat pane
 - latest-session resume restores the latest persisted session surface without forcing a new session flow first
 - keyboard-only navigation is supported through top action-bus focus, `Enter` execution, `Tab` / `Shift+Tab` focus cycling, and the function-key bindings
@@ -188,7 +188,7 @@ Secondary surfaces:
 ## Key bindings
 
 - `F1`: help
-- `Ctrl+S`: send turn
+- `Enter`: send turn (or `Ctrl+S` as a shortcut)
 - `F2`: export observability artifacts
 - `F3`: ensure/open local observatory
 - `F4`: toggle low-motion in the current session request
