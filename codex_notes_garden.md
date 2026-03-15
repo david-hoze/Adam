@@ -3370,3 +3370,67 @@ Remaining uncertainties:
 - Older archaeology docs may still describe popup-era behavior; normative/user-facing surfaces were updated in this turn.
 Next shortest proof path:
 Launch `.venv/bin/python -m eden`, send a fresh Adam turn, verify that review now stays in the chat column, and inspect `Hum Live` against the referenced historical hum file to decide whether the current bounded motif/channel is sufficient or whether the derivation inputs need to grow in a future spec change.
+## [2026-03-15 12:26:40 EDT] PRE-FLIGHT
+Operator task:
+Clean up the prime chat turn flow so submitted inline feedback collapses into a compact stored-feedback line, while the verdict / explanation / corrected-text inputs disappear after submission until the next Adam reply needs review.
+Task checksum:
+Hide reviewed-state inline feedback inputs without regressing structured feedback semantics, and update the TUI contract/tests/docs in the same turn.
+Repo situation:
+Working tree is clean before edits. Relevant implementation is concentrated in `/Users/brianray/Adam/eden/tui/app.py` with user-facing guidance in `/Users/brianray/Adam/docs/TUI_SPEC.md`, `/Users/brianray/Adam/docs/EXPERIMENT_PROTOCOLS.md`, and `/Users/brianray/Adam/docs/HOW_TO_USE_ADAM_TUI.md`.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`, `/Users/brianray/Adam/docs/EXPERIMENT_PROTOCOLS.md`.
+Natural-language contracts in force:
+Feedback remains explicit, structured, and graph-backed. `accept` / `reject` require explanation; `edit` requires explanation plus corrected text. The TUI remains the primary runtime surface and conversation boundaries must stay legible in the dialogue column.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/tests/test_tui_smoke.py`, `/Users/brianray/Adam/docs/TUI_SPEC.md`, `/Users/brianray/Adam/docs/HOW_TO_USE_ADAM_TUI.md`, `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`.
+Status register:
+- Implemented:
+  - Inline feedback is mounted in the chat column and graph-backed through `submit_feedback()`.
+  - Transcript cards already show the latest verdict on Adam turns after feedback is stored.
+- Instrumented:
+  - Smoke coverage already proves the inline feedback submit paths for accept / skip / edit.
+- Conceptual:
+  - Reviewed-state collapse into a compact stored-feedback line.
+- Unknown:
+  - Whether any additional user-facing docs beyond the TUI spec and operator guide need wording updates for the tighter reviewed-state behavior.
+Risks / invariants:
+- Do not regress `accept` / `edit` / `reject` / `skip` submission rules or focus flow.
+- Do not leave stale copy that still promises editable fields after feedback has already been stored.
+- Keep turn boundaries clearer, not busier.
+Evidence plan:
+- Patch the inline feedback visibility/state rendering in `/Users/brianray/Adam/eden/tui/app.py`.
+- Extend `/Users/brianray/Adam/tests/test_tui_smoke.py` to prove the form collapses after submit and reopens on the next pending review.
+- Update the relevant TUI/user-facing docs to match the new reviewed-state contract.
+- Run `./.venv/bin/pytest -q` before handoff.
+Shortest proof path:
+- Make reviewed turns render only the compact stored-feedback status panel, hide the form widgets until the next reply is awaiting review, prove that state transition in TUI smoke coverage, then rerun the full test suite.
+## [2026-03-15 12:30:32 EDT] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/tests/test_tui_smoke.py`, `/Users/brianray/Adam/docs/TUI_SPEC.md`, `/Users/brianray/Adam/docs/HOW_TO_USE_ADAM_TUI.md`, `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`, `/Users/brianray/Adam/docs/USER_JOURNEYS.md`, append-only `/Users/brianray/Adam/codex_notes_garden.md`.
+Specs changed:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`.
+Natural-language contracts added/revised/preserved:
+Revised the TUI contract so the explicit-feedback form is only expanded while Adam's latest reply is awaiting review. Preserved explicit structured feedback semantics and the inline-in-chat review path. Updated user-facing guidance/truth surfaces to say the reviewed state collapses to a compact stored-feedback line above the composer until the next Adam reply.
+Behavior implemented or modified:
+`ChatScreen._sync_inline_feedback_surface()` now hides the verdict/explanation/corrected widgets after feedback is stored and re-expands them only for the next pending review. `main_inline_feedback_status_panel()` now renders a compact reviewed-state line instead of inviting another appended review event. `focus_inline_feedback()` / `handle_review()` now keep focus in the composer once the latest reply is already settled. The stale `"Popup review stored"` status copy was replaced with `"Stored feedback ..."`.
+Evidence produced (tests / traces / commands / exports):
+`python3.12 -m py_compile /Users/brianray/Adam/eden/tui/app.py` -> success
+`./.venv/bin/pytest -q /Users/brianray/Adam/tests/test_tui_smoke.py` -> `14 passed in 43.47s`
+`./.venv/bin/pytest -q` -> `72 passed in 55.28s`
+Status register changes:
+- Implemented:
+  - Reviewed inline feedback now collapses to a compact stored-feedback line and reopens only when the next Adam reply needs review.
+  - `F7` only drives focus into the inline form while review is pending; settled replies leave the operator in the composer.
+- Instrumented:
+  - Smoke coverage now proves the reviewed-state collapse and next-turn re-arm path.
+- Conceptual:
+  - No new conceptual surface added in this turn.
+- Unknown:
+  - Live terminal aesthetics still need operator eyes; automated proof covers behavior/state, not screenshot-level spacing polish.
+Truth-table / limitations updates:
+Updated `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md` to reflect the pending-only inline form plus stored-feedback collapse. No limitations-surface change was needed for this turn.
+Remaining uncertainties:
+- `.DS_Store` is modified in the worktree but unrelated to this task.
+- The compact reviewed-state line is behaviorally proved; its exact visual feel in the terminal still needs human judgment.
+Next shortest proof path:
+Launch `.venv/bin/python -m eden`, submit one feedback event, confirm the compact stored-feedback line reads clearly in the dialogue bay, then send the next turn and verify the inline form reappears only for that new pending review.

@@ -52,9 +52,11 @@ Use it to judge the latest answer:
  - `R` = reject
  - `S` = skip
 
-- `F7` focuses the inline review surface after an Adam reply.
+- `F7` focuses the inline review surface when the latest Adam reply is still awaiting review.
 - `A`, `E`, and `R` use inline required fields.
+- After submission, the form collapses to a compact stored-feedback line until Adam replies again.
 - If there is no Adam reply yet, `F7` keeps you in the composer and tells you to send a turn first.
+- If the latest reply is already reviewed, `F7` keeps you in the composer and leaves the stored-feedback line in place.
 
 ### Composer
 
@@ -153,7 +155,7 @@ Verified focus rules:
   - action strip
   - dialogue tape
   - composer
-- After Adam replies, the inline review surface is the dedicated review path; focus remains keyboard-first in chat.
+- After Adam replies, the inline review surface is the dedicated review path until feedback is submitted; then it collapses to a compact stored-feedback line and focus returns to the composer.
 - `Esc` returns to the composer.
 
 Best recovery rule:
@@ -212,8 +214,9 @@ Important:
 
 ### Review
 
-- Press `F7` after Adam replies.
+- Press `F7` after Adam replies and while that reply is still awaiting review.
 - Fill the inline fields: verdict, explanation, and corrected text (for edit) as prompted.
+- Once submitted, the fields disappear and the stored verdict remains as a compact line above the composer until the next Adam reply.
 
 ### Deck
 

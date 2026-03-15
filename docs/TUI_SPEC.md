@@ -112,7 +112,7 @@ Secondary surfaces:
   - operator framing prompt that is indexed prior to later retrieval
   - keyboard-first submit / cancel flow
 - `Review` action:
-  - focuses the inline explicit-feedback surface bound to Adam's latest answer
+  - focuses the inline explicit-feedback surface bound to Adam's latest answer while that answer is awaiting review
   - inline review applies graph-backed `accept` / `edit` / `reject` / `skip` feedback through the existing runtime API
 - `Conversation Atlas` modal:
   - `all_texts` root shelf over every persisted session transcript
@@ -159,12 +159,13 @@ Secondary surfaces:
 - the prime surface keeps transcript, composer, aperture, memgraph, and reasoning/feed lenses visible while the operator types; the standalone hum fact box is removed from the prime screen, while `Hum Live` now renders bounded hum entries, stats, metrics, and token-table carryover inside the feed lens
 - on compact terminals, the prime surface prioritizes transcript + composer + runtime chyron trigger and hides the right telemetry stack until the operator explicitly opens aperture/deeper surfaces
 - feedback is integrated inline inside the chat column through the explicit-feedback surface directly above the composer
-- explicit review is collected there after each successful turn submission; `Review` / `F7` focuses the inline surface when a reply exists
+- explicit review is collected there after each successful turn submission; `Review` / `F7` focuses the inline form only while Adam's latest reply is awaiting review
+- once feedback is stored for the latest reply, the inline form collapses to a compact stored-feedback line until Adam answers again
 - inline review reuses the graph-backed feedback path and therefore updates regard, reward, risk, and edit channels
-- `Review` only focuses the inline surface when Adam has already replied; otherwise the composer keeps focus and the status line explains that there is nothing to review yet
+- `Review` only focuses the inline form when Adam has already replied and that reply is still pending review; otherwise the composer keeps focus and the status line explains whether there is nothing new to review or the latest reply is already settled
 - conversation logs are written as markdown artifacts under `exports/conversations/` for the active session and surfaced on-screen plus via `Open Conversation Log`
 - the conversation atlas treats saved sessions as a relational transcript library: all logs remain under the single export root while folder/tag organization is stored as session metadata and projected in the atlas
-- conversation boundaries are explicit through the top action shelf status lines, transcript state, inline review after each assistant turn, and new-session flow: ask or ingest, review when Adam answers, and end by opening a new session
+- conversation boundaries are explicit through the top action shelf status lines, transcript state, pending inline review followed by a stored-feedback line, and new-session flow: ask or ingest, review when Adam answers, and end by opening a new session
 - budget changes remain visible, but now live in Deck instead of the prime chat pane
 - latest-session resume restores the latest persisted session surface without forcing a new session flow first
 - keyboard-only navigation is supported through top action-strip focus, digit jump or `Left` / `Right` selection, `Enter` execution, `Tab` / `Shift+Tab` focus cycling, and the function-key bindings
@@ -198,7 +199,7 @@ Secondary surfaces:
 - `F4`: toggle low-motion in the current session request
 - `F5`: open the new-session inference-profile flow
 - `F6`: open the utilities deck
-- `F7`: focus the latest-turn inline review surface in chat
+- `F7`: focus the latest-turn inline review form in chat while review is pending
 - `F8`: toggle the full-width aperture drawer
 - `F9`: open document ingest with framing prompt
 - `F10`: open the conversation atlas

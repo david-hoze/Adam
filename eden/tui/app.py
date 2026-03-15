@@ -2898,15 +2898,26 @@ class ChatScreen(Screen):
         app = self.app
         assert isinstance(app, EdenTuiApp)
         surface = self.query_one("#inline_feedback_surface", Vertical)
+        command_row = self.query_one("#inline_feedback_command_row", Horizontal)
+        explanation_input = self.query_one("#inline_feedback_explanation_input", ReviewTextArea)
+        corrected_input = self.query_one("#inline_feedback_corrected_input", ReviewTextArea)
         has_reply = bool(app.ui_state.last_turn_id)
         if not has_reply:
             surface.display = False
             surface.styles.height = 0
             surface.styles.min_height = 0
+            command_row.display = False
+            explanation_input.display = False
+            corrected_input.display = False
             return
+        state, _ = self._feedback_loop_state()
+        show_form = state == "pending"
         surface.display = True
         surface.styles.height = "auto"
-        surface.styles.min_height = 11
+        surface.styles.min_height = 11 if show_form else 4
+        command_row.display = show_form
+        explanation_input.display = show_form
+        corrected_input.display = show_form
 
     def _inline_feedback_intent(self) -> tuple[str | None, str]:
         raw_code = self.query_one("#inline_feedback_verdict_input", Input).value.strip().upper()
@@ -3710,6 +3721,7 @@ class ChatScreen(Screen):
     def main_inline_feedback_status_panel(self) -> Panel:
         state, latest_entry = self._feedback_loop_state()
         form = self._inline_feedback_form_state()
+        title = "Reply Review"
         if state == "pending":
             text = Text.from_markup(
                 "code="
@@ -3727,17 +3739,25 @@ class ChatScreen(Screen):
             )
             border = NEON if form["ready"] else ROSE
         elif state == "reviewed" and latest_entry is not None:
+            verdict = str(latest_entry.get("verdict", "skip")).lower()
+            explanation = latest_entry.get("explanation") or ("lightweight no-op verdict" if verdict == "skip" else "no explanation")
             text = Text.from_markup(
-                f"Latest stored verdict={str(latest_entry.get('verdict', 'skip')).upper()} | "
-                f"turn=T{latest_entry.get('turn_index', '?')} | "
-                f"{safe_excerpt(latest_entry.get('explanation') or 'no explanation', limit=96)} | "
-                "edit fields below to append another review event if needed"
+                f"T{latest_entry.get('turn_index', '?')} {verdict.upper()} :: "
+                f"{safe_excerpt(str(explanation), limit=112)}. Awaiting the next Adam reply."
             )
-            border = NEON if str(latest_entry.get("verdict", "")).lower() == "accept" else AMBER
+            title = "Stored Feedback"
+            if verdict == "accept":
+                border = NEON
+            elif verdict == "edit":
+                border = ICE
+            elif verdict == "reject":
+                border = EMBER
+            else:
+                border = AMBER
         else:
             text = Text.from_markup("Reply review unlocks after Adam answers.")
             border = AMBER
-        return Panel(text, title="Explicit Feedback", border_style=border, style=f"on {SHADE_ALT}")
+        return Panel(text, title=title, border_style=border, style=f"on {SHADE_ALT}")
 
     def deck_summary_panel(self) -> Panel:
         app = self.app
@@ -3895,7 +3915,7 @@ class ChatScreen(Screen):
             if latest_feedback:
                 latest = latest_feedback[0]
                 latest_summary = (
-                    f"Popup review stored {str(latest.get('verdict', 'skip')).upper()} for "
+                    f"Stored feedback {str(latest.get('verdict', 'skip')).upper()} for "
                     f"T{latest.get('turn_index', '?')}."
                 )
                 if " recorded at " not in str(app.ui_state.last_feedback or ""):
@@ -4265,6 +4285,9 @@ class ChatScreen(Screen):
         self.refresh_panels()
 
     def focus_inline_feedback(self) -> None:
+        if self._feedback_loop_state()[0] != "pending":
+            self.focus_composer()
+            return
         try:
             self.query_one("#inline_feedback_verdict_input", Input).focus()
         except Exception:
@@ -4286,8 +4309,8 @@ class ChatScreen(Screen):
             )
         elif latest_entry is not None:
             app.ui_state.last_feedback = (
-                f"Latest review stays inline in chat. Current verdict={str(latest_entry.get('verdict', 'skip')).upper()} "
-                f"for T{latest_entry.get('turn_index', '?')}."
+                f"Latest reply already has stored feedback: {str(latest_entry.get('verdict', 'skip')).upper()} "
+                f"for T{latest_entry.get('turn_index', '?')}. The compact summary stays above the composer until Adam replies again."
             )
         else:
             app.ui_state.last_feedback = "Inline review is available in chat for Adam's latest reply."
@@ -4296,7 +4319,7 @@ class ChatScreen(Screen):
         )
         self.refresh_panels()
         if open_inline_feedback:
-            self.call_after_refresh(self.focus_inline_feedback)
+            self.call_after_refresh(self.focus_inline_feedback if state == "pending" else self.focus_composer)
 
     async def handle_deck(self) -> None:
         await self.app.push_screen(DeckModal(self))

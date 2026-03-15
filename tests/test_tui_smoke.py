@@ -149,6 +149,18 @@ async def test_inline_feedback_skip_submits_from_verdict_enter(runtime) -> None:
         assert "SKIP recorded" in app.ui_state.last_feedback
         assert getattr(app.focused, "id", None) == "composer_input"
         assert runtime.graph_health(app.ui_state.experiment_id)["feedback"] == 1
+        assert app.screen.query_one("#inline_feedback_command_row").display is False
+        assert app.screen.query_one("#inline_feedback_explanation_input", TextArea).display is False
+        assert app.screen.query_one("#inline_feedback_corrected_input", TextArea).display is False
+        assert "Awaiting the next Adam reply." in app.screen.main_inline_feedback_status_panel().renderable.plain
+
+        composer.load_text("Second turn re-arms inline review.")
+        await app.screen._send_turn()
+        await pilot.pause(0.4)
+
+        assert app.screen.query_one("#inline_feedback_command_row").display is True
+        assert app.screen.query_one("#inline_feedback_explanation_input", TextArea).display is True
+        assert app.screen.query_one("#inline_feedback_corrected_input", TextArea).display is True
 
 
 @pytest.mark.asyncio

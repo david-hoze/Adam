@@ -19,7 +19,7 @@
 | Event-driven prime-screen refresh | Implemented | removed the 450ms whole-screen repaint loop; transcript and graph-health surfaces now cache and refresh on state changes |
 | Operator-facing answer sanitization | Implemented | membrane now strips `Answer` / `Basis` / `Next Step` scaffolding and keeps model reasoning separate from Adam's visible reply |
 | Aperture pull-down drawer | Implemented | `F8` opens a full-width readable active-set scan on wide terminals and a compact aperture-only swap view on small terminals |
-| Latest-turn inline reply review | Implemented | `Review` / `F7` now focuses the in-chat explicit-feedback surface for `accept` / `edit` / `reject` / `skip` on Adam's latest answer |
+| Latest-turn inline reply review | Implemented | `Review` / `F7` now focuses the in-chat explicit-feedback form for `accept` / `edit` / `reject` / `skip` while Adam's latest answer is pending review, then collapses back to a compact stored-feedback line after submission |
 | Conversation log artifact | Implemented | active session transcript is written to markdown under `exports/conversations/` and surfaced via the action strip + merged runtime/event chyron |
 | Conversation atlas archive surface | Implemented | modal archive browser exposes all saved sessions through sort/filter plus virtual folder/tag projections stored in session metadata; the `F10`/binding path now opens it through the same worker-safe flow as the action strip |
 | Fixed local-MLX runtime contract | Implemented | the live TUI no longer exposes backend selection on the primary surface; local MLX is the normal runtime contract |
