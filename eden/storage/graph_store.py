@@ -171,6 +171,15 @@ class GraphStore:
             )
         return self.get_session(session_id)
 
+    def update_session_title(self, session_id: str, title: str) -> dict[str, Any]:
+        normalized = title.strip() or "Operator Session"
+        with self.transaction() as conn:
+            conn.execute(
+                "UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?",
+                (normalized, now_utc(), session_id),
+            )
+        return self.get_session(session_id)
+
     def get_session(self, session_id: str) -> dict[str, Any]:
         row = self._fetchone("SELECT * FROM sessions WHERE id = ?", (session_id,))
         if row is None:

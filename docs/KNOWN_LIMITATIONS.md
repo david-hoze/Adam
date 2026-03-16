@@ -3,6 +3,7 @@
 - The default local MLX path now uses a repo-managed MLX conversion of the official `Qwen/Qwen3.5-35B-A3B` base model. It is locally downloaded and validated, but the MLX artifact itself is a conversion repo rather than an official Qwen-hosted MLX release.
 - Qwen thinking is left enabled on the MLX path and EDEN surfaces it in a dedicated panel. When the first generation spends the whole token budget on reasoning, EDEN uses one bounded answer-only completion pass to obtain the final operator-facing answer.
 - `adam_auto` on the MLX path currently falls back to `runtime_auto`. This fallback is visible and persisted; there is no hidden Adam prepass in v1.2.
+- The session-start `debug` toggle is currently a persisted/session-visible flag only. It shows up in profile/runtime status surfaces, but it does not yet change MLX sampling, retrieval policy, or prompt assembly by itself.
 - The prompt-budget ticker is an EDEN-side working estimate. It does not guarantee the true maximum usable context of every future model build.
 - Exact token counting is only available when a tokenizer-backed counter is available. MLX preview mode before model/tokenizer load can still be heuristic.
 - Geometry diagnostics are computed from graph topology, co-occurrence structure, active-set recurrence, and temporal traces. They do not inspect internal latent activations from the model itself.

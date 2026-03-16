@@ -44,25 +44,26 @@ Session-start modal:
 - session title:
   - free typing remains allowed
   - adjacent recent-title selector is populated from persisted session titles
+  - `Tune Session` reuses the same title field and recent-title selector so the active session can be renamed in-place
 - inference mode:
-  - `manual`
-  - `runtime_auto`
-  - `adam_auto`
+  - `manual`: operator-specified bounded values are clamped and used directly
+  - `runtime_auto`: EDEN chooses a bounded preset per turn from visible runtime heuristics
+  - `adam_auto`: mock backend uses the Adam-guided bounded picker; current MLX path persists the request but resolves as `runtime_auto`
 - budget mode:
-  - `tight`
-  - `balanced`
-  - `wide`
+  - `tight`: leanest prompt-budget envelope for smaller/faster turns
+  - `balanced`: middle preset for default retrieval/output breadth
+  - `wide`: larger prompt-budget envelope for deeper retrieval and longer replies within safe local bounds
 - manual bounded fields:
-  - `temperature`
-  - `max_output_tokens`
-  - `top_p`
-  - `repetition_penalty`
-  - `retrieval_depth`
-  - `max_context_items`
-  - `response_char_cap`
+  - `temperature`: sampling randomness; lower is steadier, higher is more varied
+  - `max_output_tokens`: hard generation-token cap; lower is shorter, higher allows longer continuations
+  - `top_p`: nucleus-sampling cutoff; lower narrows token choice, higher widens it
+  - `repetition_penalty`: discourages token reuse; higher suppresses loops more aggressively
+  - `retrieval_depth`: number of recall candidates inspected before prompt assembly; lower is narrower/faster, higher searches deeper
+  - `max_context_items`: number of retrieved items allowed into the active prompt; lower keeps the aperture tighter, higher spends more prompt budget
+  - `response_char_cap`: post-generation operator-facing character cap; lower forces tighter replies, higher allows fuller answers
   - `Profile Summary` reflects the clamped request values that will actually be persisted
-  - `low_motion`
-  - `debug`
+  - `low_motion`: `On` reduces terminal animation only; it does not change retrieval or sampling
+  - `debug`: persisted session/profile flag surfaced in runtime status; current MLX path does not alter sampler or retrieval behavior from this toggle yet
 
 ## Chat screen
 

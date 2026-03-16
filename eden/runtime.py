@@ -743,6 +743,7 @@ class EdenRuntime:
         merged = request.to_dict()
         merged.update(updates)
         updated = request_from_dict(merged, self.settings)
+        self.store.update_session_title(session_id, updated.title)
         self.store.update_session_metadata(
             session_id,
             {

@@ -618,6 +618,11 @@ class SessionConfigModal(ModalScreen[dict[str, Any] | None]):
                         id="mode_select",
                         prompt="Inference mode",
                     )
+                    yield Static(
+                        "MANUAL uses your bounded numbers directly after clamping. RUNTIME_AUTO picks a preset each turn from query, graph, membrane, and feedback conditions. ADAM_AUTO uses the Adam picker on mock runs; MLX currently records the request but resolves as RUNTIME_AUTO.",
+                        classes="field_help",
+                        id="session_mode_help",
+                    )
                 with Vertical(classes="field_stack", id="session_budget_mode_field"):
                     yield Static("Budget Mode", classes="field_label", id="session_budget_mode_label")
                     yield Select(
@@ -626,6 +631,11 @@ class SessionConfigModal(ModalScreen[dict[str, Any] | None]):
                         allow_blank=False,
                         id="budget_mode_select",
                         prompt="Budget mode",
+                    )
+                    yield Static(
+                        "Sets the prompt-budget envelope. TIGHT keeps retrieval and output leaner, BALANCED is the middle preset, and WIDE reserves more room. In MANUAL mode your typed values still win after clamping.",
+                        classes="field_help",
+                        id="session_budget_mode_help",
                     )
                 with Vertical(classes="field_stack", id="session_low_motion_field"):
                     yield Static("Low Motion", classes="field_label", id="session_low_motion_label")
@@ -636,6 +646,11 @@ class SessionConfigModal(ModalScreen[dict[str, Any] | None]):
                         id="low_motion_select",
                         prompt="Low motion",
                     )
+                    yield Static(
+                        "OFF keeps the signal-field sweeps and pulses animated. ON reduces motion for steadier reading and lower terminal churn; it does not change retrieval or sampling.",
+                        classes="field_help",
+                        id="session_low_motion_help",
+                    )
                 with Vertical(classes="field_stack", id="session_debug_field"):
                     yield Static("Debug", classes="field_label", id="session_debug_label")
                     yield Select(
@@ -645,17 +660,37 @@ class SessionConfigModal(ModalScreen[dict[str, Any] | None]):
                         id="debug_select",
                         prompt="Debug verbosity",
                     )
+                    yield Static(
+                        "ON persists debug=true in the session profile and runtime status surfaces. OFF records debug=false. The current MLX path does not switch sampler or retrieval behavior on this flag yet.",
+                        classes="field_help",
+                        id="session_debug_help",
+                    )
                 yield Static(id="session_config_summary")
             with Vertical(classes="session_config_column"):
                 with Vertical(classes="field_stack", id="temperature_field"):
                     yield Static("Temperature", classes="field_label", id="temperature_label")
                     yield Input(value=str(self.defaults.get("temperature", 0.4)), id="temperature_input", placeholder="temperature")
+                    yield Static(
+                        "Controls sampling randomness on the model side. Lower values stay steadier and more deterministic; higher values increase variation and surprise but can drift more.",
+                        classes="field_help",
+                        id="temperature_help",
+                    )
                 with Vertical(classes="field_stack", id="max_tokens_field"):
                     yield Static("Max Output Tokens", classes="field_label", id="max_tokens_label")
                     yield Input(value=str(self.defaults.get("max_output_tokens", 480)), id="max_tokens_input", placeholder="max output tokens")
+                    yield Static(
+                        "Hard token cap for the generated answer. Lower values force shorter replies and can cut an answer off earlier; higher values allow longer continuations but spend more budget and time.",
+                        classes="field_help",
+                        id="max_tokens_help",
+                    )
                 with Vertical(classes="field_stack", id="top_p_field"):
                     yield Static("Top-P", classes="field_label", id="top_p_label")
                     yield Input(value=str(self.defaults.get("top_p", 0.9)), id="top_p_input", placeholder="top_p")
+                    yield Static(
+                        "Nucleus-sampling cutoff for candidate tokens. Lower values keep the token pool narrower and steadier; higher values admit more long-tail options and more variation.",
+                        classes="field_help",
+                        id="top_p_help",
+                    )
                 with Vertical(classes="field_stack", id="repetition_penalty_field"):
                     yield Static("Repetition Penalty", classes="field_label", id="repetition_penalty_label")
                     yield Input(
@@ -663,9 +698,19 @@ class SessionConfigModal(ModalScreen[dict[str, Any] | None]):
                         id="repetition_penalty_input",
                         placeholder="repetition penalty",
                     )
+                    yield Static(
+                        "Penalizes tokens the model has already used. Higher values discourage loops and reused phrasing; lower values allow more repetition and a stickier voice.",
+                        classes="field_help",
+                        id="repetition_penalty_help",
+                    )
                 with Vertical(classes="field_stack", id="retrieval_depth_field"):
                     yield Static("Retrieval Depth", classes="field_label", id="retrieval_depth_label")
                     yield Input(value=str(self.defaults.get("retrieval_depth", 12)), id="retrieval_depth_input", placeholder="retrieval depth")
+                    yield Static(
+                        "How many recall candidates EDEN inspects before building the prompt. Lower values keep retrieval narrower and faster; higher values search deeper and can surface more distant context at added budget cost.",
+                        classes="field_help",
+                        id="retrieval_depth_help",
+                    )
                 with Vertical(classes="field_stack", id="max_context_items_field"):
                     yield Static("Max Context Items", classes="field_label", id="max_context_items_label")
                     yield Input(
@@ -673,12 +718,22 @@ class SessionConfigModal(ModalScreen[dict[str, Any] | None]):
                         id="max_context_items_input",
                         placeholder="max context items",
                     )
+                    yield Static(
+                        "How many retrieved items EDEN can carry into the active prompt. Lower values keep the aperture tighter; higher values include more context but spend more prompt budget.",
+                        classes="field_help",
+                        id="max_context_items_help",
+                    )
                 with Vertical(classes="field_stack", id="response_char_cap_field"):
                     yield Static("Response Character Cap", classes="field_label", id="response_char_cap_label")
                     yield Input(
                         value=str(self.defaults.get("response_char_cap", 1600)),
                         id="response_char_cap_input",
                         placeholder="response char cap",
+                    )
+                    yield Static(
+                        "Character cap for the operator-facing answer after membrane cleanup. Lower values force tighter replies; higher values allow fuller answers but increase output size and later trimming pressure.",
+                        classes="field_help",
+                        id="response_char_cap_help",
                     )
                 with Horizontal(id="session_action_row"):
                     yield Button(self.action_label, id="session_confirm_btn", variant="primary")
@@ -4460,12 +4515,13 @@ class ChatScreen(Screen):
             return
         defaults = await asyncio.to_thread(partial(app.runtime.session_profile_request, app.ui_state.session_id))
         defaults["title"] = app.ui_state.session_title or defaults.get("title", "Current Session")
+        session_title_history = await asyncio.to_thread(partial(app.runtime.recent_session_titles, limit=20))
         payload = await app.push_screen_wait(
             SessionConfigModal(
                 defaults,
                 title_text="Adjust Session Profile",
                 action_label="Apply Profile",
-                show_title_input=False,
+                session_title_history=session_title_history,
             )
         )
         if payload is None:
@@ -4474,6 +4530,7 @@ class ChatScreen(Screen):
             partial(
                 app.runtime.update_session_profile_request,
                 app.ui_state.session_id,
+                title=payload["title"],
                 mode=payload["mode"],
                 budget_mode=payload["budget_mode"],
                 low_motion=payload["low_motion"],
@@ -4487,8 +4544,9 @@ class ChatScreen(Screen):
                 response_char_cap=payload["response_char_cap"],
             )
         )
+        app.ui_state.session_title = updated["title"]
         app.ui_state.last_feedback = (
-            f"Updated session profile: {updated['mode']} / {updated['budget_mode']} / low_motion={updated['low_motion']}"
+            f"Updated session profile: {updated['title']} / {updated['mode']} / {updated['budget_mode']} / low_motion={updated['low_motion']}"
         )
         self.refresh_panels()
         self._schedule_preview_refresh()
@@ -4957,6 +5015,9 @@ class EdenTuiApp(App):
         margin-bottom: 0;
         color: {MUTED};
         text-style: bold;
+    }}
+    .field_help {{
+        color: {MUTED};
     }}
     .field_stack Input,
     .field_stack Select {{

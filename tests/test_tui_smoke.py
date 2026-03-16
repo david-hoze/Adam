@@ -503,6 +503,22 @@ async def test_session_config_modal_labels_history_and_clamped_summary(runtime) 
         for selector, expected in expected_labels.items():
             assert modal.query_one(selector, Static).render().plain == expected
 
+        expected_help_snippets = {
+            "#session_mode_help": "MANUAL uses your bounded numbers directly after clamping.",
+            "#session_budget_mode_help": "Sets the prompt-budget envelope.",
+            "#session_low_motion_help": "ON reduces motion for steadier reading and lower terminal churn",
+            "#session_debug_help": "The current MLX path does not switch sampler or retrieval behavior on this flag yet.",
+            "#temperature_help": "Controls sampling randomness on the model side.",
+            "#max_tokens_help": "Hard token cap for the generated answer.",
+            "#top_p_help": "Nucleus-sampling cutoff for candidate tokens.",
+            "#repetition_penalty_help": "Higher values discourage loops and reused phrasing",
+            "#retrieval_depth_help": "How many recall candidates EDEN inspects before building the prompt.",
+            "#max_context_items_help": "How many retrieved items EDEN can carry into the active prompt.",
+            "#response_char_cap_help": "Character cap for the operator-facing answer after membrane cleanup.",
+        }
+        for selector, expected in expected_help_snippets.items():
+            assert expected in modal.query_one(selector, Static).render().plain
+
         history_select = modal.query_one("#session_title_history_select", Select)
         history_values = [value for _, value in history_select._options if value != Select.NULL]
         assert history_values == ["Atlas Draft", "FIELD NOTES", "Operator Session"]
@@ -539,6 +555,53 @@ async def test_session_config_modal_labels_history_and_clamped_summary(runtime) 
         await pilot.pause(0.5)
         assert isinstance(app.screen, ChatScreen)
         assert app.ui_state.session_title == "Fresh Session"
+
+
+@pytest.mark.asyncio
+async def test_tune_session_modal_restores_title_edit_and_recent_titles(runtime) -> None:
+    experiment = runtime.initialize_experiment("blank")
+    runtime.start_session(experiment["id"], title="Atlas Draft")
+    runtime.start_session(experiment["id"], title="Field Notes")
+    current_session = runtime.start_session(experiment["id"], title="June Session")
+
+    app = EdenTuiApp(runtime)
+    async with app.run_test() as pilot:
+        await pilot.pause(1.0)
+        assert isinstance(app.screen, ChatScreen)
+        app.apply_session_snapshot(runtime.session_state_snapshot(current_session["id"]))
+        app.screen.refresh_panels()
+        await pilot.pause(0.2)
+        assert app.ui_state.session_id == current_session["id"]
+        assert app.ui_state.session_title == "June Session"
+
+        app.screen.begin_edit_profile_flow()
+        await pilot.pause(0.5)
+        assert isinstance(app.screen, SessionConfigModal)
+        modal = app.screen
+
+        title_input = modal.query_one("#session_title_input", Input)
+        assert title_input.value == "June Session"
+
+        history_select = modal.query_one("#session_title_history_select", Select)
+        history_values = [value for _, value in history_select._options if value != Select.NULL]
+        assert history_values == ["June Session", "Field Notes", "Atlas Draft"]
+
+        history_select.value = "Field Notes"
+        await pilot.pause(0.2)
+        assert title_input.value == "Field Notes"
+
+        title_input.value = "June Session Revised"
+        await pilot.pause(0.2)
+        assert history_select.value == Select.NULL
+
+        modal.query_one("#session_confirm_btn", Button).press()
+        await pilot.pause(0.5)
+
+        assert isinstance(app.screen, ChatScreen)
+        assert app.ui_state.session_title == "June Session Revised"
+        assert runtime.store.get_session(current_session["id"])["title"] == "June Session Revised"
+        assert runtime.session_profile_request(current_session["id"])["title"] == "June Session Revised"
+        assert "Updated session profile: June Session Revised" in app.ui_state.last_feedback
 
 
 @pytest.mark.asyncio

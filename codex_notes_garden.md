@@ -3496,3 +3496,255 @@ Remaining uncertainties:
 - `.DS_Store` remains modified in the worktree and is unrelated to this fix.
 Next shortest proof path:
 Launch `.venv/bin/python -m eden`, press `F9`, ingest the same Austin PDF with a framing note, and verify the modal closes immediately, the chat screen remains responsive during/after ingest, and focus lands back in the composer with the status line updated.
+## [2026-03-16 07:52:57 EDT] PRE-FLIGHT
+Operator task:
+Add explanatory copy to the session-start modal so curriculum operators can see what each mode/toggle means on the left and what each manual hyperparameter controls on the right, including the effect of moving values up or down.
+Task checksum:
+Session-start copy expansion only: no new controls, no inference-policy change, no ontology/runtime loop change.
+Repo situation:
+Working tree is otherwise clean except for an unrelated modified `.DS_Store`; proceeding in place on `main`.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`, `/Users/brianray/Adam/docs/INFERENCE_PROFILES.md`.
+Natural-language contracts in force:
+TUI remains the primary runtime surface; session-start controls must stay explicitly labeled, inference modes remain `manual` / `runtime_auto` / `adam_auto`, budget presets remain `tight` / `balanced` / `wide`, and claims about `adam_auto` on MLX must stay truthful as fallback-to-`runtime_auto`.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/tests/test_tui_smoke.py`, `/Users/brianray/Adam/docs/TUI_SPEC.md`, `/Users/brianray/Adam/docs/INFERENCE_PROFILES.md`, `/Users/brianray/Adam/codex_notes_garden.md`.
+Status register:
+- Implemented:
+  - Session-start modal labels and clamped profile summary.
+  - Persisted session profile request fields and mode semantics.
+- Instrumented:
+  - Session-config smoke coverage for labels, title history, and clamp behavior.
+- Conceptual:
+  - Operator-facing teaching copy for controls is not yet present in the modal/spec text.
+- Unknown:
+  - Whether the current modal has enough vertical room for concise helper copy without hurting readability on standard terminal sizes.
+Risks / invariants:
+- Do not change the actual inference resolution logic while editing copy.
+- Keep `adam_auto` language aligned with the documented MLX fallback.
+- Keep helper text concise enough to fit the existing two-column session-start layout.
+Evidence plan:
+- Add inline helper `Static` widgets under each relevant session-start control.
+- Update the existing session modal smoke test to assert representative helper text.
+- Update the matching TUI and inference docs so code/spec stay aligned.
+- Run focused TUI smoke coverage, then `./.venv/bin/pytest -q`.
+Shortest proof path:
+- Patch the modal with helper text, prove it renders through `tests/test_tui_smoke.py::test_session_config_modal_labels_history_and_clamped_summary`, then rerun the full pytest suite.
+## [2026-03-16 07:57:15 EDT] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/tests/test_tui_smoke.py`, `/Users/brianray/Adam/docs/TUI_SPEC.md`, `/Users/brianray/Adam/docs/INFERENCE_PROFILES.md`, `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`, append-only `/Users/brianray/Adam/codex_notes_garden.md`.
+Specs changed:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`, `/Users/brianray/Adam/docs/INFERENCE_PROFILES.md`, `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`.
+Natural-language contracts added/revised/preserved:
+Preserved the existing session-start control surface and inference semantics while adding explicit operator-facing teaching copy for each left-column option and each right-column manual field. Revised the contract text so `debug` is described truthfully as a persisted/session-visible flag on the current MLX path rather than a hidden alternate generation mode.
+Behavior implemented or modified:
+Added inline helper text beneath `mode`, `budget_mode`, `low_motion`, and `debug`, plus each manual numeric field in the session-start modal. The new copy explains what each control affects and what moving values up/down does. Added smoke-test assertions for the new helper text. Synced the TUI/inference docs and recorded the `debug`-flag limitation explicitly.
+Evidence produced (tests / traces / commands / exports):
+`python3.12 -m py_compile /Users/brianray/Adam/eden/tui/app.py /Users/brianray/Adam/tests/test_tui_smoke.py` -> success
+`./.venv/bin/pytest -q /Users/brianray/Adam/tests/test_tui_smoke.py::test_session_config_modal_labels_history_and_clamped_summary` -> `1 passed in 3.07s`
+`./.venv/bin/pytest -q` -> `73 passed in 57.70s`
+Status register changes:
+- Implemented:
+  - Session-start modal now renders operator-facing teaching copy for left-side options and right-side manual fields.
+  - Smoke coverage now proves the helper copy is present alongside the existing label/history/clamp checks.
+- Instrumented:
+  - No new telemetry surface added in this turn.
+- Conceptual:
+  - None added; the requested copy is now present in code and spec.
+- Unknown:
+  - No live terminal screenshot was captured in this turn, so the proof is structural/test-based rather than image-based.
+Truth-table / limitations updates:
+Updated `KNOWN_LIMITATIONS.md` to anchor the current `debug`-flag limitation. `IMPLEMENTATION_TRUTH_TABLE.md` was not updated because the capability status did not change; the turn added explanatory copy and documentation, not a new feature class.
+Remaining uncertainties:
+- `.DS_Store` remains modified in the worktree and is unrelated to this task.
+- The modal copy was verified by render/test path rather than a fresh screenshot on the exact June-session geometry.
+Next shortest proof path:
+Launch `.venv/bin/python -m eden`, open `F5` / new-session flow, and visually confirm the helper copy wraps cleanly on the target terminal geometry used during June-session teaching.
+## [2026-03-16 08:13:27 EDT] PRE-FLIGHT
+Operator task:
+Restore session-title editing in the tune-session profile modal and keep the recent-title dropdown available there.
+Task checksum:
+Regression repair for tune-session title controls plus persistence; no inference-policy or ontology change.
+Repo situation:
+Working tree already includes the prior session-modal copy changes from this morning plus an unrelated modified `.DS_Store`; continuing in place on `main`.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`, `/Users/brianray/Adam/docs/INFERENCE_PROFILES.md`.
+Natural-language contracts in force:
+The session config modal must expose explicit session-start controls, free typing for session title, and an adjacent recent-title selector populated from persisted session titles. Claims about `adam_auto` and `debug` must remain truthful; this turn is about restoring title editability in the tune-session path.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/eden/runtime.py`, `/Users/brianray/Adam/eden/storage/graph_store.py`, `/Users/brianray/Adam/tests/test_tui_smoke.py`, `/Users/brianray/Adam/docs/TUI_SPEC.md`, `/Users/brianray/Adam/codex_notes_garden.md`.
+Status register:
+- Implemented:
+  - New-session and blank/seeded session modal title input with recent-title selector.
+  - Session profile metadata persistence.
+- Instrumented:
+  - Session-config smoke coverage for new-session labels/history/clamp behavior.
+- Conceptual:
+  - None newly introduced for this regression.
+- Unknown:
+  - Whether tune-session currently drops the title row only at the UI layer or also fails to persist title updates in the runtime/store path.
+Risks / invariants:
+- Do not regress the new helper copy or the existing clamping behavior.
+- Ensure the actual `sessions.title` column is updated, not just the requested-profile metadata.
+- Keep recent-title dropdown population deduped and consistent with existing history logic.
+Evidence plan:
+- Re-enable title controls in the tune-session modal.
+- Add store/runtime support to persist title edits to the session record.
+- Add a TUI regression test proving the tune-session modal shows the title row + history selector and that applying the modal updates the session title.
+- Run focused tests, then the full suite.
+Shortest proof path:
+- Patch tune-session to pass `show_title_input=True` plus recent-title history, persist title changes in `update_session_profile_request()`, then prove it via a TUI smoke test and `./.venv/bin/pytest -q`.
+## [2026-03-16 08:16:26 EDT] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/eden/tui/app.py`, `/Users/brianray/Adam/eden/runtime.py`, `/Users/brianray/Adam/eden/storage/graph_store.py`, `/Users/brianray/Adam/tests/test_tui_smoke.py`, `/Users/brianray/Adam/docs/TUI_SPEC.md`, append-only `/Users/brianray/Adam/codex_notes_garden.md`.
+Specs changed:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`.
+Natural-language contracts added/revised/preserved:
+Preserved the session-config contract that free typing plus an adjacent recent-title selector are available on the session modal, and revised the TUI spec so `Tune Session` explicitly reuses the same title controls for in-place renaming.
+Behavior implemented or modified:
+Restored the title input and recent-title dropdown to the tune-session modal. `ChatScreen._edit_profile_worker()` now passes title history into `SessionConfigModal`, submits the edited title with the rest of the profile, and updates `ui_state.session_title` after apply. Added `GraphStore.update_session_title()` and wired `EdenRuntime.update_session_profile_request()` to rename the actual `sessions.title` record as well as the requested-profile metadata, so the new title persists everywhere the catalog/history reads from the session row.
+Evidence produced (tests / traces / commands / exports):
+`python3.12 -m py_compile /Users/brianray/Adam/eden/tui/app.py /Users/brianray/Adam/eden/runtime.py /Users/brianray/Adam/eden/storage/graph_store.py /Users/brianray/Adam/tests/test_tui_smoke.py` -> success
+`./.venv/bin/pytest -q /Users/brianray/Adam/tests/test_tui_smoke.py::test_tune_session_modal_restores_title_edit_and_recent_titles /Users/brianray/Adam/tests/test_tui_smoke.py::test_session_config_modal_labels_history_and_clamped_summary` -> `2 passed in 5.79s`
+`./.venv/bin/pytest -q /Users/brianray/Adam/tests/test_inference_profiles.py` -> `3 passed in 0.04s`
+`./.venv/bin/pytest -q` -> `74 passed in 59.93s`
+Status register changes:
+- Implemented:
+  - Tune-session modal again exposes the title field plus recent-title selector.
+  - Tune-session apply now persists the renamed title into both requested-profile metadata and the authoritative session row.
+  - TUI regression coverage now proves the renamed title persists and the dropdown remains wired.
+- Instrumented:
+  - No new telemetry/instrumentation surface added in this turn.
+- Conceptual:
+  - None added.
+- Unknown:
+  - No fresh screenshot was taken; proof is code/test based.
+Truth-table / limitations updates:
+No truth-table or limitations update was needed for this regression repair. Capability status is unchanged; the existing session-config feature was restored to its intended tune-session behavior.
+Remaining uncertainties:
+- `.DS_Store` remains modified in the worktree and is unrelated to this fix.
+- Visual wrap of the restored title row plus helper copy was not rechecked via screenshot in this turn.
+Next shortest proof path:
+Launch `.venv/bin/python -m eden`, open `Tune Session`, verify the title field and recent-title dropdown are visible, rename the current session, apply, and confirm the new title appears immediately in the top surfaces and later in the archive catalog.
+## [2026-03-16 11:04:13 EDT] PRE-FLIGHT
+Operator task:
+Explain the runtime difference between `Start Blank Eden` and `Start Seeded Eden`, and clarify whether Blank Eden still links to Adam's graph.
+Task checksum:
+menu-blank-vs-seeded-20260316
+Repo situation:
+Dirty worktree already present before investigation: `.DS_Store`, `docs/INFERENCE_PROFILES.md`, `docs/KNOWN_LIMITATIONS.md`, `docs/TUI_SPEC.md`, `eden/runtime.py`, `eden/storage/graph_store.py`, `eden/tui/app.py`, `tests/test_tui_smoke.py`, and append-only `codex_notes_garden.md`.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+`/Users/brianray/Adam/docs/EXPERIMENT_PROTOCOLS.md`
+`/Users/brianray/Adam/docs/GRAPH_SCHEMA.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+Natural-language contracts in force:
+Blank Eden = constitutional scaffold only; Seeded Eden = Blank Eden bootstrap plus ingest of `assets/seed_canon/`; graph persistence is experiment-scoped.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/runtime.py`
+`/Users/brianray/Adam/eden/storage/graph_store.py`
+`/Users/brianray/Adam/eden/storage/schema.py`
+`/Users/brianray/Adam/eden/tui/app.py`
+Status register:
+- Implemented:
+  - Startup menu exposes Blank Eden and Seeded Eden.
+  - Runtime experiment initialization always seeds constitution and only seeds canon in `seeded` mode.
+  - Persistent graph tables for memes/memodes/edges are keyed by `experiment_id`.
+- Instrumented:
+  - Existing runtime log + trace emission around experiment creation/bootstrap.
+- Conceptual:
+  - None needed for this explanation task.
+- Unknown:
+  - None yet; need to confirm whether any shared global graph surface exists outside experiment-scoped rows.
+Risks / invariants:
+Do not overclaim a shared Adam graph if the actual persistence boundary is per-experiment. Preserve ontology terms: meme, memode, graph, experiment, session.
+Evidence plan:
+Read the spec slice, then confirm `initialize_experiment()` and the storage schema/query paths for experiment scoping.
+Shortest proof path:
+Show that Blank Eden calls `_seed_constitution()`, Seeded Eden adds `_seed_canon()`, and memes/memodes/edges are stored and queried with `experiment_id`.
+## [2026-03-16 11:04:13 EDT] POST-FLIGHT
+Files changed:
+Append-only `/Users/brianray/Adam/codex_notes_garden.md`.
+Specs changed:
+None.
+Natural-language contracts added/revised/preserved:
+Preserved the existing contract that Blank Eden is the constitutional scaffold only and Seeded Eden is Blank Eden plus canon ingest. Preserved the storage contract that graph rows are experiment-scoped.
+Behavior implemented or modified:
+No runtime or spec behavior changed. This turn only verified the current menu semantics and graph boundary from docs plus code.
+Evidence produced (tests / traces / commands / exports):
+`rg -n "Start Blank Eden|Start Seeded Eden|blank|seeded"` over docs/runtime/TUI surfaces
+`sed -n '1,140p' /Users/brianray/Adam/docs/EXPERIMENT_PROTOCOLS.md`
+`sed -n '1,160p' /Users/brianray/Adam/docs/TUI_SPEC.md`
+`sed -n '380,520p' /Users/brianray/Adam/eden/runtime.py`
+`sed -n '1,220p' /Users/brianray/Adam/docs/GRAPH_SCHEMA.md`
+`sed -n '1,220p' /Users/brianray/Adam/eden/storage/schema.py`
+`sed -n '1,260p'` and `sed -n '260,560p'` on `/Users/brianray/Adam/eden/storage/graph_store.py`
+Status register changes:
+- Implemented:
+  - Confirmed Blank Eden still creates a real experiment-local graph: constitutional behavior memes, one constitutional memode, and later session/turn graph material.
+  - Confirmed Seeded Eden does all of that plus ingest from `assets/seed_canon/`.
+  - Confirmed the larger semantic graph is not shared across experiments; memes/memodes/edges are keyed by `experiment_id`.
+- Instrumented:
+  - No new instrumentation added.
+- Conceptual:
+  - None added.
+- Unknown:
+  - No remaining unknown on the menu distinction; only user terminology ambiguity remains around what they mean by "Adam's graph".
+Truth-table / limitations updates:
+None. Capability status did not change.
+Remaining uncertainties:
+If the operator means "Adam's graph" as the single row in the global `agents` table, sessions do point at that agent. If they mean the persistent semantic graph payload, that payload is experiment-local, not one shared graph across blank/seeded experiments.
+Next shortest proof path:
+In a live DB, create one blank and one seeded experiment, then compare `graph_counts(experiment_id)` and exported observatory payloads to show the seeded experiment contains additional canon-derived documents/chunks/memes/memodes before any chat turns occur.
+## [2026-03-16 11:10:45 EDT] PRE-FLIGHT
+Operator task:
+Refactor EDEN so new sessions and resumed prior conversations all attach to the same persistent unified graph; remove Blank/Seeded Eden as operator-facing graph choices; keep document ingest operator-driven instead of automatic canon seeding.
+Task checksum:
+single-persistent-graph-session-refactor-20260316
+Repo situation:
+Dirty worktree existed before this task: `.DS_Store`, `codex_notes_garden.md`, `docs/INFERENCE_PROFILES.md`, `docs/KNOWN_LIMITATIONS.md`, `docs/TUI_SPEC.md`, `eden/runtime.py`, `eden/storage/graph_store.py`, `eden/tui/app.py`, `tests/test_tui_smoke.py`. Relevant spec/code drift observed: ontology says behavior+knowledge live in one graph, but runtime/TUI currently partition graph state by `experiment_id` and expose Blank/Seeded experiment creation.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/PROJECT_CHARTER.md`
+`/Users/brianray/Adam/docs/CANONICAL_ONTOLOGY.md`
+`/Users/brianray/Adam/docs/GRAPH_SCHEMA.md`
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+`/Users/brianray/Adam/docs/EXPERIMENT_PROTOCOLS.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+Natural-language contracts in force:
+Persistent identity lives in graph state, explicit feedback, and retrieval assembly. Behavior and knowledge are domains inside one unified graph. Operator-facing startup should not imply separate blank vs seeded graph lineages if the intended contract is one persistent Adam graph.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/runtime.py`
+`/Users/brianray/Adam/eden/storage/graph_store.py`
+`/Users/brianray/Adam/eden/hum.py`
+`/Users/brianray/Adam/eden/observatory/service.py`
+`/Users/brianray/Adam/eden/tui/app.py`
+`/Users/brianray/Adam/eden/app.py`
+`/Users/brianray/Adam/tests/test_runtime_e2e.py`
+`/Users/brianray/Adam/tests/test_inference_profiles.py`
+`/Users/brianray/Adam/tests/test_ingest.py`
+`/Users/brianray/Adam/tests/test_tui_smoke.py`
+`/Users/brianray/Adam/docs/PROJECT_CHARTER.md`
+`/Users/brianray/Adam/docs/CANONICAL_ONTOLOGY.md`
+`/Users/brianray/Adam/docs/GRAPH_SCHEMA.md`
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+`/Users/brianray/Adam/docs/EXPERIMENT_PROTOCOLS.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+Status register:
+- Implemented:
+  - Graph persistence is currently experiment-scoped in storage/runtime.
+  - TUI still exposes `Start Blank Eden` and `Start Seeded Eden`.
+  - New sessions currently reuse the current experiment only; startup/resume paths key off the latest experiment.
+- Instrumented:
+  - Runtime log and trace surfaces already record experiment/session bootstrap events.
+- Conceptual:
+  - Single persistent Adam graph across all sessions is user-intended but not yet runtime truth.
+- Unknown:
+  - Whether legacy multi-experiment graph rows can be merged fully in one bounded turn without destabilizing meme/memode/edge identity.
+Risks / invariants:
+Preserve one unified graph semantics across behavior and knowledge; avoid overclaiming full legacy-graph merge if only future routing is implemented. Keep observatory/export/runtime APIs working. Preserve session history and document ingest.
+Evidence plan:
+Implement a single primary graph path in runtime, route new/resumed sessions through it, remove blank/seeded operator actions, update archive/UI wording, revise specs, and prove with focused regression tests plus full pytest if the focused set is clean.
+Shortest proof path:
+Add runtime helpers for a persistent primary graph, collapse session bootstrap/new-session/resume to that graph, strip blank/seeded UI labels, update docs/tests, then run targeted pytest and the full suite.
