@@ -58,6 +58,7 @@ Session-start modal:
   - `repetition_penalty`: discourages token reuse; higher suppresses loops more aggressively
   - `retrieval_depth`: number of recall candidates inspected before prompt assembly; lower is narrower/faster, higher searches deeper
   - `max_context_items`: number of retrieved items allowed into the active prompt; lower keeps the aperture tighter, higher spends more prompt budget
+  - `history_turns`: number of recent Brian/Adam turns carried into prompt history; lower keeps conversation context tighter, higher preserves more continuity at added prompt-budget cost
   - `response_char_cap`: post-generation operator-facing character cap; lower forces tighter replies, higher allows fuller answers
   - `Profile Summary` reflects the clamped request values that will actually be persisted
   - `low_motion`: `On` reduces terminal animation only; it does not change retrieval or sampling
@@ -74,8 +75,9 @@ Primary split:
   - multiline `TextArea` composer for Brian the operator with strong focus styling
   - keyboard-scrollable tape container so the operator can move up/down through the session history
 - right secondary telemetry bay:
-  - top-row live turn-status strip between the action shelf and aperture panel on wide terminals, so generation/finalization phases remain visible while Adam is composing
-  - top-right aperture / active-set slice beside the action shelf on wide terminals, so the current retrieval surface stays visible without consuming the lower telemetry stack
+  - top-row compact context-budget strip between the action shelf and live turn-status strip on wide terminals, so the operator can always read EDEN's current used/remaining prompt-budget estimate without opening Deck
+  - top-row live turn-status strip between the compact context-budget strip and aperture panel on wide terminals, so generation/finalization phases remain visible while Adam is composing
+  - wider top-right aperture / active-set slice beside the action shelf on wide terminals, so the current retrieval surface stays visible without consuming the lower telemetry stack and the action shelf does not waste dead space
   - enlarged slower-pulsing signal field / memgraph bus with explicit symbol legend and live update explanation
   - lower reasoning/feed slice with three operator lenses:
     - `Reasoning`: response material first, then any non-boilerplate visible reasoning signal, plus runtime condition, membrane record, and live consideration trace
@@ -165,7 +167,7 @@ Secondary surfaces:
 - conversation logs are written as markdown artifacts under `exports/conversations/` for the active session and surfaced on-screen plus via `Open Conversation Log`
 - the conversation atlas treats saved sessions as a relational transcript library: all logs remain under the single export root while folder/tag organization is stored as session metadata and projected in the atlas
 - conversation boundaries are explicit through the top action shelf status lines, transcript state, pending inline review followed by a stored-feedback line, and new-session flow: ask or ingest, review when Adam answers, and end by opening a new session
-- budget changes remain visible, but now live in Deck instead of the prime chat pane
+- detailed budget changes remain visible in Deck, while the prime chat topbar carries a compact used/remaining context-budget estimate
 - latest-session resume restores the latest persisted session surface without forcing a new session flow first
 - keyboard-only navigation is supported through top action-strip focus, digit jump or `Left` / `Right` selection, `Enter` execution, `Tab` / `Shift+Tab` focus cycling, and the function-key bindings
 - corpus ingest supports a framing prompt whose phrases are graph-indexed as persistent document-conditioning material
@@ -178,6 +180,7 @@ Secondary surfaces:
 - requested mode and effective mode
 - retrieval depth
 - max context items
+- history turns
 - reserved output tokens
 - prompt budget estimate
 - current user tokens and characters

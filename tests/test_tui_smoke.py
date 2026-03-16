@@ -25,7 +25,10 @@ async def test_tui_boots_single_graph_mode_and_uses_multiline_composer(runtime, 
         assert app.screen.query_one("#signal_field").parent is chat_secondary
         assert app.screen.query_one("#aperture_drawer_panel").display is True
         assert app.screen.query_one("#active_aperture_panel").display is False
+        assert app.screen.query_one("#context_budget_panel").display is True
         assert app.screen.query_one("#turn_status_panel").display is True
+        assert str(app.screen.query_one("#runtime_action_menu", ActionStrip).styles.width) == "50w"
+        assert str(app.screen.query_one("#aperture_drawer_panel").styles.width) == "26w"
         assert app.screen.query_one_optional("#hum_panel") is None
         menu = app.screen.query_one("#runtime_action_menu", ActionStrip)
         assert menu.value == "review"
@@ -45,6 +48,8 @@ async def test_tui_boots_single_graph_mode_and_uses_multiline_composer(runtime, 
         await pilot.pause(0.2)
         assert app.ui_state.aperture_drawer_open is True
         assert app.screen.query_one("#aperture_drawer_panel")
+        assert str(app.screen.query_one("#runtime_action_menu", ActionStrip).styles.width) == "40w"
+        assert str(app.screen.query_one("#aperture_drawer_panel").styles.width) == "37w"
         await app.screen.ingest_path(
             str(sample_files["pdf"]),
             briefing="Treat this PDF as a durable source on EDEN memory and retrieve it aggressively in later turns.",
@@ -412,6 +417,24 @@ async def test_reasoning_mode_buttons_switch_feed_titles(runtime, tmp_path) -> N
 
 
 @pytest.mark.asyncio
+async def test_context_budget_panel_reports_used_and_remaining(runtime) -> None:
+    app = EdenTuiApp(runtime)
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.pause(1.0)
+        app.ui_state.current_budget = {
+            "pressure_level": "MEDIUM",
+            "prompt_budget_tokens": 1200,
+            "remaining_input_tokens": 900,
+        }
+        app.screen.refresh_panels()
+        await pilot.pause(0.2)
+
+        panel_text = app.screen.main_context_budget_panel().renderable.plain
+        assert "used 300/1200" in panel_text
+        assert "left 900 | MEDIUM" in panel_text
+
+
+@pytest.mark.asyncio
 async def test_turn_status_panel_tracks_live_turn_progress(runtime) -> None:
     app = EdenTuiApp(runtime)
     async with app.run_test(size=(140, 44)) as pilot:
@@ -498,6 +521,7 @@ async def test_session_config_modal_labels_history_and_clamped_summary(runtime) 
             "#repetition_penalty_label": "Repetition Penalty",
             "#retrieval_depth_label": "Retrieval Depth",
             "#max_context_items_label": "Max Context Items",
+            "#history_turns_label": "Conversation History Turns",
             "#response_char_cap_label": "Response Character Cap",
         }
         for selector, expected in expected_labels.items():
@@ -514,6 +538,7 @@ async def test_session_config_modal_labels_history_and_clamped_summary(runtime) 
             "#repetition_penalty_help": "Higher values discourage loops and reused phrasing",
             "#retrieval_depth_help": "How many recall candidates EDEN inspects before building the prompt.",
             "#max_context_items_help": "How many retrieved items EDEN can carry into the active prompt.",
+            "#history_turns_help": "How many recent Brian/Adam turns EDEN carries into the prompt history.",
             "#response_char_cap_help": "Character cap for the operator-facing answer after membrane cleanup.",
         }
         for selector, expected in expected_help_snippets.items():
@@ -538,6 +563,7 @@ async def test_session_config_modal_labels_history_and_clamped_summary(runtime) 
         modal.query_one("#repetition_penalty_input", Input).value = "-4"
         modal.query_one("#retrieval_depth_input", Input).value = "99"
         modal.query_one("#max_context_items_input", Input).value = "2"
+        modal.query_one("#history_turns_input", Input).value = "99"
         modal.query_one("#response_char_cap_input", Input).value = "5000"
         await pilot.pause(0.3)
 
@@ -548,6 +574,7 @@ async def test_session_config_modal_labels_history_and_clamped_summary(runtime) 
         assert "repetition_penalty=0.00" in summary_text
         assert "retrieval_depth=32" in summary_text
         assert "max_context_items=4" in summary_text
+        assert "history_turns=12" in summary_text
         assert "max_output_tokens=128" in summary_text
         assert "response_char_cap=3200" in summary_text
 

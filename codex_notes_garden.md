@@ -3969,3 +3969,215 @@ Remaining uncertainties:
 - Some Gephi importers, especially topology-first formats, may still flatten richer EDEN metadata even though semantic labels are now exported.
 Next shortest proof path:
 Generate a fresh GEXF and GDF from the observatory, import both into Gephi, and verify the Node/Edge Data Table `Label` columns now show semantic export labels rather than UUIDs.
+## [2026-03-16 12:08:48 EDT] PRE-FLIGHT
+Operator task:
+Add a simple always-visible topbar widget in the prime chat surface that shows conversation context used and remaining, positioned between the action shelf and live turn status.
+Task checksum:
+`06b5d7a5936c1fe66ef2f2cc7cb7774f0ef20123f1f6c0d0f6fad72464a2a837`
+Repo situation:
+On `main`. `git status --short` returned clean. Existing TUI budget plumbing already exists in `ui_state.current_budget`; the prime header does not surface it yet.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+`/Users/brianray/Adam/docs/INFERENCE_PROFILES.md`
+Natural-language contracts in force:
+The TUI remains the primary EDEN runtime surface. The top action shelf and top-row telemetry are normative. Budget visibility exists as an EDEN-side estimate, not a claim about model absolute maximum context window. Code/spec drift on topbar layout must be resolved in the same turn.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/tui/app.py`
+`/Users/brianray/Adam/tests/test_tui_smoke.py`
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+Status register:
+- Implemented:
+  - `session_state_snapshot()` exposes `current_budget`.
+  - The Utilities Deck already renders detailed budget/accounting text.
+  - The prime chat topbar already renders the action shelf, live turn status, and aperture surfaces.
+- Instrumented:
+  - TUI smoke tests already cover topbar visibility and turn-status behavior.
+- Conceptual:
+  - A dedicated prime-surface context-used/remaining widget in the blank header slot.
+- Unknown:
+  - Exact compact wording and width constraints needed so the widget remains legible without starving the action strip or live turn status on wide terminals.
+Risks / invariants:
+Do not invent a second budget path. Reuse `ui_state.current_budget` and preserve the spec distinction between EDEN-side budget estimate and absolute model context claims. Keep compact-mode behavior stable and avoid breaking the aperture drawer layout.
+Evidence plan:
+Patch the topbar compose tree and responsive layout, add a dedicated panel formatter using the existing budget snapshot, update the TUI spec, extend `tests/test_tui_smoke.py`, and run targeted plus full pytest.
+Shortest proof path:
+Add `#context_budget_panel` to the topbar, refresh it from existing panel-refresh hooks, assert its text in smoke tests, then run `./.venv/bin/pytest -q tests/test_tui_smoke.py` followed by `./.venv/bin/pytest -q`.
+## [2026-03-16 12:18:33 EDT] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/eden/tui/app.py`
+`/Users/brianray/Adam/tests/test_tui_smoke.py`
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+Append-only `/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+Natural-language contracts added/revised/preserved:
+Preserved the TUI as the prime runtime surface and preserved the Deck as the detailed budget surface. Revised the top-row chat contract so the blank header slot now carries a compact context-budget estimate sourced from the existing EDEN budget object. Preserved the explicit limitation that this remains an EDEN-side estimate rather than a claim about the model's absolute context window.
+Behavior implemented or modified:
+Added `#context_budget_panel` to the prime chat topbar between the action shelf and live turn status. The widget now renders compact used/remaining prompt-budget numbers plus pressure, refreshes with normal panel refreshes and preview updates, and stays hidden on compact layouts where the topbar already collapses. Rebalanced the wide-topbar widths so the new panel fits without dropping the observatory action-progress surface. Added smoke coverage for visibility and used/remaining text.
+Evidence produced (tests / traces / commands / exports):
+`./.venv/bin/pytest -q tests/test_tui_smoke.py` -> `17 passed in 49.94s`
+`./.venv/bin/pytest -q` -> `76 passed in 62.46s`
+Status register changes:
+- Implemented:
+  - Prime chat topbar now exposes a compact used/remaining context-budget widget sourced from `ui_state.current_budget`.
+  - TUI smoke tests now ratchet the widget visibility and text contract.
+- Instrumented:
+  - None added.
+- Conceptual:
+  - None added.
+- Unknown:
+  - Exact operator preference for the compact copy density inside the widget beyond this initial `used / left / pressure` presentation.
+Truth-table / limitations updates:
+Updated `IMPLEMENTATION_TRUTH_TABLE.md` to record the prime-topbar context readout alongside Deck budget surfaces. Updated `KNOWN_LIMITATIONS.md` so the compact topbar readout inherits the same estimate-only limitation as the Deck prompt-budget ticker.
+Remaining uncertainties:
+- `.DS_Store` was already dirty in the worktree and was left untouched.
+- The widget currently reports token-estimate usage, not a richer breakdown of active-set vs history vs user share in the prime header; those remain in Deck.
+Next shortest proof path:
+Run the prime TUI manually at the target terminal size and confirm the compact context panel copy and width balance feel right during long live typing/retrieval sessions, especially under `wide` budget mode and long transcript history.
+## [2026-03-16 12:23:08 EDT] PRE-FLIGHT
+Operator task:
+Reduce the visible empty blue area in the top action shelf by shifting the topbar split left and making the top aperture / active-set slice wider.
+Task checksum:
+`5fb1ea8d7e07c72278bc63c0aa7b2815454357b0fb95062f5378c1b9010fc4e7`
+Repo situation:
+Worktree already dirty from the immediately preceding topbar-context pass plus pre-existing `.DS_Store`. This turn should only refine the same TUI layout surfaces and must not disturb unrelated pending changes.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+Natural-language contracts in force:
+The TUI top row is the normative prime runtime surface. The action shelf, compact context-budget strip, live turn-status strip, and top aperture slice must remain simultaneously visible on wide terminals. Layout changes require TUI spec alignment in the same turn.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/tui/app.py`
+`/Users/brianray/Adam/tests/test_tui_smoke.py`
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+Status register:
+- Implemented:
+  - Prime topbar context-budget widget and live-turn-status strip.
+  - Wide-layout top aperture slice beside the action shelf.
+- Instrumented:
+  - TUI smoke coverage for prime-topbar visibility and observatory action-progress copy.
+- Conceptual:
+  - A better-balanced topbar width allocation that wastes less area inside the action shelf.
+- Unknown:
+  - The narrowest action-shelf width that still preserves the observatory progress line without truncating `phase`, `progress`, and `elapsed`.
+Risks / invariants:
+Do not regress the observatory-progress strip again. Keep the action shelf wide enough for the existing smoke assertion surface, and widen the aperture slice by reclaiming space from the shelf rather than from the new context widget.
+Evidence plan:
+Adjust only the wide-layout width percentages and any related topbar wording, add a smoke assertion that the aperture slice width increased in wide mode, then rerun `tests/test_tui_smoke.py` and full pytest.
+Shortest proof path:
+Patch `_sync_responsive_layout()` widths for both normal-wide and drawer-open topbar states, ratchet the new width split in `tests/test_tui_smoke.py`, update TUI wording if needed, then run `./.venv/bin/pytest -q tests/test_tui_smoke.py` and `./.venv/bin/pytest -q`.
+## [2026-03-16 12:27:11 EDT] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/eden/tui/app.py`
+`/Users/brianray/Adam/tests/test_tui_smoke.py`
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+Append-only `/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+Natural-language contracts added/revised/preserved:
+Preserved the prime-topbar contract of action shelf + compact context budget + live turn status + top aperture slice. Revised only the width balance: the top aperture slice is now intentionally wider on wide terminals so the action shelf does not carry a large dead zone.
+Behavior implemented or modified:
+Adjusted `_sync_responsive_layout()` so the wide closed topbar now uses `50w / 11w / 13w / 26w` for action shelf / context budget / live turn status / aperture, instead of `54w / 11w / 13w / 22w`. The drawer-open topbar now uses `40w / 10w / 13w / 37w` instead of `44w / 10w / 13w / 33w`. Added smoke assertions that ratchet both width splits.
+Evidence produced (tests / traces / commands / exports):
+`./.venv/bin/pytest -q tests/test_tui_smoke.py` -> `17 passed in 50.04s`
+`./.venv/bin/pytest -q` -> `76 passed in 62.23s`
+Status register changes:
+- Implemented:
+  - Wide-topbar width allocation now gives more space to the top aperture / active-set slice and less unused area to the action shelf.
+  - Smoke tests now ratchet the new width split in both normal-wide and drawer-open states.
+- Instrumented:
+  - None added.
+- Conceptual:
+  - None added.
+- Unknown:
+  - Whether the operator will want a second pass after seeing the wider aperture on the real terminal at the target font/cell size.
+Truth-table / limitations updates:
+No truth-table status change required. Updated only the TUI layout contract wording in `TUI_SPEC.md`.
+Remaining uncertainties:
+- `.DS_Store` remains an unrelated dirty file and was left untouched.
+- This turn rebalanced widths only; it did not change the action strip’s internal button grid packing.
+Next shortest proof path:
+Run the TUI on the target terminal and confirm the new `26w` / `37w` aperture widths remove the wasted blue space without making the action shelf feel cramped during observatory progress or long action labels.
+## [2026-03-16 12:29:43 EDT] PRE-FLIGHT
+Operator task:
+Add a tuning-apparatus control that can extend conversation context length in a real way for a session, not just rename an estimate.
+Task checksum:
+`41a0af3d6995a71f7d4a3fd47e5d90974bb192a3dafd7fe6d1ead276f18279c8`
+Repo situation:
+Worktree remains dirty from the immediately preceding TUI passes plus pre-existing `.DS_Store`. This turn should extend the same inference/TUI surfaces without disturbing unrelated pending edits.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/INFERENCE_PROFILES.md`
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+Natural-language contracts in force:
+The tuning apparatus must remain honest about EDEN-side prompt budgeting versus the model's absolute context window. A real conversation-context extension must affect prompt assembly, not just the budget estimate. Session-start/tune controls and persisted profile fields must stay in sync with code and docs.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/inference.py`
+`/Users/brianray/Adam/eden/config.py`
+`/Users/brianray/Adam/eden/runtime.py`
+`/Users/brianray/Adam/eden/tui/app.py`
+`/Users/brianray/Adam/tests/test_tui_smoke.py`
+`/Users/brianray/Adam/tests/test_inference_profiles.py`
+`/Users/brianray/Adam/docs/INFERENCE_PROFILES.md`
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+Status register:
+- Implemented:
+  - Tuning apparatus persists bounded retrieval depth, max context items, and budget mode per session.
+  - Prompt history injection is currently hardcoded to the last 3 turns.
+- Instrumented:
+  - Budget accounting records history contribution and history-turn count in the budget object.
+- Conceptual:
+  - A bounded operator-tunable conversation-history window exposed in Tune Session / Session Start.
+- Unknown:
+  - Whether a separate prompt-budget override is necessary for the operator's intent, or whether extending actual history-turn inclusion is sufficient for this pass.
+Risks / invariants:
+Do not imply unlimited context. Keep the new control bounded and explicit. The new field must actually drive `_recent_history_context()` and budget accounting; otherwise the feature would be mislabeled. Preserve compatibility with existing stored session metadata by defaulting cleanly.
+Evidence plan:
+Add a bounded `history_turns` profile field, expose it in the session modal and summary, thread it through session persistence and preview/chat history assembly, update docs, add tests for clamp/persistence and actual history-window behavior, then run targeted and full pytest.
+Shortest proof path:
+Implement `history_turns` end-to-end, assert it in `tests/test_tui_smoke.py` and `tests/test_inference_profiles.py`, and run `./.venv/bin/pytest -q tests/test_tui_smoke.py tests/test_inference_profiles.py` followed by `./.venv/bin/pytest -q`.
+## [2026-03-16 12:34:41 EDT] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/eden/config.py`
+`/Users/brianray/Adam/eden/inference.py`
+`/Users/brianray/Adam/eden/runtime.py`
+`/Users/brianray/Adam/eden/tui/app.py`
+`/Users/brianray/Adam/tests/test_inference_profiles.py`
+`/Users/brianray/Adam/tests/test_tui_smoke.py`
+`/Users/brianray/Adam/docs/INFERENCE_PROFILES.md`
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+Append-only `/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+`/Users/brianray/Adam/docs/INFERENCE_PROFILES.md`
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+Natural-language contracts added/revised/preserved:
+Preserved the distinction between EDEN-side prompt-budget discipline and the backend's true context limit. Added a bounded `history_turns` session-profile control to the tuning apparatus and anchored it as a real prompt-history assembly control rather than a cosmetic estimate change.
+Behavior implemented or modified:
+Added `history_turns` to runtime settings, session profile requests, resolved profiles, session persistence, and the Tune Session / Session Start modal. The tuning apparatus now shows `Conversation History Turns`, clamps it to `1..12`, includes it in the profile summary and Deck budget text, and persists it in session metadata. `preview_turn()` and `chat()` now build `history_context` from the requested number of recent turns instead of the previous hardcoded `3`, and budget accounting now records the actual bounded history-turn count used for that prompt.
+Evidence produced (tests / traces / commands / exports):
+`./.venv/bin/pytest -q tests/test_tui_smoke.py tests/test_inference_profiles.py` -> `21 passed in 50.26s`
+`./.venv/bin/pytest -q` -> `77 passed in 62.28s`
+Status register changes:
+- Implemented:
+  - Tuning apparatus can now extend bounded conversation context length by increasing the injected history-turn window per session.
+  - Prompt-history assembly now obeys the persisted `history_turns` field instead of a hardcoded `3`.
+- Instrumented:
+  - None added.
+- Conceptual:
+  - A separate numeric prompt-budget override was not added in this pass.
+- Unknown:
+  - Whether the operator also wants a second manual control for the prompt-budget ceiling beyond the existing `tight` / `balanced` / `wide` preset path.
+Truth-table / limitations updates:
+Updated the inference-profile, TUI, truth-table, and limitations docs to record the new bounded conversation-history window and the fact that it still operates inside EDEN's prompt-budget discipline and the backend's real limits.
+Remaining uncertainties:
+- `.DS_Store` remains an unrelated dirty file and was left untouched.
+- This pass extends actual conversation-history injection, but it does not add a separate operator-entered numeric prompt-budget ceiling; `budget_mode` remains the only direct prompt-envelope selector.
+Next shortest proof path:
+Run the TUI manually, open Tune Session, increase `Conversation History Turns`, and verify the compact context meter plus Deck budget panel respond as long conversations accumulate under `wide` budget mode.

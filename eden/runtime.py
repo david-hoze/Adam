@@ -417,7 +417,7 @@ class EdenRuntime:
         resolved = self._resolved_profile(session_id=session_id, query=user_text)
         request: InferenceProfileRequest = resolved["request"]
         profile = resolved["profile"]
-        history_context = self._recent_history_context(session_id)
+        history_context = self._recent_history_context(session_id, limit=profile.history_turns)
         feedback_context = self._recent_feedback_context(session_id)
         retrieval_settings = runtime_settings_for_profile(self.settings, profile)
         active_set = self.retrieval_service.retrieve(
@@ -446,7 +446,7 @@ class EdenRuntime:
             user_text=user_text,
             response_char_cap=profile.response_char_cap,
             active_set_items=len(active_set["items"]),
-            history_turns=min(3, len(self.store.list_turns(session_id, limit=3))),
+            history_turns=min(profile.history_turns, len(self.store.list_turns(session_id, limit=profile.history_turns))),
             token_counter=token_counter,
             previous=previous,
         )
@@ -828,8 +828,8 @@ class EdenRuntime:
         self.settings.debug = updated.debug
         return updated.to_dict()
 
-    def _recent_history_context(self, session_id: str) -> str:
-        turns = list(reversed(self.store.list_turns(session_id, limit=3)))
+    def _recent_history_context(self, session_id: str, *, limit: int) -> str:
+        turns = list(reversed(self.store.list_turns(session_id, limit=max(1, limit))))
         if not turns:
             return "No prior turns."
         parts = []

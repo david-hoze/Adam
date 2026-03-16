@@ -716,6 +716,18 @@ class SessionConfigModal(ModalScreen[dict[str, Any] | None]):
                         classes="field_help",
                         id="max_context_items_help",
                     )
+                with Vertical(classes="field_stack", id="history_turns_field"):
+                    yield Static("Conversation History Turns", classes="field_label", id="history_turns_label")
+                    yield Input(
+                        value=str(self.defaults.get("history_turns", 3)),
+                        id="history_turns_input",
+                        placeholder="conversation history turns",
+                    )
+                    yield Static(
+                        "How many recent Brian/Adam turns EDEN carries into the prompt history. Lower values keep the loop tighter; higher values preserve more conversation continuity at added prompt-budget cost.",
+                        classes="field_help",
+                        id="history_turns_help",
+                    )
                 with Vertical(classes="field_stack", id="response_char_cap_field"):
                     yield Static("Response Character Cap", classes="field_label", id="response_char_cap_label")
                     yield Input(
@@ -789,6 +801,7 @@ class SessionConfigModal(ModalScreen[dict[str, Any] | None]):
             "repetition_penalty": self._float_value("#repetition_penalty_input", 1.05),
             "retrieval_depth": self._int_value("#retrieval_depth_input", 12),
             "max_context_items": self._int_value("#max_context_items_input", 8),
+            "history_turns": self._int_value("#history_turns_input", 3),
             "response_char_cap": self._int_value("#response_char_cap_input", 1600),
         }
         app = self.app
@@ -808,7 +821,7 @@ class SessionConfigModal(ModalScreen[dict[str, Any] | None]):
             f"[bold {AMBER}]Mode[/] {mode.upper()}\n"
             f"{mode_summary}\n\n"
             f"[bold {AMBER}]Budget preset[/] {payload['budget_mode']}\n"
-            f"retrieval_depth={payload['retrieval_depth']} max_context_items={payload['max_context_items']}\n"
+            f"retrieval_depth={payload['retrieval_depth']} max_context_items={payload['max_context_items']} history_turns={payload['history_turns']}\n"
             f"max_output_tokens={payload['max_output_tokens']} response_char_cap={payload['response_char_cap']}\n"
             f"temperature={payload['temperature']:.2f} top_p={payload['top_p']:.2f} repetition_penalty={payload['repetition_penalty']:.2f}"
         )
@@ -2272,6 +2285,7 @@ class ChatScreen(Screen):
         with Vertical(id="runtime_frame"):
             with Horizontal(id="runtime_topbar"):
                 yield ActionStrip(value="review", id="runtime_action_menu")
+                yield Static(id="context_budget_panel")
                 yield Static(id="turn_status_panel")
                 yield Static(id="aperture_drawer_panel")
             with Horizontal(id="chat_shell"):
@@ -2330,6 +2344,7 @@ class ChatScreen(Screen):
             self._sync_aperture_drawer()
             self._sync_runtime_chyron_drawer()
             self._sync_header_controls()
+            self.query_one("#context_budget_panel", Static).update(self.main_context_budget_panel())
             self.query_one("#turn_status_panel", Static).update(self.main_turn_status_panel())
             top_aperture = self.main_aperture_drawer_panel() if self.app.ui_state.aperture_drawer_open else self.main_aperture_panel()
             self.query_one("#aperture_drawer_panel", Static).update(top_aperture)
@@ -2348,6 +2363,7 @@ class ChatScreen(Screen):
             return
         try:
             self.query_one("#runtime_action_menu", ActionStrip).refresh()
+            self.query_one("#context_budget_panel", Static).update(self.main_context_budget_panel())
             self.query_one("#turn_status_panel", Static).update(self.main_turn_status_panel())
             self.query_one("#chat_exchange_panel", Static).update(self.main_chat_exchange_panel())
         except NoMatches:
@@ -2362,6 +2378,7 @@ class ChatScreen(Screen):
         assert isinstance(app, EdenTuiApp)
         topbar = self.query_one("#runtime_topbar", Horizontal)
         action_strip = self.query_one("#runtime_action_menu", ActionStrip)
+        context_budget = self.query_one("#context_budget_panel", Static)
         turn_status = self.query_one("#turn_status_panel", Static)
         aperture_drawer = self.query_one("#aperture_drawer_panel", Static)
         chat_primary = self.query_one("#chat_primary", Vertical)
@@ -2377,6 +2394,8 @@ class ChatScreen(Screen):
         if compact:
             action_strip.styles.width = "1fr"
             action_strip.styles.min_width = 0
+            context_budget.display = False
+            context_budget.styles.width = 0
             turn_status.display = False
             turn_status.styles.width = 0
             aperture_drawer.styles.width = 0
@@ -2414,21 +2433,27 @@ class ChatScreen(Screen):
             reasoning_mode_row.display = True
             thinking_scroller.display = True
             if app.ui_state.aperture_drawer_open:
-                action_strip.styles.width = "44%"
+                action_strip.styles.width = "40%"
                 action_strip.styles.min_width = 42
+                context_budget.display = True
+                context_budget.styles.width = "10%"
+                context_budget.styles.min_width = 14
                 turn_status.display = True
-                turn_status.styles.width = "14%"
-                aperture_drawer.styles.width = "42%"
-                action_width = max(42, int((self.size.width or 120) * 0.44) - 4)
+                turn_status.styles.width = "13%"
+                aperture_drawer.styles.width = "37%"
+                action_width = max(42, int((self.size.width or 120) * 0.40) - 4)
                 drawer_height = max(13, int((self.size.height or 40) * 0.30))
                 topbar.styles.height = max(action_strip.preferred_height(action_width), drawer_height)
             else:
-                action_strip.styles.width = "57%"
-                action_strip.styles.min_width = 57
+                action_strip.styles.width = "50%"
+                action_strip.styles.min_width = 50
+                context_budget.display = True
+                context_budget.styles.width = "11%"
+                context_budget.styles.min_width = 14
                 turn_status.display = True
                 turn_status.styles.width = "13%"
-                aperture_drawer.styles.width = "30%"
-                action_width = max(42, int((self.size.width or 120) * 0.57) - 4)
+                aperture_drawer.styles.width = "26%"
+                action_width = max(42, int((self.size.width or 120) * 0.50) - 4)
                 topbar.styles.height = max(action_strip.preferred_height(action_width), 11)
             chat_deck.styles.min_height = 28
             chat_primary.styles.width = "60%"
@@ -3305,8 +3330,10 @@ class ChatScreen(Screen):
                 (safe_excerpt(runtime_line, limit=max_width), TEXT),
                 (
                     safe_excerpt(
-                        f"action={action_progress.get('label', 'unknown')} | phase={action_progress.get('phase', 'running')} | "
-                        f"elapsed={elapsed} | progress={_progress_bar(step, total)} {step}/{total} | "
+                        f"action={action_progress.get('label', 'unknown')} "
+                        f"phase={action_progress.get('phase', 'running')} "
+                        f"progress={step}/{total} "
+                        f"elapsed={elapsed} "
                         f"{safe_excerpt(str(action_progress.get('detail', 'working')), limit=detail_limit)}",
                         limit=max_width,
                     ),
@@ -3367,6 +3394,38 @@ class ChatScreen(Screen):
             f"items={len(active_items)} review={'armed' if self._feedback_loop_state()[0] == 'pending' else 'clear'}"
         )
         return Panel(text, title="Live Turn Status", border_style=AMBER, style=f"on {SHADE_ALT}")
+
+    def main_context_budget_panel(self) -> Panel:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        budget = app.ui_state.current_budget or {}
+
+        def _int_value(value: Any) -> int | None:
+            try:
+                return int(float(value))
+            except (TypeError, ValueError):
+                return None
+
+        prompt_budget = _int_value(budget.get("prompt_budget_tokens"))
+        remaining = _int_value(budget.get("remaining_input_tokens"))
+        pressure = str(budget.get("pressure_level", "n/a")).upper()
+        border = ICE if pressure == "LOW" else AMBER if pressure == "MEDIUM" else EMBER if pressure == "HIGH" else AMBER
+        if prompt_budget is None or remaining is None or prompt_budget <= 0:
+            text = Text.from_markup(
+                f"[bold {AMBER}]No estimate yet[/]\n"
+                "Type to arm.\n"
+                "Deck=F6"
+            )
+            return Panel(text, title="Context", border_style=border, style=f"on {SHADE_ALT}")
+        remaining = max(0, remaining)
+        used = max(0, min(prompt_budget, prompt_budget - remaining))
+        ratio = used / max(prompt_budget, 1)
+        bar = self._meter_bar(used, scale=prompt_budget, width=8)
+        text = Text()
+        text.append(f"used {used}/{prompt_budget}\n", style=TEXT)
+        text.append(f"{bar} {int(round(ratio * 100)):>3}%\n", style=ICE if ratio < 0.85 else EMBER)
+        text.append(f"left {remaining} | {pressure}", style=MUTED)
+        return Panel(text, title="Context", border_style=border, style=f"on {SHADE_ALT}")
 
     def main_thinking_panel(self) -> Panel:
         app = self.app
@@ -3881,7 +3940,7 @@ class ChatScreen(Screen):
         return Text.from_markup(
             f"[bold {AMBER}]profile[/] {profile.get('profile_name', 'n/a')}\n"
             f"mode={profile.get('requested_mode', 'n/a')} -> {profile.get('effective_mode', 'n/a')}\n"
-            f"retrieval_depth={profile.get('retrieval_depth', 'n/a')} max_context_items={profile.get('max_context_items', 'n/a')}\n"
+            f"retrieval_depth={profile.get('retrieval_depth', 'n/a')} max_context_items={profile.get('max_context_items', 'n/a')} history_turns={profile.get('history_turns', 'n/a')}\n"
             f"reserved_output={budget.get('reserved_output_tokens', 'n/a')} tok response_char_cap={profile.get('response_char_cap', 'n/a')}\n"
             f"prompt_budget={budget.get('prompt_budget_tokens', 'n/a')} tok context_window={budget.get('context_window_tokens', 'n/a')} tok\n"
             f"user={budget.get('user_tokens', 'n/a')} tok / {budget.get('user_chars', 'n/a')} chars\n"
@@ -3998,6 +4057,7 @@ class ChatScreen(Screen):
             if not self.is_mounted:
                 return
             self.query_one("#runtime_action_menu", ActionStrip).refresh()
+            self.query_one("#context_budget_panel", Static).update(self.main_context_budget_panel())
             top_aperture = self.main_aperture_drawer_panel() if app.ui_state.aperture_drawer_open else self.main_aperture_panel()
             self.query_one("#aperture_drawer_panel", Static).update(top_aperture)
             self.query_one("#active_aperture_panel", Static).update(top_aperture)
@@ -4754,6 +4814,11 @@ class EdenTuiApp(App):
         display: none;
         margin: 0 0 1 1;
         min-width: 34;
+    }}
+    #context_budget_panel {{
+        display: none;
+        margin: 0 0 1 1;
+        min-width: 16;
     }}
     #turn_status_panel {{
         display: none;

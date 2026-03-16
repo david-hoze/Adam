@@ -45,6 +45,7 @@ class InferenceProfileRequest:
     repetition_penalty: float = 1.05
     retrieval_depth: int = 12
     max_context_items: int = 8
+    history_turns: int = 3
     response_char_cap: int = 1600
     low_motion: bool = False
     debug: bool = True
@@ -68,6 +69,7 @@ class ResolvedInferenceProfile:
     repetition_penalty: float
     retrieval_depth: int
     max_context_items: int
+    history_turns: int
     response_char_cap: int
     low_motion: bool
     debug: bool
@@ -89,6 +91,7 @@ def default_profile_request(settings: RuntimeSettings) -> InferenceProfileReques
         repetition_penalty=1.05,
         retrieval_depth=settings.retrieval_depth,
         max_context_items=settings.max_context_items,
+        history_turns=settings.history_turns,
         response_char_cap=1600,
         low_motion=settings.low_motion,
         debug=settings.debug,
@@ -109,6 +112,7 @@ def request_from_dict(payload: dict[str, Any] | None, settings: RuntimeSettings)
             repetition_penalty=float(payload.get("repetition_penalty", base.repetition_penalty)),
             retrieval_depth=int(payload.get("retrieval_depth", base.retrieval_depth)),
             max_context_items=int(payload.get("max_context_items", base.max_context_items)),
+            history_turns=int(payload.get("history_turns", base.history_turns)),
             response_char_cap=int(payload.get("response_char_cap", base.response_char_cap)),
             low_motion=bool(payload.get("low_motion", base.low_motion)),
             debug=bool(payload.get("debug", base.debug)),
@@ -134,6 +138,7 @@ def clamp_request(request: InferenceProfileRequest) -> InferenceProfileRequest:
         repetition_penalty=max(0.0, min(2.5, request.repetition_penalty)),
         retrieval_depth=max(4, min(32, request.retrieval_depth)),
         max_context_items=max(4, min(16, request.max_context_items)),
+        history_turns=max(1, min(12, request.history_turns)),
         response_char_cap=max(600, min(3200, request.response_char_cap)),
         budget_mode=budget_mode,
         title=request.title.strip() or "Operator Session",
@@ -145,6 +150,7 @@ def runtime_settings_for_profile(settings: RuntimeSettings, profile: ResolvedInf
         settings,
         retrieval_depth=profile.retrieval_depth,
         max_context_items=profile.max_context_items,
+        history_turns=profile.history_turns,
         low_motion=profile.low_motion,
         debug=profile.debug,
     )
@@ -197,6 +203,7 @@ def _manual_profile(request: InferenceProfileRequest) -> ResolvedInferenceProfil
         repetition_penalty=request.repetition_penalty,
         retrieval_depth=request.retrieval_depth,
         max_context_items=request.max_context_items,
+        history_turns=request.history_turns,
         response_char_cap=request.response_char_cap,
         low_motion=request.low_motion,
         debug=request.debug,
@@ -257,6 +264,7 @@ def _runtime_auto_profile(
         repetition_penalty=1.05 if feedback_balance >= 0 else 1.12,
         retrieval_depth=retrieval_depth,
         max_context_items=max_context_items,
+        history_turns=request.history_turns,
         response_char_cap=int(preset["response_char_cap"]),
         low_motion=request.low_motion,
         debug=request.debug,
@@ -319,6 +327,7 @@ def _adam_auto_profile(
         repetition_penalty=1.05,
         retrieval_depth=int(preset["retrieval_depth"]),
         max_context_items=int(preset["max_context_items"]),
+        history_turns=request.history_turns,
         response_char_cap=int(preset["response_char_cap"]),
         low_motion=request.low_motion,
         debug=request.debug,

@@ -42,6 +42,7 @@ Session metadata stores the requested profile:
 - `repetition_penalty`
 - `retrieval_depth`
 - `max_context_items`
+- `history_turns`
 - `response_char_cap`
 - `low_motion`
 - `debug`
@@ -85,6 +86,7 @@ Manual numeric fields:
 - `repetition_penalty`: higher values suppress repeated phrasing more strongly; lower values allow more reuse
 - `retrieval_depth`: lower values inspect fewer recall candidates; higher values inspect more
 - `max_context_items`: lower values admit fewer retrieved items into the active prompt; higher values admit more at added prompt-budget cost
+- `history_turns`: lower values keep the prompt history tighter; higher values preserve more recent Brian/Adam turns at added prompt-budget cost
 - `response_char_cap`: lower values enforce tighter post-generation operator-facing replies; higher values allow fuller replies
 
 ## MLX pass-through
