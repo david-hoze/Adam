@@ -2,8 +2,8 @@
 
 | Capability | Status | Notes / evidence |
 | --- | --- | --- |
-| Blank Eden bootstrap | Implemented | runtime + TUI path; validated in tests and demo |
-| Seeded Eden bootstrap code path | Implemented | ingests `assets/seed_canon/`; heavy-path validation started on real canon files |
+| Single persistent Adam graph | Implemented | runtime now reuses one primary graph across new and resumed sessions; validated in runtime/TUI tests |
+| Operator-driven ingest instead of seeded startup | Implemented | startup no longer offers blank/seeded graph creation; documents enter the same graph through normal ingest flow |
 | Fixed-pane operator looks | Implemented | amber-dark remains the default dialogue-first surface, and Deck now exposes a persisted `Typewriter Light` alternative proved by `tests/test_tui_smoke.py` |
 | Live session dialogue boot | Implemented | app opens directly into a resumed-or-created session; wide terminals keep dialogue + telemetry visible, while compact terminals fall back to a dialogue-first composer/transcript view |
 | `python -m eden` default entry path | Implemented | no subcommand required for the normal TUI path; flags remain optional overrides |
@@ -26,7 +26,7 @@
 | Deck + Review secondary surfaces | Implemented | detailed budget / thinking / history remain in `Deck`; explicit feedback remains in `Review` |
 | Dedicated runtime reasoning/feed surface | Implemented | MLX/Qwen reasoning is kept separate from the final answer, and the prime TUI feed now suppresses prompt-mirror scaffolding while surfacing response-first material, answer-beat reductions, useful hum continuity or first-turn seed details, runtime condition, membrane record, and consideration-trace telemetry in a focusable lower-right viewport |
 | Operator-label turn persistence | Implemented | saved turns and graph-ingested operator text are punctuated as `Brian the operator: ...` |
-| Session-start inference profile flow | Implemented | new-session and blank/seeded session modal |
+| Session-start inference profile flow | Implemented | new-session and resume flows use one shared session modal against the persistent graph |
 | Manual inference mode | Implemented | persisted in session metadata and surfaced per turn |
 | Runtime auto inference mode | Implemented | deterministic bounded heuristics; tested |
 | Adam auto inference mode | Implemented with bounded fallback | mock path chooses bounded presets; MLX path falls back to `runtime_auto` and logs it |
@@ -57,10 +57,10 @@
 | Connected memode support validation | Implemented | memode assertion/update requires a connected qualifying meme support subgraph and rejects passenger memes |
 | Live observatory read endpoints | Implemented | overview, graph, basin, sessions, transcript, active-set, runtime status/model |
 | Observatory SSE invalidation stream | Implemented | compact invalidation events after turns, feedback, commits, and reverts |
-| Browser-local view presets | Implemented | browser-proved via Playwright; `localStorage` only, keyed by experiment + surface + export manifest/source graph hash; hydration race fixed so reload restores saved view without entering the measurement ledger |
+| Browser-local view presets | Implemented | browser-proved via Playwright; `localStorage` only, keyed by the internal graph/export identity + surface + export manifest/source graph hash; hydration race fixed so reload restores saved view without entering the measurement ledger |
 | Browser-local layout workbench | Implemented | worker-backed browser layouts now expose a family-organized 12-part terrain browser with operator-facing usage copy; the runnable subset includes `forceatlas2`, `fruchterman_reingold`, `kamada_kawai`, `linlog`, `sugiyama_layered`, `radial_tree`, `simple_circular`, `circular_degree`, `circular_community`, `radial`, `noverlap`, `fixed_coordinate`, and `community_clusters`, with pause/cancel/reset/compare controls and heavy-graph honesty proved in workbench Playwright journeys |
 | Browser-local appearance, filters, and rankings | Implemented | React workbench exposes style mappings, search/filter rail, connected-component and ego controls, and worker-computed statistics/rankings; browser-local state remains outside the measurement ledger |
-| Browser Data Lab and graph export interoperability | Implemented | node/edge tables, bulk selection handoff, CSV/JSON selection export, and `gexf`/`graphml` graph export are browser-visible and non-authoritative |
+| Browser Data Lab and Gephi export interoperability | Implemented | node/edge tables, bulk selection handoff, CSV/JSON selection export, and Gephi-accepted graph downloads (`gexf`, `graphml`, `gdf`, `gml`, `graphviz dot`, `pajek net`, `netdraw vna`, `ucinet dl`, `tulip tlp`, `tgf`) are browser-visible and non-authoritative |
 | Observatory browser E2E audit | Implemented | Playwright Chromium full battery plus Firefox/WebKit smoke proofs captured under `web/observatory/test-results/chromium-final` and `cross-browser-smoke`; every journey now fails if screenshot/DOM/JSON evidence artifacts are missing or empty |
 | Frontend build freshness guard | Implemented | `build-meta.json` emitted at build time, runtime warning via `/api/status`, CI check script in `scripts/check_observatory_build_meta.py` |
 | Robust observatory server lifecycle | Implemented | host/port args, reuse, free-port fallback, tests |
@@ -68,8 +68,8 @@
 | TUI observatory action progress surface | Implemented | the top action shelf separates selected action from active observatory work and shows phase-progress plus accurate elapsed time while the strip remains directly repeatable |
 | Export location feedback | Implemented | TUI export action reports the artifact directory path in the session feedback surface after generation |
 | Geometry diagnostics | Implemented | ringness, radiality, linearity, communities, triadic closure, spectral summaries, mirror/chirality/translation proxies |
-| Large-graph geometry fallback | Implemented | seeded-scale graphs use sparse-safe approximations instead of SciPy / dense full-graph linear algebra |
-| Large-graph local geometry cap | Implemented | geometry export now limits per-memode local reports to keep seeded exports tractable |
+| Large-graph geometry fallback | Implemented | large persistent graphs use sparse-safe approximations instead of SciPy / dense full-graph linear algebra |
+| Large-graph local geometry cap | Implemented | geometry export now limits per-memode local reports to keep large persistent-graph exports tractable |
 | Geometry ablation probes | Implemented | `CO_OCCURS_WITH` masking and dominant-cluster removal |
 | Browser observatory view controls | Implemented | browser-proved source/build badges, graph modes, assembly render modes, basin lift modes, payload-status diagnostics, honest sparse/large-graph copy, and keyboard/text access |
 | Browser compare / coordinate surface | Implemented | React workbench exposes coordinate-mode controls plus baseline/modified compare rendering backed by `preview_graph_patch`; browser-local compare state stays out of the measurement ledger |

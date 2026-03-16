@@ -17,7 +17,7 @@ Purpose:
 Steps:
 
 1. Run `.venv/bin/python -m eden` or `.venv/bin/python -m eden app`.
-2. Wait for the live chat surface to boot. Adam resumes the latest session if one exists; otherwise it creates a live blank session.
+2. Wait for the live chat surface to boot. Adam resumes the latest session if one exists; otherwise it creates the first live session on the persistent graph.
 3. Look for the composer. That is the place to type.
 
 Expected result:

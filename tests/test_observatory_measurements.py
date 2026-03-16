@@ -4,8 +4,12 @@ import json
 
 import pytest
 
+from eden.config import RuntimeSettings
+from eden.logging import RuntimeLog
 from eden.observatory import clustering as observatory_clustering
 from eden.observatory.contracts import MEMODE_SUPPORT_EDGE_ALLOWLIST
+from eden.runtime import EdenRuntime
+from eden.storage.graph_store import GraphStore
 
 
 def _isolated_observatory(runtime, tmp_path) -> None:
@@ -28,7 +32,7 @@ def _connected_meme_pair(runtime, experiment_id: str) -> tuple[str, str]:
     for edge in runtime.store.list_edges(experiment_id):
         if edge["src_kind"] == "meme" and edge["dst_kind"] == "meme" and edge["edge_type"] in MEMODE_SUPPORT_EDGE_ALLOWLIST:
             return edge["src_id"], edge["dst_id"]
-    raise AssertionError("Expected at least one qualifying semantic meme edge in the seeded graph.")
+    raise AssertionError("Expected at least one qualifying semantic meme edge in the persistent graph.")
 
 
 def _isolated_meme(runtime, experiment_id: str, label: str) -> dict[str, str]:
@@ -497,10 +501,18 @@ def test_basin_payload_exposes_projection_metadata_and_sparse_diagnostics(tmp_pa
     assert "cluster_signature" in basin["attractors"][0]
     assert "display_label" in basin["attractors"][0]
 
-    _isolated_observatory(runtime, tmp_path / "sparse")
-    sparse_experiment = runtime.initialize_experiment("blank")
-    sparse_session = runtime.start_session(sparse_experiment["id"], title="Sparse")
-    sparse_basin = runtime.observatory_service.basin_payload(experiment_id=sparse_experiment["id"], session_id=sparse_session["id"])
+    sparse_runtime = EdenRuntime(
+        store=GraphStore(tmp_path / "sparse_runtime.db"),
+        settings=RuntimeSettings(model_backend="mock"),
+        runtime_log=RuntimeLog(tmp_path / "sparse_runtime.jsonl"),
+    )
+    _isolated_observatory(sparse_runtime, tmp_path / "sparse")
+    sparse_experiment = sparse_runtime.initialize_experiment("blank")
+    sparse_session = sparse_runtime.start_session(sparse_experiment["id"], title="Sparse")
+    sparse_basin = sparse_runtime.observatory_service.basin_payload(
+        experiment_id=sparse_experiment["id"],
+        session_id=sparse_session["id"],
+    )
     assert sparse_basin["filtered_turn_count"] == 0
     assert sparse_basin["diagnostics"]["empty_state"] is True
     assert "Not enough turns" in sparse_basin["diagnostics"]["reason"]

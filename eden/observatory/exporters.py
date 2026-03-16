@@ -26,6 +26,22 @@ from .graph_planes import build_graph_planes
 NODE_TOPOLOGY_EXACT_LIMIT = 1200
 LOCAL_GEOMETRY_REPORT_LIMIT = 24
 
+OBSERVATORY_EXPORT_FORMATS = [
+    "gexf",
+    "graphml",
+    "gdf",
+    "gml",
+    "graphviz_dot",
+    "pajek_net",
+    "netdraw_vna",
+    "ucinet_dl",
+    "tulip_tlp",
+    "tgf",
+    "nodes_csv",
+    "edges_csv",
+    "selection_json",
+]
+
 
 OBSERVATORY_LAYOUT_FAMILIES = [
     {
@@ -548,7 +564,7 @@ class ObservatoryExporter:
                 ],
                 "heavy_graph_node_cap": 320,
             },
-            "export_formats": ["gexf", "graphml", "nodes_csv", "edges_csv", "selection_json"],
+            "export_formats": OBSERVATORY_EXPORT_FORMATS,
             "live_api": {
                 "preview": f"/api/experiments/{experiment_id}/preview",
                 "commit": f"/api/experiments/{experiment_id}/commit",

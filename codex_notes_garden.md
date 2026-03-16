@@ -3748,3 +3748,145 @@ Evidence plan:
 Implement a single primary graph path in runtime, route new/resumed sessions through it, remove blank/seeded operator actions, update archive/UI wording, revise specs, and prove with focused regression tests plus full pytest if the focused set is clean.
 Shortest proof path:
 Add runtime helpers for a persistent primary graph, collapse session bootstrap/new-session/resume to that graph, strip blank/seeded UI labels, update docs/tests, then run targeted pytest and the full suite.
+## [2026-03-16 11:22:12 EDT] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/eden/runtime.py`
+`/Users/brianray/Adam/eden/storage/graph_store.py`
+`/Users/brianray/Adam/eden/tui/app.py`
+`/Users/brianray/Adam/eden/app.py`
+`/Users/brianray/Adam/eden/observatory/service.py`
+`/Users/brianray/Adam/tests/test_runtime_e2e.py`
+`/Users/brianray/Adam/tests/test_tui_smoke.py`
+`/Users/brianray/Adam/tests/test_observatory_measurements.py`
+`/Users/brianray/Adam/docs/CANONICAL_ONTOLOGY.md`
+`/Users/brianray/Adam/docs/EXPERIMENT_PROTOCOLS.md`
+`/Users/brianray/Adam/docs/GRAPH_SCHEMA.md`
+`/Users/brianray/Adam/docs/PROJECT_CHARTER.md`
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+`/Users/brianray/Adam/docs/USER_JOURNEYS.md`
+`/Users/brianray/Adam/docs/HUM_TROUBLESHOOTING_GUIDE.md`
+Append-only `/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+`/Users/brianray/Adam/docs/CANONICAL_ONTOLOGY.md`
+`/Users/brianray/Adam/docs/EXPERIMENT_PROTOCOLS.md`
+`/Users/brianray/Adam/docs/GRAPH_SCHEMA.md`
+`/Users/brianray/Adam/docs/PROJECT_CHARTER.md`
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+Natural-language contracts added/revised/preserved:
+Revised the operator contract from blank/seeded experiment creation to one persistent Adam graph shared across new and resumed sessions. Preserved the unified ontology where behavior and knowledge remain domains inside the same graph. Preserved operator-driven ingest as the path for adding new knowledge material.
+Behavior implemented or modified:
+Added runtime primary-graph selection/creation via config-backed `primary_experiment()` and made legacy `initialize_experiment()` calls collapse into that graph instead of creating fresh graph partitions. `start_session()` now routes into the single primary graph. Existing session/runtime record tables are reassigned into the primary graph on adoption so archived/resumed sessions point at the same graph identity. TUI startup/runtime/deck/archive surfaces no longer expose Blank/Seeded Eden choices and now describe one persistent graph. CLI ingest/export now default to the primary graph when no id is supplied. Observatory experiment listing now prefers the primary graph only.
+Evidence produced (tests / traces / commands / exports):
+`python3.12 -m py_compile /Users/brianray/Adam/eden/runtime.py /Users/brianray/Adam/eden/storage/graph_store.py /Users/brianray/Adam/eden/tui/app.py /Users/brianray/Adam/eden/app.py /Users/brianray/Adam/eden/observatory/service.py /Users/brianray/Adam/tests/test_runtime_e2e.py /Users/brianray/Adam/tests/test_tui_smoke.py /Users/brianray/Adam/tests/test_observatory_measurements.py`
+`./.venv/bin/pytest -q /Users/brianray/Adam/tests/test_runtime_e2e.py /Users/brianray/Adam/tests/test_inference_profiles.py /Users/brianray/Adam/tests/test_ingest.py /Users/brianray/Adam/tests/test_tui_smoke.py -k 'single_graph or conversation_archive or session_config_modal or tune_session_modal or boots_single_graph_mode or observatory_action_progress'` -> `5 passed, 20 deselected in 12.14s`
+`./.venv/bin/pytest -q /Users/brianray/Adam/tests/test_observatory_measurements.py::test_basin_payload_exposes_projection_metadata_and_sparse_diagnostics` -> `1 passed in 0.21s`
+`./.venv/bin/pytest -q` -> `75 passed in 60.96s`
+Status register changes:
+- Implemented:
+  - One persistent primary Adam graph now backs new and resumed sessions.
+  - Blank/Seeded Eden operator actions are removed from the TUI and replaced by single-graph session actions.
+  - Archive, conversation-log, and observatory-adjacent UI copy now reflects graph continuity rather than experiment partitioning.
+  - CLI ingest/export can target the primary graph without a required experiment id.
+- Instrumented:
+  - Runtime log emits primary-graph adoption/reuse/session-redirection events.
+- Conceptual:
+  - None added.
+- Unknown:
+  - Exact historical union of legacy meme/memode/edge rows across multiple old experiments is still unproved; this turn does not claim a full semantic merge of every pre-refactor partition.
+Truth-table / limitations updates:
+Updated truth table entries for single persistent graph and operator-driven ingest. Added an explicit limitation that legacy multi-experiment meme/memode/edge rows are not fully auto-merged into one canonical graph space.
+Remaining uncertainties:
+- `.DS_Store` remains modified and unrelated.
+- Legacy graph node rows from pre-refactor multi-experiment histories may still require a dedicated migration if exact historical union is required beyond the adopted primary graph.
+Next shortest proof path:
+Inspect the existing production SQLite file, count distinct pre-refactor experiments, and if exact historical union matters, add a dedicated meme/memode/edge merge migration with id remapping plus active-set/measurement payload rewrites, then verify against observatory exports and retrieval traces.
+## [2026-03-16 11:28:45 EDT] PRE-FLIGHT
+Operator task:
+Add Gephi-compatible observatory export downloads for the unified Adam graph so the operator can open the graph in Gephi from the browser observatory.
+Task checksum:
+`6c7735c121cb4091bf75bb1e23f93586a41e663e0310ab231dafd04a7256d42a`
+Repo situation:
+Working tree is already dirty from the prior single-graph refactor in runtime/TUI/docs/tests. `.DS_Store` is unrelated. Current observatory contract/code advertises only `gexf`, `graphml`, node CSV, edge CSV, and selection JSON.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`
+`/Users/brianray/Adam/docs/OBSERVATORY_INTERACTION_SPEC.md`
+`/Users/brianray/Adam/docs/GRAPH_SCHEMA.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/SOURCE_MANIFEST.md`
+Natural-language contracts in force:
+Observatory export/interoperability is browser-visible and non-authoritative; the graph is one persistent Adam graph; docs/spec/code must stay aligned; external format claims need provenance.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/observatory/exporters.py`
+`/Users/brianray/Adam/web/observatory/src/workbench/graphUtils.ts`
+`/Users/brianray/Adam/web/observatory/src/App.tsx`
+`/Users/brianray/Adam/web/observatory/src/App.test.tsx`
+`/Users/brianray/Adam/web/observatory/tests/e2e/harness/fixtures.mjs`
+`/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+`/Users/brianray/Adam/docs/SOURCE_MANIFEST.md`
+Status register:
+- Implemented:
+  - Observatory browser downloads currently emit `gexf`, `graphml`, node CSV, edge CSV, and selection JSON from the visible graph slice.
+- Instrumented:
+  - Export capability metadata is already exposed in `graph_knowledge_base.json` via `export_formats`.
+- Conceptual:
+  - Full Gephi-format export coverage from the observatory is not yet implemented.
+- Unknown:
+  - Exact current Gephi import list and which formats are best treated as graph documents versus spreadsheet/table imports.
+Risks / invariants:
+Do not overclaim persisted/exported authority if downloads remain browser-generated. Keep graph-slice semantics explicit. Preserve existing export buttons and tests. Keep Gephi compatibility claims tied to Gephi's own docs.
+Evidence plan:
+Verify Gephi-supported import formats from official docs, extend export metadata plus browser serializers/download handlers, update docs/source manifest, rebuild/test the frontend, and run repo pytest.
+Shortest proof path:
+Implement client-side serializers for the practical Gephi import formats, advertise them through `export_formats`, update observatory docs/tests/source provenance, run `npm --prefix web/observatory run test`, `npm --prefix web/observatory run build`, and `./.venv/bin/pytest -q`.
+## [2026-03-16 11:36:41 EDT] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/eden/observatory/exporters.py`
+`/Users/brianray/Adam/web/observatory/src/App.tsx`
+`/Users/brianray/Adam/web/observatory/src/App.test.tsx`
+`/Users/brianray/Adam/web/observatory/src/workbench/graphUtils.ts`
+`/Users/brianray/Adam/web/observatory/src/workbench/graphUtils.test.ts`
+`/Users/brianray/Adam/web/observatory/tests/e2e/harness/fixtures.mjs`
+`/Users/brianray/Adam/eden/observatory/static/observatory_app/index.js`
+`/Users/brianray/Adam/eden/observatory/static/observatory_app/build-meta.json`
+`/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+`/Users/brianray/Adam/docs/SOURCE_MANIFEST.md`
+Append-only `/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+`/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+`/Users/brianray/Adam/docs/SOURCE_MANIFEST.md`
+Natural-language contracts added/revised/preserved:
+Preserved the browser export surface as non-authoritative and browser-visible. Revised observatory export interoperability to advertise the Gephi import formats Gephi currently documents, while preserving the distinction between richer attribute-carrying formats and topology-first interchange formats.
+Behavior implemented or modified:
+Expanded observatory `export_formats` metadata to include Gephi-targeted downloads: `gexf`, `graphml`, `gdf`, `gml`, `graphviz dot`, `pajek net`, `netdraw vna`, `ucinet dl`, `tulip tlp`, `tgf`, plus node/edge CSV and existing selection JSON. Added browser serializers and download handlers for those formats. Tightened GraphML/GEXF output for Gephi import by declaring keys/attributes explicitly. Updated CSV headers toward Gephi-friendly spreadsheet import conventions. Rebuilt the checked-in observatory bundle so the Python-served static app exposes the new menu.
+Evidence produced (tests / traces / commands / exports):
+`npm --prefix /Users/brianray/Adam/web/observatory run test` -> `2 passed (7 tests)`
+`npm --prefix /Users/brianray/Adam/web/observatory run build` -> rebuilt `/Users/brianray/Adam/eden/observatory/static/observatory_app/index.js` and `build-meta.json`
+`./.venv/bin/pytest -q` -> `75 passed in 61.33s`
+Status register changes:
+- Implemented:
+  - Observatory export menu now exposes the Gephi import-format set documented by Gephi plus existing EDEN selection JSON.
+  - Browser serializers now emit Gephi-oriented graph documents for the current visible graph slice.
+  - Observability docs/truth table/limitations/source provenance now reflect the expanded Gephi export surface.
+- Instrumented:
+  - None added beyond existing browser export status messaging.
+- Conceptual:
+  - None added.
+- Unknown:
+  - Exact fidelity of every Gephi importer path beyond topology/basic attributes is still format-dependent and not exhaustively machine-proved against a live Gephi instance in this turn.
+Truth-table / limitations updates:
+Updated observatory export claims to Gephi export interoperability and added an explicit fidelity caveat for sparse/topology-first formats versus richer attribute formats.
+Remaining uncertainties:
+- `.DS_Store` and the prior single-graph refactor files remain dirty/unrelated to this export pass.
+- `tulip tlp`, `pajek net`, and `tgf` serializers are intentionally minimal/topology-first; richer EDEN metadata is better preserved through `gexf`, `graphml`, or `gdf`.
+Next shortest proof path:
+Open a fresh observatory export in Gephi itself and validate at least `gexf`, `graphml`, `gdf`, `gml`, and `pajek net` import behavior end-to-end against the current unified Adam graph, then add an operator-facing recommendation badge for the highest-fidelity formats.

@@ -3,7 +3,7 @@
 ## First-class objects
 
 - `Agent`: runtime persona profile and identity anchor. ADAM is the first agent.
-- `Session`: operator-delimited run context within an experiment.
+- `Session`: operator-delimited run context within the persistent Adam graph.
 - `Turn`: one user input plus one Adam response and associated trace.
 - `Document`: ingested external source with provenance.
 - `Meme`: first-class replicable semantic or behavioral unit.
@@ -11,7 +11,7 @@
 - `TraceEvent`: operator-visible runtime event.
 - `MembraneEvent`: post-generation event emitted by the output membrane.
 - `ExportArtifact`: emitted graph/basin outputs plus manifests.
-- `Config / Experiment metadata`: run-level settings and identity.
+- `Config / graph metadata`: run-level settings and identity.
 - `MeasurementEvent`: persistent record of observatory-originated measurement, edit, annotation, ablation, or revert.
 
 ## Derived objects

@@ -15,11 +15,18 @@ import {
   downloadText,
   edgeKey,
   edgeLabel,
+  gdfForGraph,
   gexfForGraph,
+  gmlForGraph,
+  graphVizDotForGraph,
   graphMLForGraph,
   hashText,
   jsonForSelection,
+  netdrawVnaForGraph,
   nodeLabel,
+  pajekNetForGraph,
+  tgfForGraph,
+  tulipTlpForGraph,
   type AppearanceState,
   type CoordinateMap,
   type FilterState,
@@ -27,6 +34,7 @@ import {
   type GraphMode,
   type GraphNode,
   type LayoutSnapshot,
+  ucinetDlForGraph,
   visibleGraphForMode,
 } from "./workbench/graphUtils";
 import {
@@ -85,6 +93,22 @@ type GraphPayload = {
   statistics_capabilities?: Record<string, any>;
   export_formats?: string[];
 };
+
+const DEFAULT_EXPORT_FORMATS = [
+  "gexf",
+  "graphml",
+  "gdf",
+  "gml",
+  "graphviz_dot",
+  "pajek_net",
+  "netdraw_vna",
+  "ucinet_dl",
+  "tulip_tlp",
+  "tgf",
+  "nodes_csv",
+  "edges_csv",
+  "selection_json",
+] as const;
 
 type BasinPayload = {
   turns: any[];
@@ -1335,10 +1359,26 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
       downloadText("eden-edges.csv", csvForEdges(filteredBaseline.edges), "text/csv");
     } else if (format === "selection_json") {
       downloadText("eden-selection.json", jsonForSelection(filteredBaseline.nodes, filteredBaseline.edges, selectedNodeIds), "application/json");
+    } else if (format === "gdf") {
+      downloadText("eden-graph.gdf", gdfForGraph(filteredBaseline.nodes, filteredBaseline.edges), "text/plain");
+    } else if (format === "gml") {
+      downloadText("eden-graph.gml", gmlForGraph(filteredBaseline.nodes, filteredBaseline.edges), "text/plain");
+    } else if (format === "graphviz_dot") {
+      downloadText("eden-graph.dot", graphVizDotForGraph(filteredBaseline.nodes, filteredBaseline.edges), "text/vnd.graphviz");
     } else if (format === "graphml") {
       downloadText("eden-graph.graphml", graphMLForGraph(filteredBaseline.nodes, filteredBaseline.edges), "application/xml");
     } else if (format === "gexf") {
       downloadText("eden-graph.gexf", gexfForGraph(filteredBaseline.nodes, filteredBaseline.edges), "application/xml");
+    } else if (format === "pajek_net") {
+      downloadText("eden-graph.net", pajekNetForGraph(filteredBaseline.nodes, filteredBaseline.edges), "text/plain");
+    } else if (format === "netdraw_vna") {
+      downloadText("eden-graph.vna", netdrawVnaForGraph(filteredBaseline.nodes, filteredBaseline.edges), "text/plain");
+    } else if (format === "ucinet_dl") {
+      downloadText("eden-graph.dl", ucinetDlForGraph(filteredBaseline.nodes, filteredBaseline.edges), "text/plain");
+    } else if (format === "tulip_tlp") {
+      downloadText("eden-graph.tlp", tulipTlpForGraph(filteredBaseline.nodes, filteredBaseline.edges), "text/plain");
+    } else if (format === "tgf") {
+      downloadText("eden-graph.tgf", tgfForGraph(filteredBaseline.nodes, filteredBaseline.edges), "text/plain");
     }
     setLastExportMessage(`Exported ${format}`);
   }
@@ -1661,7 +1701,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
     return (
       <Card title="Data Lab" accent={lastExportMessage || "selection + export"}>
         <div className="toolbar toolbar-sticky">
-          {(data.graph.export_formats ?? ["gexf", "graphml", "nodes_csv", "edges_csv", "selection_json"]).map((format: string) => (
+          {(data.graph.export_formats ?? DEFAULT_EXPORT_FORMATS).map((format: string) => (
             <button key={format} className="toolbar-button" onClick={() => handleExport(format)} type="button">
               {humanExportLabel(format)}
             </button>
@@ -2797,6 +2837,14 @@ function coordinateModeLabel(modeId: string, snapshots: LayoutSnapshot[], catalo
 }
 
 function humanExportLabel(format: string): string {
+  if (format === "gdf") return "GDF";
+  if (format === "gml") return "GML";
+  if (format === "graphviz_dot") return "GraphViz DOT";
+  if (format === "pajek_net") return "Pajek NET";
+  if (format === "netdraw_vna") return "Netdraw VNA";
+  if (format === "ucinet_dl") return "UCINET DL";
+  if (format === "tulip_tlp") return "Tulip TLP";
+  if (format === "tgf") return "TGF";
   if (format === "nodes_csv") return "Nodes CSV";
   if (format === "edges_csv") return "Edges CSV";
   if (format === "selection_json") return "Selection JSON";

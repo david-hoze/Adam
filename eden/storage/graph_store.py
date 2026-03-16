@@ -131,6 +131,32 @@ class GraphStore:
                     (status, now_utc(), compact_json(metadata), experiment_id),
                 )
 
+    def update_experiment_identity(
+        self,
+        experiment_id: str,
+        *,
+        name: str | None = None,
+        mode: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        experiment = self.get_experiment(experiment_id)
+        next_name = (name or experiment["name"]).strip() or experiment["name"]
+        next_mode = (mode or experiment["mode"]).strip() or experiment["mode"]
+        next_slug = slugify(next_name) + "-" + experiment_id[:8]
+        merged_metadata = json.loads(experiment["metadata_json"] or "{}")
+        if metadata:
+            merged_metadata.update(metadata)
+        with self.transaction() as conn:
+            conn.execute(
+                """
+                UPDATE experiments
+                SET name = ?, slug = ?, mode = ?, updated_at = ?, metadata_json = ?
+                WHERE id = ?
+                """,
+                (next_name, next_slug, next_mode, now_utc(), compact_json(merged_metadata), experiment_id),
+            )
+        return self.get_experiment(experiment_id)
+
     def list_experiments(self) -> list[dict[str, Any]]:
         rows = self._fetchall(
             "SELECT * FROM experiments ORDER BY created_at DESC LIMIT 25"
@@ -146,6 +172,28 @@ class GraphStore:
     def get_latest_experiment(self) -> dict[str, Any] | None:
         row = self._fetchone("SELECT * FROM experiments ORDER BY created_at DESC LIMIT 1")
         return _row_to_dict(row)
+
+    def reassign_runtime_records_to_experiment(self, source_experiment_id: str, target_experiment_id: str) -> None:
+        if source_experiment_id == target_experiment_id:
+            return
+        tables = (
+            "sessions",
+            "turns",
+            "feedback_events",
+            "documents",
+            "document_chunks",
+            "active_sets",
+            "trace_events",
+            "membrane_events",
+            "export_artifacts",
+            "measurement_events",
+        )
+        with self.transaction() as conn:
+            for table in tables:
+                conn.execute(
+                    f"UPDATE {table} SET experiment_id = ? WHERE experiment_id = ?",
+                    (target_experiment_id, source_experiment_id),
+                )
 
     def create_session(self, experiment_id: str, agent_id: str, title: str, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
         session_id = str(uuid4())

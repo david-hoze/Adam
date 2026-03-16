@@ -109,7 +109,7 @@ Generated per experiment under `exports/<experiment_id>/`:
 - appearance controls can style node / edge color, size, label visibility, and opacity from EDEN attributes such as kind, domain, cluster, evidence label, active-set presence, degree, weight, and regard/reward/risk where present
 - filter controls can constrain text, attribute/range slices, connected components, isolated-node visibility, and ego neighborhoods without mutating graph facts
 - the Data Lab provides node/edge tables, sorting, bulk selection, CSV/JSON export of the current selection, and precision-drawer handoff
-- export interoperability includes `gexf`, `graphml`, node CSV, and edge CSV for the current browser-visible graph slice
+- export interoperability includes Gephi-accepted graph documents for the current browser-visible graph slice: `gexf`, `graphml`, `gdf`, `gml`, `graphviz dot`, `pajek net`, `netdraw vna`, `ucinet dl`, `tulip tlp`, `tgf`, plus node/edge CSV tables for Gephi spreadsheet import
 
 ## Public browser payload contract
 

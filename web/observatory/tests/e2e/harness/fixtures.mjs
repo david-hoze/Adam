@@ -94,7 +94,7 @@ function makeWorkbenchMeta(overrides = {}) {
       supports_modularity: true,
       heavy_graph_node_cap: 320,
     },
-    export_formats: ["gexf", "graphml", "nodes_csv", "edges_csv", "selection_json"],
+    export_formats: ["gexf", "graphml", "gdf", "gml", "graphviz_dot", "pajek_net", "netdraw_vna", "ucinet_dl", "tulip_tlp", "tgf", "nodes_csv", "edges_csv", "selection_json"],
   };
 }
 

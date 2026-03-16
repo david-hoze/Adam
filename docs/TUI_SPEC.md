@@ -8,7 +8,7 @@ Live dialogue boot:
 
 - EDEN opens directly into a chat session surface
 - if a previous session exists, EDEN resumes the latest persisted session automatically
-- if no session exists yet, EDEN creates a blank experiment/session automatically
+- if no session exists yet, EDEN creates the first session on the persistent Adam graph automatically
 - the top action strip remains available:
   - numbered actions:
     - `01 Review Last Reply`
@@ -17,16 +17,14 @@ Live dialogue boot:
     - `04 Tune Session`
     - `05 Start New Session`
     - `06 Continue Latest`
-    - `07 Start Blank Eden`
-    - `08 Start Seeded Eden`
-    - `09 Prepare Local Model`
-    - `10 Open Browser Observatory`
-    - `11 Export Artifacts`
-    - `12 Open Utilities Deck`
-    - `13 Help`
-    - `14 Ingest PDF / Doc`
-    - `15 Toggle Aperture Drawer`
-    - `16 Toggle Runtime Chyron`
+    - `07 Prepare Local Model`
+    - `08 Open Browser Observatory`
+    - `09 Export Artifacts`
+    - `10 Open Utilities Deck`
+    - `11 Help`
+    - `12 Ingest PDF / Doc`
+    - `13 Toggle Aperture Drawer`
+    - `14 Toggle Runtime Chyron`
   - layout:
     - single focusable top action shelf with a multi-row button grid and integrated runtime/status lines
     - no separate quick-action row or dropdown surface
@@ -106,7 +104,7 @@ Secondary surfaces:
   - aperture / active set
   - cogitation / decision trace
   - corpus-intake guidance and status
-  - `Blank Eden`, `Seeded Eden`, `Resume Latest`
+  - `Resume Latest`
   - `New Session`, low-motion toggle, debug toggle, and look selector
 - `Ingest` modal:
   - absolute document path
@@ -117,7 +115,7 @@ Secondary surfaces:
   - inline review applies graph-backed `accept` / `edit` / `reject` / `skip` feedback through the existing runtime API
 - `Conversation Atlas` modal:
   - `all_texts` root shelf over every persisted session transcript
-  - relational lenses for folders, tags, experiments, and experiment modes
+  - relational lenses for folders and tags over the same persistent graph
   - two-column layout:
     - left filter rail for search, sort, lens, facet filter, taxonomy projections, and atlas status
     - right work column with the session list at the top and a lower split:

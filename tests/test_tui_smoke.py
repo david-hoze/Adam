@@ -13,7 +13,7 @@ from eden.tui.app import ActionStrip, ChatScreen, ConversationAtlasModal, DeckMo
 
 
 @pytest.mark.asyncio
-async def test_tui_boots_blank_mode_and_uses_multiline_composer(runtime, sample_files) -> None:
+async def test_tui_boots_single_graph_mode_and_uses_multiline_composer(runtime, sample_files) -> None:
     app = EdenTuiApp(runtime)
     async with app.run_test(size=(200, 60)) as pilot:
         assert isinstance(app.screen, ChatScreen)
@@ -31,7 +31,7 @@ async def test_tui_boots_blank_mode_and_uses_multiline_composer(runtime, sample_
         assert menu.value == "review"
         rendered_strip = menu.render().plain
         assert "01 Review Last Reply" in rendered_strip
-        assert "10 Open Browser Observatory" in rendered_strip
+        assert "08 Open Browser Observatory" in rendered_strip
         await pilot.press("tab")
         await pilot.pause(0.2)
         assert getattr(app.focused, "id", None) == "runtime_action_menu"

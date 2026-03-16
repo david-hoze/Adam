@@ -28,6 +28,12 @@ EDEN v1 uses SQLite for local reliability, with graph semantics implemented in d
 
 ## Key row fields
 
+### `experiments`
+
+- Internal graph namespace anchor retained for runtime compatibility
+- current operator contract collapses to one persistent primary graph
+- `metadata_json.graph_role = "primary"` marks the active graph identity
+
 ### `sessions`
 
 - `title`, `created_at`, `updated_at`
@@ -67,4 +73,5 @@ EDEN v1 uses SQLite for local reliability, with graph semantics implemented in d
 
 - Graph semantics remain explicit and inspectable.
 - Local bootstrap stays reliable on Apple Silicon without adding an external graph server.
+- Operator-facing runtime now treats the store as one persistent Adam graph even though the compatibility table name remains `experiments`.
 - Retrieval and exports can still operate over a real, persistent graph abstraction.

@@ -76,7 +76,7 @@ describe("EDEN Observatory App", () => {
             },
             filter_dimensions: { kinds: ["meme"], domains: ["knowledge"], evidence_labels: ["OPERATOR_ASSERTED"] },
             statistics_capabilities: { heavy_graph_node_cap: 320, rankings: ["degree", "pagerank"] },
-            export_formats: ["gexf", "graphml", "nodes_csv", "edges_csv", "selection_json"],
+            export_formats: ["gexf", "graphml", "gdf", "gml", "graphviz_dot", "pajek_net", "netdraw_vna", "ucinet_dl", "tulip_tlp", "tgf", "nodes_csv", "edges_csv", "selection_json"],
             semantic_nodes: [{ id: "meme-1", label: "Persistence", kind: "meme", domain: "knowledge", render_coords: { force: { x: 0, y: 0 } } }],
             semantic_edges: [],
             runtime_nodes: [],
@@ -142,6 +142,8 @@ describe("EDEN Observatory App", () => {
     expect(await screen.findByTestId("graph-panel")).toBeTruthy();
     expect(screen.getByText("Large semantic graph bundle")).toBeTruthy();
     expect(screen.getByText("Large diagnostics bundle")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "GraphViz DOT" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Pajek NET" })).toBeTruthy();
     expect(screen.getByRole("radio", { name: "Assemblies" }).getAttribute("aria-checked")).toBe("false");
     expect(screen.getByRole("radio", { name: "INSPECT" }).getAttribute("aria-checked")).toBe("true");
     expect((screen.getByRole("button", { name: "Preview" }) as HTMLButtonElement).disabled).toBe(true);

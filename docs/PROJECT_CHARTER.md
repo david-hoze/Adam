@@ -22,7 +22,7 @@ Build the first runnable EDEN iteration as a local-first instrument for testing 
 ## Success conditions
 
 - Boot locally on Apple Silicon.
-- Initialize Blank Eden or Seeded Eden.
+- Open a new session or resume an existing one on the same persistent Adam graph.
 - Chat with ADAM in a fixed-pane amber TUI.
 - Persist turns, feedback, memes, memodes, trace events, and membrane events.
 - Retrieve graph-conditioned material on later turns.

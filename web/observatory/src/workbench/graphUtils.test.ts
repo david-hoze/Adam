@@ -1,0 +1,99 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  csvForEdges,
+  csvForNodes,
+  gdfForGraph,
+  gexfForGraph,
+  gmlForGraph,
+  graphMLForGraph,
+  graphVizDotForGraph,
+  netdrawVnaForGraph,
+  pajekNetForGraph,
+  tgfForGraph,
+  tulipTlpForGraph,
+  ucinetDlForGraph,
+} from "./graphUtils";
+
+const nodes = [
+  {
+    id: "meme-1",
+    label: "Persistent meme",
+    kind: "meme",
+    domain: "knowledge",
+    source_kind: "operator",
+    cluster_signature: "cluster-1",
+    degree: 2,
+    recent_active_set_presence: 1,
+  },
+  {
+    id: "meme-2",
+    label: "Adaptive meme",
+    kind: "meme",
+    domain: "behavior",
+    source_kind: "document",
+    cluster_signature: "cluster-2",
+    degree: 1,
+    recent_active_set_presence: 0,
+  },
+] as const;
+
+const edges = [
+  {
+    id: "edge-1",
+    source: "meme-1",
+    target: "meme-2",
+    type: "CO_OCCURS_WITH",
+    weight: 0.75,
+    evidence_label: "OBSERVED",
+    assertion_origin: "operator",
+    confidence: 0.8,
+  },
+] as const;
+
+describe("graph export serializers", () => {
+  it("uses Gephi-friendly CSV headers for node and edge tables", () => {
+    const nodeCsv = csvForNodes([...nodes]);
+    const edgeCsv = csvForEdges([...edges]);
+
+    expect(nodeCsv).toContain("Id,Label,Kind,Domain,SourceKind,ClusterSignature,Degree,RecentActiveSetPresence");
+    expect(edgeCsv).toContain("Id,Source,Target,Type,Weight,EvidenceLabel,AssertionOrigin,Confidence");
+  });
+
+  it("serializes rich Gephi XML and attribute formats", () => {
+    const graphml = graphMLForGraph([...nodes], [...edges]);
+    const gexf = gexfForGraph([...nodes], [...edges]);
+    const gdf = gdfForGraph([...nodes], [...edges]);
+
+    expect(graphml).toContain('<key id="node_label"');
+    expect(graphml).toContain('<data key="edge_assertion_origin">operator</data>');
+    expect(gexf).toContain('<attributes class="edge">');
+    expect(gexf).toContain('attvalue for="confidence" value="0.8"');
+    expect(gdf).toContain("nodedef>name VARCHAR,label VARCHAR");
+    expect(gdf).toContain("edgedef>node1 VARCHAR,node2 VARCHAR,label VARCHAR,weight DOUBLE");
+  });
+
+  it("serializes legacy Gephi graph-document formats", () => {
+    const gml = gmlForGraph([...nodes], [...edges]);
+    const dot = graphVizDotForGraph([...nodes], [...edges]);
+    const pajek = pajekNetForGraph([...nodes], [...edges]);
+    const vna = netdrawVnaForGraph([...nodes], [...edges]);
+    const ucinet = ucinetDlForGraph([...nodes], [...edges]);
+    const tulip = tulipTlpForGraph([...nodes], [...edges]);
+    const tgf = tgfForGraph([...nodes], [...edges]);
+
+    expect(gml).toContain('graph [');
+    expect(gml).toContain('source "meme-1"');
+    expect(dot).toContain("digraph eden");
+    expect(dot).toContain('"meme-1" -> "meme-2"');
+    expect(pajek).toContain("*Vertices 2");
+    expect(pajek).toContain("*Arcs");
+    expect(vna).toContain("*node data");
+    expect(vna).toContain("*tie data");
+    expect(ucinet).toContain("dl n=2 format=edgelist1");
+    expect(ucinet).toContain("labels:");
+    expect(tulip).toContain('(tlp "2.0"');
+    expect(tgf).toContain("#");
+    expect(tgf).toContain("meme-1 meme-2 CO_OCCURS_WITH");
+  });
+});

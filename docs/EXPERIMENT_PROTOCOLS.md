@@ -1,31 +1,30 @@
-# Experiment Protocols
+# Session Protocols
 
-## Blank Eden
+## Persistent graph contract
 
-Use Blank Eden when you want:
+EDEN now operates against one persistent Adam graph.
 
-- the constitutional scaffold only
-- fast iteration on the chat/feedback loop
-- clean graph growth from near-zero prior state
+- behavior and knowledge live in the same graph
+- starting a new session does not create a fresh graph
+- resuming an older session reconnects to the same graph
+- document ingest adds new knowledge material into that same graph
 
-Blank Eden seeds:
+The historical `Blank Eden` / `Seeded Eden` split is no longer the operator contract.
+Legacy bootstrap calls collapse into the single primary graph, and canon ingest is now operator-driven through normal document upload rather than automatic startup seeding.
 
-- ADAM constitutional behavior memes
-- one constitutional memode
-- agent/session graph edges as sessions begin
+## Session flow
 
-## Seeded Eden
+Use `Start New Session` when you want:
 
-Use Seeded Eden when you want:
+- a fresh conversation thread
+- a different title or inference profile
+- continued work against the same persistent Adam graph
 
-- canon-shaped prior material
-- document-derived knowledge clusters before chat begins
-- a heavier bootstrap closer to the research corpus
+Use `Continue Latest` when you want:
 
-Seeded Eden performs:
-
-- Blank Eden bootstrap
-- ingest of `assets/seed_canon/`
+- the newest persisted session
+- the same graph plus the same transcript thread
+- quick return to the most recent live context
 
 ## Feedback protocol
 
@@ -43,16 +42,9 @@ Feedback is not cosmetic. It:
 
 ## Demo protocol
 
-Fast smoke path:
+Default smoke path:
 
-1. Blank Eden
-2. one prompt
-3. one feedback verdict
+1. Start a new session on the persistent graph
+2. send one prompt
+3. record one feedback verdict
 4. export graph and basin
-
-Heavy path:
-
-1. Seeded Eden
-2. wait for canon ingest
-3. start a chat session
-4. inspect cluster-heavy retrieval behavior

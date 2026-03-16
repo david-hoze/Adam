@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .budget import BudgetEstimate, estimate_budget
-from .config import DEFAULT_MLX_MODEL_DIR, EXPORT_DIR, LOG_DIR, RUNTIME_LOG_PATH, RuntimeSettings, SEED_CANON_DIR, TANAKH_CACHE_DIR
+from .config import DEFAULT_MLX_MODEL_DIR, EXPORT_DIR, LOG_DIR, RUNTIME_LOG_PATH, RuntimeSettings, TANAKH_CACHE_DIR
 from .hum import HumService
 from .inference import (
     InferenceProfileRequest,
@@ -39,6 +39,9 @@ ANSWER_LABEL_RE = re.compile(r"(?im)^\s*(final answer|answer|adam)\s*:\s*")
 SUPPORT_SECTION_RE = re.compile(r"(?im)^\s*(basis|next step)\s*:\s*")
 RUNTIME_LAUNCH_PROFILE_KEY = "runtime_launch_profile"
 TUI_APPEARANCE_KEY = "tui_appearance"
+PRIMARY_EXPERIMENT_KEY = "primary_experiment"
+PRIMARY_EXPERIMENT_NAME = "Adam Graph"
+PRIMARY_EXPERIMENT_MODE = "persistent"
 OPERATOR_LABEL = "Brian the operator"
 
 
@@ -151,6 +154,8 @@ class EdenRuntime:
             profile=self.agent_profile,
         )
         self._model_adapter: BaseModelAdapter | None = None
+        self._primary_experiment_cache: dict[str, Any] | None = None
+        self.primary_experiment()
 
     def _get_model_adapter(self) -> BaseModelAdapter:
         backend = self.settings.model_backend.lower()
@@ -171,6 +176,79 @@ class EdenRuntime:
 
     def default_session_profile_request(self) -> InferenceProfileRequest:
         return default_profile_request(self.settings)
+
+    def primary_experiment(self) -> dict[str, Any]:
+        cached = self._primary_experiment_cache
+        if cached is not None:
+            return cached
+        stored = self.store.read_config(PRIMARY_EXPERIMENT_KEY) or {}
+        experiment_id = str(stored.get("experiment_id") or "").strip()
+        experiment: dict[str, Any] | None = None
+        if experiment_id:
+            try:
+                experiment = self.store.get_experiment(experiment_id)
+            except KeyError:
+                experiment = None
+        if experiment is None:
+            latest = self.store.get_latest_experiment()
+            if latest is None:
+                experiment = self.store.create_experiment(
+                    name=PRIMARY_EXPERIMENT_NAME,
+                    mode=PRIMARY_EXPERIMENT_MODE,
+                    metadata={
+                        "initialized_at": now_utc(),
+                        "mode": PRIMARY_EXPERIMENT_MODE,
+                        "graph_role": "primary",
+                        "single_graph": True,
+                    },
+                )
+                self.runtime_log.emit(
+                    "INFO",
+                    "experiment_create",
+                    "Created primary graph.",
+                    experiment_id=experiment["id"],
+                    mode=PRIMARY_EXPERIMENT_MODE,
+                )
+                self.store.record_trace_event(
+                    experiment_id=experiment["id"],
+                    session_id=None,
+                    turn_id=None,
+                    event_type="BOOTSTRAP",
+                    level="INFO",
+                    message="Created primary graph",
+                    payload={"mode": PRIMARY_EXPERIMENT_MODE},
+                )
+                self._seed_constitution(experiment["id"])
+            else:
+                experiment = latest
+                self.runtime_log.emit(
+                    "INFO",
+                    "primary_graph_adopted",
+                    "Adopted existing experiment as the single primary graph.",
+                    experiment_id=experiment["id"],
+                    prior_name=experiment.get("name"),
+                    prior_mode=experiment.get("mode"),
+                )
+        experiment = self.store.update_experiment_identity(
+            experiment["id"],
+            name=PRIMARY_EXPERIMENT_NAME,
+            mode=PRIMARY_EXPERIMENT_MODE,
+            metadata={
+                "graph_role": "primary",
+                "single_graph": True,
+            },
+        )
+        self.store.upsert_config(
+            PRIMARY_EXPERIMENT_KEY,
+            {"experiment_id": experiment["id"], "name": PRIMARY_EXPERIMENT_NAME, "mode": PRIMARY_EXPERIMENT_MODE},
+        )
+        for candidate in self.store.list_experiments():
+            candidate_id = str(candidate["id"])
+            if candidate_id == experiment["id"]:
+                continue
+            self.store.reassign_runtime_records_to_experiment(candidate_id, experiment["id"])
+        self._primary_experiment_cache = self.store.get_experiment(experiment["id"])
+        return self._primary_experiment_cache
 
     def runtime_launch_profile(self) -> dict[str, Any]:
         stored = self.store.read_config(RUNTIME_LAUNCH_PROFILE_KEY) or {}
@@ -395,24 +473,17 @@ class EdenRuntime:
         return lines
 
     def initialize_experiment(self, mode: str, *, name: str | None = None) -> dict[str, Any]:
-        experiment = self.store.create_experiment(
-            name=name or f"{mode.title()} Eden",
-            mode=mode,
-            metadata={"initialized_at": now_utc(), "mode": mode},
-        )
-        self.runtime_log.emit("INFO", "experiment_create", "Created experiment.", experiment_id=experiment["id"], mode=mode)
-        self.store.record_trace_event(
-            experiment_id=experiment["id"],
-            session_id=None,
-            turn_id=None,
-            event_type="BOOTSTRAP",
-            level="INFO",
-            message=f"Created {mode} experiment",
-            payload={"mode": mode},
-        )
-        self._seed_constitution(experiment["id"])
-        if mode == "seeded":
-            self._seed_canon(experiment["id"])
+        experiment = self.primary_experiment()
+        requested_mode = (mode or PRIMARY_EXPERIMENT_MODE).strip().lower()
+        if requested_mode != PRIMARY_EXPERIMENT_MODE or name:
+            self.runtime_log.emit(
+                "INFO",
+                "primary_graph_reused",
+                "Ignored legacy experiment bootstrap request and reused the single primary graph.",
+                experiment_id=experiment["id"],
+                requested_mode=requested_mode,
+                requested_name=name or "",
+            )
         return experiment
 
     def _seed_constitution(self, experiment_id: str) -> None:
@@ -458,20 +529,22 @@ class EdenRuntime:
             )
         self.runtime_log.emit("INFO", "constitution_seeded", "Seeded constitutional graph.", experiment_id=experiment_id)
 
-    def _seed_canon(self, experiment_id: str) -> None:
-        seed_paths = sorted(path for path in SEED_CANON_DIR.rglob("*") if path.is_file() and path.suffix.lower() in {".pdf", ".txt", ".md", ".csv"})
-        for path in seed_paths:
-            self.ingest_service.ingest_path(experiment_id=experiment_id, path=path, source_kind="canon")
-        self.runtime_log.emit("INFO", "canon_seeded", "Seeded canonical sources.", experiment_id=experiment_id, file_count=len(seed_paths))
-
     def start_session(
         self,
-        experiment_id: str,
+        experiment_id: str | None,
         *,
         title: str | None = None,
         profile_request: dict[str, Any] | InferenceProfileRequest | None = None,
     ) -> dict[str, Any]:
-        experiment = self.store.get_experiment(experiment_id)
+        experiment = self.primary_experiment()
+        if experiment_id and experiment_id != experiment["id"]:
+            self.runtime_log.emit(
+                "INFO",
+                "session_graph_redirect",
+                "Redirected session start into the single primary graph.",
+                experiment_id=experiment["id"],
+                requested_experiment_id=experiment_id,
+            )
         if isinstance(profile_request, InferenceProfileRequest):
             request = profile_request
         else:
@@ -480,7 +553,7 @@ class EdenRuntime:
         self.settings.low_motion = request.low_motion
         self.settings.debug = request.debug
         session = self.store.create_session(
-            experiment_id=experiment_id,
+            experiment_id=experiment["id"],
             agent_id=self.agent_id,
             title=title or request.title or f"{experiment['name']} session",
             metadata={
@@ -493,7 +566,7 @@ class EdenRuntime:
             "INFO",
             "session_start",
             "Started session.",
-            experiment_id=experiment_id,
+            experiment_id=experiment["id"],
             session_id=session["id"],
             requested_mode=request.mode,
             budget_mode=request.budget_mode,
@@ -543,7 +616,7 @@ class EdenRuntime:
                         "all_texts",
                         f"folder:{archive['folder']}",
                         *[f"tag:{tag}" for tag in tags],
-                        f"experiment:{row.get('experiment_slug') or row['experiment_id']}",
+                        f"graph:{row.get('experiment_slug') or row['experiment_id']}",
                     ],
                     "search_text": " ".join(
                         [
@@ -611,7 +684,7 @@ class EdenRuntime:
         lines = [
             "# Adam Conversation Log",
             "",
-            f"- experiment: {experiment['name']} ({experiment['id']})",
+            f"- graph: {experiment['name']} ({experiment['id']})",
             f"- session: {session['title']} ({session_id})",
             f"- mode: {profile.get('mode', 'unknown')}",
             f"- budget_mode: {profile.get('budget_mode', 'unknown')}",

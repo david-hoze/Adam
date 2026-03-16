@@ -99,7 +99,7 @@ Purpose:
 Automated check:
 
 - Build a scratch runtime only after probing that the current runtime anchors and methods exist.
-- Create a blank experiment and scratch session.
+- Create a scratch session on the persistent graph.
 - Render a scratch conversation-log artifact.
 - Probe preview/active-set and feedback-capable surfaces without touching repo-global state.
 

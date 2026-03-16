@@ -121,7 +121,13 @@ class ObservatoryService:
         return payload
 
     def list_experiments(self) -> dict[str, Any]:
-        return {"experiments": self.store.list_experiments()}
+        experiments = self.store.list_experiments()
+        primary = [
+            row
+            for row in experiments
+            if json.loads(row.get("metadata_json") or "{}").get("graph_role") == "primary"
+        ]
+        return {"experiments": primary or experiments[:1]}
 
     def list_sessions(self, *, experiment_id: str) -> dict[str, Any]:
         sessions = [item for item in self.store.list_session_catalog(limit=250) if item.get("experiment_id") == experiment_id]

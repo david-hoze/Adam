@@ -146,8 +146,6 @@ ACTION_MENU_OPTIONS = [
     ("Tune Session", "profile"),
     ("Start New Session", "new_session"),
     ("Continue Latest", "resume"),
-    ("Start Blank Eden", "blank"),
-    ("Start Seeded Eden", "seeded"),
     ("Prepare Local Model", "prepare_mlx"),
     ("Open Browser Observatory", "observatory"),
     ("Export Artifacts", "export"),
@@ -163,8 +161,6 @@ ACTION_STRIP_OPTIONS = [
     ("Tune Session", "profile"),
     ("Start New Session", "new_session"),
     ("Continue Latest", "resume"),
-    ("Start Blank Eden", "blank"),
-    ("Start Seeded Eden", "seeded"),
     ("Prepare Local Model", "prepare_mlx"),
     ("Open Browser Observatory", "observatory"),
     ("Export Artifacts", "export"),
@@ -183,15 +179,12 @@ ARCHIVE_SORT_OPTIONS = [
     ("Title A-Z", "title_asc"),
     ("Most Turns", "turns_desc"),
     ("Folder A-Z", "folder_asc"),
-    ("Experiment A-Z", "experiment_asc"),
 ]
 
 ARCHIVE_GROUP_OPTIONS = [
     ("All Texts", "all_texts"),
     ("Folders", "folder"),
     ("Tags", "tag"),
-    ("Experiments", "experiment"),
-    ("Modes", "mode"),
 ]
 
 
@@ -926,7 +919,7 @@ class ConversationAtlasModal(ModalScreen[dict[str, str] | None]):
         yield Static(id="atlas_summary")
         with Horizontal(id="atlas_shell"):
             with Vertical(classes="atlas_column", id="atlas_filter_column"):
-                yield Input(placeholder="Search title, experiment, folder, tag, or excerpt", id="atlas_search_input")
+                yield Input(placeholder="Search title, graph, folder, tag, or excerpt", id="atlas_search_input")
                 yield Select(
                     ARCHIVE_SORT_OPTIONS,
                     value="updated_desc",
@@ -972,7 +965,7 @@ class ConversationAtlasModal(ModalScreen[dict[str, str] | None]):
     def on_mount(self) -> None:
         _sync_node_look(self)
         table = self.query_one("#atlas_records_table", DataTable)
-        table.add_columns("Session", "Experiment", "Mode", "Turns", "Folder", "Tags", "Updated")
+        table.add_columns("Session", "Graph", "Turns", "Folder", "Tags", "Updated")
         self._refresh_panels()
         self.run_worker(self._load_records_worker(), exclusive=True, group="atlas_load")
         self.call_after_refresh(lambda: self.query_one("#atlas_search_input", Input).focus())
@@ -1029,10 +1022,6 @@ class ConversationAtlasModal(ModalScreen[dict[str, str] | None]):
             return facet in record["folder"].lower()
         if lens == "tag":
             return any(facet in tag.lower() for tag in record["tags"])
-        if lens == "experiment":
-            return facet in str(record["experiment_name"]).lower()
-        if lens == "mode":
-            return facet in str(record.get("experiment_mode") or "").lower()
         return facet in record["search_text"]
 
     def _sort_key(self, record: dict[str, Any]) -> tuple[Any, ...]:
@@ -1045,8 +1034,6 @@ class ConversationAtlasModal(ModalScreen[dict[str, str] | None]):
             return (int(record.get("turn_count") or 0), str(record.get("updated_at") or ""))
         if sort_mode == "folder_asc":
             return (str(record["folder"]).lower(), str(record["title"]).lower())
-        if sort_mode == "experiment_asc":
-            return (str(record["experiment_name"]).lower(), str(record["title"]).lower())
         return (str(record.get("updated_at") or ""), int(record.get("turn_count") or 0))
 
     def _sort_reverse(self) -> bool:
@@ -1071,10 +1058,6 @@ class ConversationAtlasModal(ModalScreen[dict[str, str] | None]):
                 values = [record["folder"]]
             elif lens == "tag":
                 values = record["tags"] or ["untagged"]
-            elif lens == "experiment":
-                values = [record["experiment_name"]]
-            elif lens == "mode":
-                values = [str(record.get("experiment_mode") or "blank")]
             else:
                 values = ["all_texts"]
             for value in values:
@@ -1094,7 +1077,6 @@ class ConversationAtlasModal(ModalScreen[dict[str, str] | None]):
             table.add_row(
                 safe_excerpt(record["title"], limit=26),
                 safe_excerpt(record["experiment_name"], limit=20),
-                str(record.get("experiment_mode") or "blank"),
                 str(record.get("turn_count") or 0),
                 safe_excerpt(record["folder"], limit=18),
                 safe_excerpt(record["tag_display"], limit=22),
@@ -1126,7 +1108,7 @@ class ConversationAtlasModal(ModalScreen[dict[str, str] | None]):
         selected = self._selected_record()
         body = Text.from_markup(
             "[bold #ffbf66]Conversation Atlas[/]\n"
-            "all_texts is the root shelf. Folders and tags are relational projections over persisted sessions, not duplicate transcript files.\n\n"
+            "all_texts is the root shelf. Folders and tags are relational projections over persisted sessions inside the same persistent graph, not duplicate transcript files.\n\n"
             f"records={len(self._records)} filtered={len(self._filtered_records)} lens={lens}\n"
             f"selected={(selected or {}).get('title', 'none')}"
         )
@@ -1218,7 +1200,7 @@ class ConversationAtlasModal(ModalScreen[dict[str, str] | None]):
         body = Text.from_markup(
             f"[bold {AMBER}]Session[/] {record['title']}\n"
             f"session_id={record['id']}\n"
-            f"experiment={record['experiment_name']} ({record.get('experiment_id', 'n/a')}) mode={record.get('experiment_mode', 'blank')}\n"
+            f"graph={record['experiment_name']} ({record.get('experiment_id', 'n/a')})\n"
             f"requested={record.get('requested_mode', 'manual')} budget={record.get('budget_mode', 'balanced')} low_motion={bool(profile_request.get('low_motion', False))} debug={bool(profile_request.get('debug', True))}\n"
             f"turns={record.get('turn_count', 0)} feedback={record.get('feedback_count', 0)}\n"
             f"created={record.get('created_at', 'n/a')}\n"
@@ -1303,7 +1285,7 @@ class ConversationAtlasModal(ModalScreen[dict[str, str] | None]):
         experiment_id = str(record.get("experiment_id") or "").strip()
         session_id = str(record["id"])
         if not experiment_id:
-            self._status_message = "The selected session does not have an experiment anchor."
+            self._status_message = "The selected session does not have a graph anchor."
             self._refresh_panels()
             return
         status = await asyncio.to_thread(partial(app.runtime.start_observatory, reuse_existing=True))
@@ -1402,11 +1384,9 @@ class DeckModal(ModalScreen[None]):
                 yield Static(id="deck_ingest_help_panel")
                 with Horizontal():
                     yield Button("Ingest PDF / Doc", id="deck_ingest_modal_btn", variant="primary")
-                    yield Button("Blank Eden", id="deck_blank_btn")
-                    yield Button("Seeded Eden", id="deck_seeded_btn")
-                with Horizontal():
                     yield Button("Resume Latest", id="deck_resume_btn")
                     yield Button("New Session", id="deck_new_session_btn")
+                with Horizontal():
                     yield Button("Conversation Atlas", id="deck_archive_btn")
                 with Horizontal():
                     yield Select(
@@ -1442,16 +1422,6 @@ class DeckModal(ModalScreen[None]):
     def handle_ingest_modal(self) -> None:
         self.dismiss(None)
         self.chat_screen.run_worker(self.chat_screen.handle_ingest(), exclusive=True, group="ingest_modal")
-
-    @on(Button.Pressed, "#deck_blank_btn")
-    def handle_blank(self) -> None:
-        self.dismiss(None)
-        self.chat_screen.begin_surface_launch("blank")
-
-    @on(Button.Pressed, "#deck_seeded_btn")
-    def handle_seeded(self) -> None:
-        self.dismiss(None)
-        self.chat_screen.begin_surface_launch("seeded")
 
     @on(Button.Pressed, "#deck_resume_btn")
     def handle_resume(self) -> None:
@@ -1500,7 +1470,7 @@ class IngestModal(ModalScreen[dict[str, str] | None]):
     def compose(self) -> ComposeResult:
         summary = Text.from_markup(
             f"[bold {AMBER}]Corpus Intake[/]\n"
-            "Load a PDF or other supported document into the experiment memgraph.\n"
+            "Load a PDF or other supported document into the persistent Adam graph.\n"
             "Use the framing prompt to tell Adam how to read the work before ingest: "
             "what it is, why it matters, and what interpretive lens or task should persist across turns.\n\n"
             "After ingest, stay in the same session and ask Adam about the work directly."
@@ -1949,8 +1919,7 @@ class StartupScreen(Screen):
             with Horizontal(id="startup_topbar"):
                 yield Select(
                     [
-                        ("Start Blank Eden", "blank"),
-                        ("Start Seeded Eden", "seeded"),
+                        ("Start New Session", "new_session"),
                         ("Continue Latest", "resume"),
                         ("Prepare Local Model", "prepare_mlx"),
                         ("Refresh Model", "refresh_model"),
@@ -1959,7 +1928,7 @@ class StartupScreen(Screen):
                         ("Open Conversation Atlas", "archive"),
                         ("Help", "help"),
                     ],
-                    value="blank",
+                    value="new_session",
                     allow_blank=False,
                     id="startup_action_menu",
                     prompt="Startup actions",
@@ -1995,10 +1964,8 @@ class StartupScreen(Screen):
     def _latest_snapshot(self) -> dict[str, Any] | None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
-        latest = app.runtime.store.get_latest_experiment()
-        if latest is None:
-            return None
-        latest_session = app.runtime.store.get_latest_session(latest["id"])
+        primary = app.runtime.primary_experiment()
+        latest_session = app.runtime.store.get_latest_session(primary["id"])
         if latest_session is None:
             return None
         return app.runtime.session_state_snapshot(latest_session["id"])
@@ -2050,12 +2017,13 @@ class StartupScreen(Screen):
         app = self.app
         assert isinstance(app, EdenTuiApp)
         status = app.runtime.mlx_model_status()
-        selected = str(self.query_one("#startup_action_menu", Select).value or "blank").replace("_", " ")
+        selected = str(self.query_one("#startup_action_menu", Select).value or "new_session").replace("_", " ")
         text = Text.from_markup(
             f"[bold {AMBER}]Launch Contract[/]\n"
             "runtime=Adam / Local MLX (locked)\n"
             f"cache={status.get('stage', 'missing')} storage=models/{Path(status['local_dir']).name}\n"
             f"menu={selected}\n"
+            "graph=single persistent Adam graph\n"
             "keyboard: up/down opens menu focus, arrows choose, Enter executes, Tab cycles focus\n"
             "chat deck remains keyboard-first once a session is live"
         )
@@ -2085,12 +2053,10 @@ class StartupScreen(Screen):
         return Panel(exchange, title="Chat Preview", border_style=AMBER)
 
     def _execute_startup_action(self, action: str) -> None:
-        normalized = (action or "blank").strip().lower()
+        normalized = (action or "new_session").strip().lower()
         self._last_startup_action_dispatch = (normalized, monotonic())
-        if normalized == "blank":
-            self.begin_launch_session("blank")
-        elif normalized == "seeded":
-            self.begin_launch_session("seeded")
+        if normalized == "new_session":
+            self.begin_launch_session("new_session")
         elif normalized == "resume":
             self.begin_launch_session("resume")
         elif normalized == "prepare_mlx":
@@ -2125,13 +2091,10 @@ class StartupScreen(Screen):
         app.ui_state.model_status = status
         self._refresh_panels()
         if action == "resume":
-            latest = app.runtime.store.get_latest_experiment()
-            if latest is None:
-                self.query_one("#startup_log", RichLog).write("[WARN] No existing experiment. Create one first.")
-                return
-            latest_session = app.runtime.store.get_latest_session(latest["id"])
+            primary = app.runtime.primary_experiment()
+            latest_session = app.runtime.store.get_latest_session(primary["id"])
             if latest_session is None:
-                self.query_one("#startup_log", RichLog).write("[WARN] Latest experiment has no sessions yet.")
+                self.query_one("#startup_log", RichLog).write("[WARN] No saved session is available yet.")
                 return
             snapshot = await asyncio.to_thread(partial(app.runtime.session_state_snapshot, latest_session["id"]))
             app.apply_session_snapshot(snapshot)
@@ -2149,7 +2112,7 @@ class StartupScreen(Screen):
         )
         if payload is None:
             return
-        experiment = await asyncio.to_thread(partial(app.runtime.initialize_experiment, action))
+        experiment = await asyncio.to_thread(app.runtime.primary_experiment)
         session = await asyncio.to_thread(
             partial(
                 app.runtime.start_session,
@@ -2213,20 +2176,17 @@ class StartupScreen(Screen):
     async def _startup_export_worker(self) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
-        latest = app.runtime.store.get_latest_experiment()
-        if latest is None:
-            self.query_one("#startup_log", RichLog).write("[WARN] No experiment available to export.")
-            return
-        latest_session = app.runtime.store.get_latest_session(latest["id"])
+        primary = app.runtime.primary_experiment()
+        latest_session = app.runtime.store.get_latest_session(primary["id"])
         paths = await asyncio.to_thread(
             partial(
                 app.runtime.export_observability,
-                experiment_id=latest["id"],
+                experiment_id=primary["id"],
                 session_id=latest_session["id"] if latest_session else None,
             )
         )
         names = [Path(paths[key]).name for key in ("graph_html", "basin_html", "geometry_html") if key in paths]
-        self.query_one("#startup_log", RichLog).write(f"[INFO] Exported latest surfaces :: {', '.join(names)}")
+        self.query_one("#startup_log", RichLog).write(f"[INFO] Exported current graph surfaces :: {', '.join(names)}")
         self._refresh_panels()
 
     async def _startup_observatory_worker(self) -> None:
@@ -2234,11 +2194,9 @@ class StartupScreen(Screen):
         assert isinstance(app, EdenTuiApp)
         status = await asyncio.to_thread(partial(app.runtime.start_observatory, reuse_existing=True))
         app.ui_state.observatory_status = status
-        latest = app.runtime.store.get_latest_experiment()
-        latest_experiment_id = latest["id"] if latest is not None else None
-        if latest_experiment_id:
-            await asyncio.to_thread(partial(app.runtime.export_observability, experiment_id=latest_experiment_id, session_id=None))
-        target_url = _observatory_target_url(app.runtime, status, latest_experiment_id)
+        primary = app.runtime.primary_experiment()
+        await asyncio.to_thread(partial(app.runtime.export_observability, experiment_id=primary["id"], session_id=None))
+        target_url = _observatory_target_url(app.runtime, status, primary["id"])
         launch = await asyncio.to_thread(partial(open_browser_url, target_url))
         if launch.ok:
             self.query_one("#startup_log", RichLog).write(
@@ -2273,13 +2231,13 @@ class StartupScreen(Screen):
     @on(Select.Changed, "#startup_action_menu")
     def handle_startup_action_changed(self, _event: Select.Changed) -> None:
         self.query_one("#startup_menu_hint", Static).update(self._menu_hint_panel())
-        action = str(self.query_one("#startup_action_menu", Select).value or "blank")
+        action = str(self.query_one("#startup_action_menu", Select).value or "new_session")
         if self._recent_startup_action_dispatch(action):
             return
         self._execute_startup_action(action)
 
     def _recent_startup_action_dispatch(self, action: str) -> bool:
-        normalized = (action or "blank").strip().lower()
+        normalized = (action or "new_session").strip().lower()
         if self._last_startup_action_dispatch is None:
             return False
         last_action, dispatched_at = self._last_startup_action_dispatch
@@ -2287,7 +2245,7 @@ class StartupScreen(Screen):
 
     def on_key(self, event) -> None:
         if event.key == "enter" and self.app.focused and getattr(self.app.focused, "id", None) == "startup_action_menu":
-            action = str(self.query_one("#startup_action_menu", Select).value or "blank")
+            action = str(self.query_one("#startup_action_menu", Select).value or "new_session")
             if not self._recent_startup_action_dispatch(action):
                 self._execute_startup_action(action)
             event.stop()
@@ -2567,24 +2525,19 @@ class ChatScreen(Screen):
         )
         if app.runtime.settings.model_backend.lower() == "mlx" and not model_status.get("ready", False):
             app.ui_state.last_feedback = "Local MLX cache is not ready. Choose Prepare Local Model or send once to fetch it."
-        latest = await asyncio.to_thread(app.runtime.store.get_latest_experiment)
-        experiment: dict[str, Any] | None = latest
-        if latest is not None:
-            latest_session = await asyncio.to_thread(partial(app.runtime.store.get_latest_session, latest["id"]))
-            if latest_session is not None:
-                snapshot = await asyncio.to_thread(partial(app.runtime.session_state_snapshot, latest_session["id"]))
-                app.apply_session_snapshot(snapshot)
-                self._mark_graph_dirty()
-                app.ui_state.last_feedback = f"Resumed {snapshot['session_title']}."
-                self._write_forensic(f"[INFO] Resumed session :: {snapshot['session_title']}")
-                self.refresh_panels()
-                self.focus_composer()
-                self._scroll_chat_to_end()
-                self._schedule_preview_refresh()
-                return
-        if experiment is None:
-            experiment = await asyncio.to_thread(partial(app.runtime.initialize_experiment, "blank", name="Live Eden"))
-            self._write_forensic(f"[INFO] Created experiment :: {experiment['name']}")
+        experiment = await asyncio.to_thread(app.runtime.primary_experiment)
+        latest_session = await asyncio.to_thread(partial(app.runtime.store.get_latest_session, experiment["id"]))
+        if latest_session is not None:
+            snapshot = await asyncio.to_thread(partial(app.runtime.session_state_snapshot, latest_session["id"]))
+            app.apply_session_snapshot(snapshot)
+            self._mark_graph_dirty()
+            app.ui_state.last_feedback = f"Resumed {snapshot['session_title']}."
+            self._write_forensic(f"[INFO] Resumed session :: {snapshot['session_title']}")
+            self.refresh_panels()
+            self.focus_composer()
+            self._scroll_chat_to_end()
+            self._schedule_preview_refresh()
+            return
         defaults = app.runtime.default_session_profile_request().to_dict()
         defaults["title"] = defaults.get("title") or "Live Adam Session"
         session = await asyncio.to_thread(
@@ -3635,7 +3588,7 @@ class ChatScreen(Screen):
             recent_events = ["[INFO] Event bus is quiet. Start a turn or ingest a document to populate it."]
         body = Text.from_markup(
             f"[bold {AMBER}]Session state[/]\n"
-            f"experiment={app.ui_state.experiment_name or app.ui_state.experiment_id or 'live-arming'} "
+            f"graph={app.ui_state.experiment_name or app.ui_state.experiment_id or 'live-arming'} "
             f"profile={profile.get('profile_name', 'pending')} "
             f"observatory={(app.ui_state.observatory_status or {}).get('url', 'offline')}\n"
             f"graph=memes {health['memes']} memodes {health['memodes']} triadic {health['triadic_closure']:.3f}\n"
@@ -4264,14 +4217,13 @@ class ChatScreen(Screen):
             experiment_id = app.ui_state.experiment_id
             session_id = app.ui_state.session_id
             if experiment_id is None:
-                latest = app.runtime.store.get_latest_experiment()
-                experiment_id = latest["id"] if latest is not None else None
+                experiment_id = app.runtime.primary_experiment()["id"]
                 session_id = None
 
             export_detail = (
-                f"Refreshing observability artifacts for experiment {safe_excerpt(experiment_id, limit=20)}."
+                f"Refreshing observability artifacts for graph {safe_excerpt(experiment_id, limit=20)}."
                 if experiment_id is not None
-                else "No active experiment; skipping export and using the server root."
+                else "No active graph; skipping export and using the server root."
             )
             self._set_runtime_action_progress(
                 action="observatory",
@@ -4281,9 +4233,9 @@ class ChatScreen(Screen):
                 total=3,
                 detail=export_detail,
                 feedback=(
-                    f"Observatory: exporting payloads for {safe_excerpt(experiment_id, limit=20)}."
+                    f"Observatory: exporting payloads for graph {safe_excerpt(experiment_id, limit=20)}."
                     if experiment_id is not None
-                    else "Observatory: no active experiment, opening the server root."
+                    else "Observatory: no active graph, opening the server root."
                 ),
             )
             if experiment_id is not None:
@@ -4557,15 +4509,11 @@ class ChatScreen(Screen):
     async def _launch_surface_worker(self, action: str) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
+        primary = app.runtime.primary_experiment()
         if action == "resume":
-            latest = app.runtime.store.get_latest_experiment()
-            if latest is None:
-                app.ui_state.last_feedback = "No experiment available to resume."
-                self.refresh_panels()
-                return
-            latest_session = app.runtime.store.get_latest_session(latest["id"])
+            latest_session = app.runtime.store.get_latest_session(primary["id"])
             if latest_session is None:
-                app.ui_state.last_feedback = "Latest experiment has no saved session yet."
+                app.ui_state.last_feedback = "No saved session is available yet."
                 self.refresh_panels()
                 return
             snapshot = await asyncio.to_thread(partial(app.runtime.session_state_snapshot, latest_session["id"]))
@@ -4585,18 +4533,17 @@ class ChatScreen(Screen):
         payload = await app.push_screen_wait(
             SessionConfigModal(
                 defaults,
-                title_text=f"{action.title()} Experiment Session",
+                title_text="Session Inference Profile",
                 action_label="Open Session",
                 session_title_history=session_title_history,
             )
         )
         if payload is None:
             return
-        experiment = await asyncio.to_thread(partial(app.runtime.initialize_experiment, action))
         session = await asyncio.to_thread(
             partial(
                 app.runtime.start_session,
-                experiment["id"],
+                primary["id"],
                 title=payload["title"],
                 profile_request=payload,
             )
@@ -4604,8 +4551,8 @@ class ChatScreen(Screen):
         snapshot = await asyncio.to_thread(partial(app.runtime.session_state_snapshot, session["id"]))
         app.apply_session_snapshot(snapshot)
         self._mark_graph_dirty()
-        app.ui_state.last_feedback = f"Opened a new {action} experiment session."
-        self._write_forensic(f"[INFO] Opened {action} experiment :: {session['title']}")
+        app.ui_state.last_feedback = "Opened a new session on the persistent graph."
+        self._write_forensic(f"[INFO] Opened session on primary graph :: {session['title']}")
         self._set_text_area("#composer_input", "")
         self._reset_inline_feedback_inputs()
         self.refresh_panels()
@@ -4673,8 +4620,8 @@ class ChatScreen(Screen):
         assert isinstance(app, EdenTuiApp)
         normalized = (action or "review").strip().lower()
         self._last_runtime_action_dispatch = (normalized, monotonic())
-        if normalized in {"blank", "seeded", "resume"}:
-            self.begin_surface_launch(normalized)
+        if normalized == "resume":
+            self.begin_surface_launch("resume")
         elif normalized == "new_session":
             self.begin_new_session_flow()
         elif normalized == "profile":

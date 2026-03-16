@@ -6,7 +6,7 @@ import eden.runtime as runtime_module
 from eden.config import DEFAULT_MLX_MODEL_DIR
 
 
-def test_blank_bootstrap_chat_feedback_and_exports(runtime, tmp_path) -> None:
+def test_single_graph_bootstrap_chat_feedback_and_exports(runtime, tmp_path) -> None:
     experiment = runtime.initialize_experiment("blank")
     session = runtime.start_session(experiment["id"], title="E2E")
     counts_before = runtime.store.graph_counts(experiment["id"])
@@ -94,6 +94,16 @@ def test_runtime_launch_profile_and_session_snapshot(runtime) -> None:
     assert snapshot["conversation_log_path"].endswith(".md")
 
 
+def test_initialize_experiment_reuses_primary_graph(runtime) -> None:
+    primary = runtime.initialize_experiment("blank")
+    reused = runtime.initialize_experiment("seeded")
+
+    assert reused["id"] == primary["id"]
+    assert reused["name"] == "Adam Graph"
+    assert reused["mode"] == "persistent"
+    assert runtime.primary_experiment()["id"] == primary["id"]
+
+
 def test_conversation_archive_records_and_taxonomy(runtime) -> None:
     first_experiment = runtime.initialize_experiment("blank")
     first_session = runtime.start_session(first_experiment["id"], title="Archive One")
@@ -101,7 +111,9 @@ def test_conversation_archive_records_and_taxonomy(runtime) -> None:
 
     second_experiment = runtime.initialize_experiment("blank")
     second_session = runtime.start_session(second_experiment["id"], title="Archive Two")
-    runtime.chat(session_id=second_session["id"], user_text="Describe the seeded archive surface.")
+    runtime.chat(session_id=second_session["id"], user_text="Describe the shared archive surface.")
+
+    assert second_experiment["id"] == first_experiment["id"]
 
     updated = runtime.update_conversation_archive(
         first_session["id"],
@@ -119,6 +131,7 @@ def test_conversation_archive_records_and_taxonomy(runtime) -> None:
     assert first_record["folder"] == "projects/archive"
     assert first_record["tags"] == ["memory", "atlas"]
     assert "all_texts" in first_record["projection_paths"]
+    assert any(path.startswith("graph:") for path in first_record["projection_paths"])
     assert first_record["requested_mode"] == "manual"
     assert first_record["conversation_log_exists"] is False
     assert second_record["folder"] == "inbox"
