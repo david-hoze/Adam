@@ -18,6 +18,7 @@ class MockModelAdapter(BaseModelAdapter):
         temperature: float = 0.0,
         top_p: float = 0.0,
         repetition_penalty: float = 0.0,
+        progress_callback=None,
     ) -> ModelResult:
         lines = [line.strip() for line in conversation_prompt.splitlines() if line.strip()]
         user_line = next((line for line in reversed(lines) if line.startswith("USER:")), "USER: request unavailable")
@@ -32,6 +33,18 @@ class MockModelAdapter(BaseModelAdapter):
             f"The highest-pressure structures in the active set were {anchor_text}, so I leaned on the strongest regard, recency, and feedback surfaces available in this moment.\n\n"
             "If you want me to stabilize or revise this behavior, apply explicit feedback so the graph updates instead of the answer merely disappearing."
         )
+        if progress_callback is not None:
+            progress_callback(
+                {
+                    "backend": self.backend_name,
+                    "phase": "answer",
+                    "reasoning_text": "",
+                    "answer_text": answer[:max_tokens * 5],
+                    "raw_text": answer[:max_tokens * 5],
+                    "generation_tokens": min(max_tokens, max(1, len(answer.split()))),
+                    "done": False,
+                }
+            )
         return ModelResult(
             backend=self.backend_name,
             text=answer[:max_tokens * 5],

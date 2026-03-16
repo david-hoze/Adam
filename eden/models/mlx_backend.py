@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from inspect import signature
 
-from .base import BaseModelAdapter, ModelResult, split_model_output
+from .base import (
+    BaseModelAdapter,
+    GenerationProgressCallback,
+    ModelResult,
+    split_model_output,
+    split_model_output_progressive,
+)
 
 
 class MLXModelAdapter(BaseModelAdapter):
@@ -67,7 +73,19 @@ class MLXModelAdapter(BaseModelAdapter):
         temperature: float,
         top_p: float,
         repetition_penalty: float,
+        progress_callback: GenerationProgressCallback | None = None,
+        phase: str = "answer",
     ) -> str:
+        if progress_callback is not None:
+            return self._stream_text(
+                prompt=prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                repetition_penalty=repetition_penalty,
+                progress_callback=progress_callback,
+                phase=phase,
+            )
         if hasattr(self._mlx_lm, "generate"):
             generate_fn = self._mlx_lm.generate
         else:
@@ -91,6 +109,49 @@ class MLXModelAdapter(BaseModelAdapter):
             return str(result.text)
         return str(result)
 
+    def _stream_text(
+        self,
+        *,
+        prompt: str,
+        max_tokens: int,
+        temperature: float,
+        top_p: float,
+        repetition_penalty: float,
+        progress_callback: GenerationProgressCallback,
+        phase: str,
+    ) -> str:
+        if hasattr(self._mlx_lm, "stream_generate"):
+            stream_fn = self._mlx_lm.stream_generate
+        else:
+            from mlx_lm import stream_generate as stream_fn  # type: ignore
+
+        kwargs = {"max_tokens": max_tokens}
+        kwargs["sampler"] = self._make_sampler(temp=temperature, top_p=top_p)
+        kwargs["logits_processors"] = self._make_logits_processors(repetition_penalty=repetition_penalty)
+        pieces: list[str] = []
+        last_tokens = 0
+        for response in stream_fn(self.model, self.tokenizer, prompt, **kwargs):
+            segment = str(getattr(response, "text", "") or "")
+            if segment:
+                pieces.append(segment)
+            combined = "".join(pieces).strip()
+            reasoning_text, answer_text = (
+                split_model_output_progressive(combined) if phase == "reasoning" else ("", combined)
+            )
+            last_tokens = int(getattr(response, "generation_tokens", last_tokens) or last_tokens)
+            progress_callback(
+                {
+                    "backend": self.backend_name,
+                    "phase": phase,
+                    "reasoning_text": reasoning_text,
+                    "answer_text": answer_text,
+                    "raw_text": combined,
+                    "generation_tokens": last_tokens,
+                    "done": bool(getattr(response, "finish_reason", None)),
+                }
+            )
+        return "".join(pieces).strip()
+
     def generate(
         self,
         *,
@@ -100,6 +161,7 @@ class MLXModelAdapter(BaseModelAdapter):
         temperature: float = 0.0,
         top_p: float = 0.0,
         repetition_penalty: float = 0.0,
+        progress_callback: GenerationProgressCallback | None = None,
     ) -> ModelResult:  # pragma: no cover - depends on local install
         prompt = self._build_prompt(system_prompt, conversation_prompt, enable_thinking=True)
         text = self._generate_text(
@@ -108,6 +170,8 @@ class MLXModelAdapter(BaseModelAdapter):
             temperature=temperature,
             top_p=top_p,
             repetition_penalty=repetition_penalty,
+            progress_callback=progress_callback,
+            phase="reasoning",
         )
         reasoning_text, answer_text = split_model_output(text)
         used_answer_fallback = False
@@ -124,6 +188,12 @@ class MLXModelAdapter(BaseModelAdapter):
                 temperature=temperature,
                 top_p=top_p,
                 repetition_penalty=repetition_penalty,
+                progress_callback=(
+                    (lambda payload: progress_callback({**payload, "phase": "answer_fallback", "reasoning_text": reasoning_text.strip()}))
+                    if progress_callback is not None
+                    else None
+                ),
+                phase="answer",
             ).strip()
             used_answer_fallback = True
         return ModelResult(

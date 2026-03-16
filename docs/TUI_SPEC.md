@@ -81,6 +81,7 @@ Primary split:
   - enlarged slower-pulsing signal field / memgraph bus with explicit symbol legend and live update explanation
   - lower reasoning/feed slice with three operator lenses:
     - `Reasoning`: response material first, then any non-boilerplate visible reasoning signal, plus runtime condition, membrane record, and live consideration trace
+      - while MLX/Qwen is still generating and emits visible reasoning text, this lens updates live from the streaming model output and marks the panel title as `[LIVE]`
     - `Chain-Like`: numbered beats cut from the operator-facing answer, with optional non-boilerplate reasoning residue and live assembly anchors
     - `Hum Live`: bounded hum entries, `[HUM_STATS]`, `[HUM_METRICS]`, `[HUM_TABLE]`, and carryover/memory anchors derived from the persisted hum artifact; on first-turn / no-recurrence states it remains seed-state rather than inventing recurrence
     - focusable scroll viewport so longer reasoning or hum-live traces can be read in-place from the prime chat surface, directly beneath the memgraph bus
@@ -160,6 +161,7 @@ Secondary surfaces:
 - the prime surface keeps transcript, composer, aperture, memgraph, and reasoning/feed lenses visible while the operator types; the standalone hum fact box is removed from the prime screen, while `Hum Live` now renders bounded hum entries, stats, metrics, and token-table carryover inside the feed lens
 - on compact terminals, the prime surface prioritizes transcript + composer + runtime chyron trigger and hides the right telemetry stack until the operator explicitly opens aperture/deeper surfaces
 - feedback is integrated inline inside the chat column through the explicit-feedback surface directly above the composer
+- when the local MLX/Qwen backend emits visible reasoning incrementally, the prime `Reasoning` lens updates during generation from streaming model output rather than waiting for the completed turn artifact
 - explicit review is collected there after each successful turn submission; `Review` / `F7` focuses the inline form only while Adam's latest reply is awaiting review
 - once feedback is stored for the latest reply, the inline form collapses to a compact stored-feedback line until Adam answers again
 - inline review reuses the graph-backed feedback path and therefore updates regard, reward, risk, and edit channels
@@ -170,6 +172,7 @@ Secondary surfaces:
 - detailed budget changes remain visible in Deck, while the prime chat topbar carries a compact used/remaining context-budget estimate
 - latest-session resume restores the latest persisted session surface without forcing a new session flow first
 - keyboard-only navigation is supported through top action-strip focus, digit jump or `Left` / `Right` selection, `Enter` execution, `Tab` / `Shift+Tab` focus cycling, and the function-key bindings
+- focused keyboard targets on the prime chat surface carry an explicit `>>` marker in their border title or button label, so `Tab` / `Shift+Tab` navigation is legible without relying only on border-color shifts
 - corpus ingest supports a framing prompt whose phrases are graph-indexed as persistent document-conditioning material
 - export actions report the artifact directory path in the status surface so the operator can find the generated files without guesswork
 - observatory launch status is explicitly phased in the top action shelf (`queued`, `ensuring server`, `exporting payloads`, `opening browser`); elapsed time is real elapsed time, not an ETA claim

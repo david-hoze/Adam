@@ -5,7 +5,7 @@ import os
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .budget import BudgetEstimate, estimate_budget
 from .config import DEFAULT_MLX_MODEL_DIR, EXPORT_DIR, LOG_DIR, RUNTIME_LOG_PATH, RuntimeSettings, TANAKH_CACHE_DIR
@@ -1095,7 +1095,13 @@ class EdenRuntime:
                 )
         return {"meme_ids": member_ids, "memode_ids": memode_ids}
 
-    def chat(self, *, session_id: str, user_text: str) -> ChatOutcome:
+    def chat(
+        self,
+        *,
+        session_id: str,
+        user_text: str,
+        progress_callback: Callable[[dict[str, Any]], None] | None = None,
+    ) -> ChatOutcome:
         session = self.store.get_session(session_id)
         experiment_id = session["experiment_id"]
         preview = self.preview_turn(session_id=session_id, user_text=user_text)
@@ -1134,6 +1140,7 @@ class EdenRuntime:
             temperature=profile["temperature"],
             top_p=profile["top_p"],
             repetition_penalty=profile["repetition_penalty"],
+            progress_callback=progress_callback,
         )
         answer_text = result.answer_text or result.text
         membrane_text, membrane_events = self._apply_membrane(

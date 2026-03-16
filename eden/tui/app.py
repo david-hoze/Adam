@@ -172,6 +172,21 @@ ACTION_STRIP_OPTIONS = [
 ]
 ACTION_STRIP_INDEX = {value: index for index, (_, value) in enumerate(ACTION_STRIP_OPTIONS)}
 ACTION_STRIP_NUMBER = {value: index + 1 for index, (_, value) in enumerate(ACTION_STRIP_OPTIONS)}
+FOCUS_MARKER = ">>"
+FOCUSABLE_SURFACE_TITLES = {
+    "runtime_action_menu": "Actions",
+    "chat_tape": "Dialogue Tape",
+    "composer_input": "Composer",
+    "thinking_scroller": "Reasoning / Hum",
+    "inline_feedback_verdict_input": "Review Code",
+    "inline_feedback_explanation_input": "Review Explanation",
+    "inline_feedback_corrected_input": "Corrected Reply",
+}
+REASONING_MODE_BUTTON_LABELS = {
+    "reasoning_mode_reasoning_btn": "Reasoning",
+    "reasoning_mode_chain_btn": "Chain-Like",
+    "reasoning_mode_hum_btn": "Hum Live",
+}
 
 ARCHIVE_SORT_OPTIONS = [
     ("Recently Updated", "updated_desc"),
@@ -207,6 +222,10 @@ class UiState:
     last_user_text: str = ""
     last_response: str = ""
     last_reasoning: str = ""
+    live_response: str = ""
+    live_reasoning: str = ""
+    live_generation_phase: str = ""
+    live_generation_tokens: int = 0
     last_active_set: list[dict[str, Any]] | None = None
     last_trace: list[dict[str, Any]] | None = None
     preview_active_set: list[dict[str, Any]] | None = None
@@ -2280,6 +2299,23 @@ class ChatScreen(Screen):
         self._last_feedback_signature: tuple[str, str] | None = None
         self._last_hum_signature: tuple[str, str] | None = None
 
+    def _focused_widget_id(self) -> str | None:
+        return getattr(self.app.focused, "id", None)
+
+    def _focus_title(self, title: str, *widget_ids: str) -> str:
+        if self._focused_widget_id() in widget_ids:
+            return f"{FOCUS_MARKER} {title}"
+        return title
+
+    def _sync_focus_affordances(self) -> None:
+        for widget_id, base_title in FOCUSABLE_SURFACE_TITLES.items():
+            try:
+                widget = self.query_one(f"#{widget_id}")
+            except NoMatches:
+                continue
+            widget.border_title = self._focus_title(base_title, widget_id)
+        self._sync_reasoning_mode_controls()
+
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         with Vertical(id="runtime_frame"):
@@ -2349,12 +2385,12 @@ class ChatScreen(Screen):
             top_aperture = self.main_aperture_drawer_panel() if self.app.ui_state.aperture_drawer_open else self.main_aperture_panel()
             self.query_one("#aperture_drawer_panel", Static).update(top_aperture)
             self.query_one("#active_aperture_panel", Static).update(top_aperture)
-            self._sync_reasoning_mode_controls()
             self.query_one("#thinking_panel", Static).update(self.main_thinking_panel())
             self.query_one("#chat_exchange_panel", Static).update(self.main_chat_exchange_panel())
             self._sync_inline_feedback_surface()
             self.query_one("#inline_feedback_status_panel", Static).update(self.main_inline_feedback_status_panel())
             self.query_one("#runtime_chyron_panel", Static).update(self.main_runtime_chyron_panel())
+            self._sync_focus_affordances()
         except NoMatches:
             return
 
@@ -2853,15 +2889,23 @@ class ChatScreen(Screen):
     def _sync_reasoning_mode_controls(self) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
+        focused_id = self._focused_widget_id()
         controls = {
-            "reasoning": ("#reasoning_mode_reasoning_btn", "Reasoning"),
-            "chain_like": ("#reasoning_mode_chain_btn", "Chain-Like"),
-            "hum_live": ("#reasoning_mode_hum_btn", "Hum Live"),
+            "reasoning": "#reasoning_mode_reasoning_btn",
+            "chain_like": "#reasoning_mode_chain_btn",
+            "hum_live": "#reasoning_mode_hum_btn",
         }
-        for mode, (selector, label) in controls.items():
+        for mode, selector in controls.items():
             button = self.query_one(selector, Button)
+            label = REASONING_MODE_BUTTON_LABELS.get(button.id or "", str(button.label))
             active = app.ui_state.reasoning_mode == mode
-            button.label = f"● {label}" if active else label
+            markers: list[str] = []
+            if focused_id == button.id:
+                markers.append(FOCUS_MARKER)
+            if active:
+                markers.append("●")
+            prefix = " ".join(markers)
+            button.label = f"{prefix} {label}" if prefix else label
             button.variant = "primary" if active else "default"
 
     def _sync_aperture_drawer(self) -> None:
@@ -3210,10 +3254,32 @@ class ChatScreen(Screen):
         if self.is_mounted:
             self.refresh_panels()
 
+    def _reset_live_generation_artifacts(self) -> None:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        app.ui_state.live_response = ""
+        app.ui_state.live_reasoning = ""
+        app.ui_state.live_generation_phase = ""
+        app.ui_state.live_generation_tokens = 0
+
+    def _apply_live_generation_update(self, payload: dict[str, Any]) -> None:
+        app = self.app
+        assert isinstance(app, EdenTuiApp)
+        app.ui_state.live_reasoning = str(payload.get("reasoning_text") or "").strip()
+        app.ui_state.live_response = str(payload.get("answer_text") or "").strip()
+        app.ui_state.live_generation_phase = str(payload.get("phase") or "reasoning").strip()
+        try:
+            app.ui_state.live_generation_tokens = int(payload.get("generation_tokens") or 0)
+        except (TypeError, ValueError):
+            app.ui_state.live_generation_tokens = 0
+        if self.is_mounted:
+            self.query_one("#thinking_panel", Static).update(self.main_thinking_panel())
+
     def _clear_turn_progress(self) -> None:
         app = self.app
         assert isinstance(app, EdenTuiApp)
         app.ui_state.turn_progress = None
+        self._reset_live_generation_artifacts()
         if self.is_mounted:
             self.refresh_panels()
 
@@ -3440,8 +3506,13 @@ class ChatScreen(Screen):
         latest_feedback = self._recent_feedback_entries(limit=1)
         latest_feedback_entry = latest_feedback[0] if latest_feedback else None
         feedback_phrase = self._feedback_status_phrase(latest_feedback_entry)
-        reasoning_text = (app.ui_state.last_reasoning or "").strip()
-        answer_text = (app.ui_state.last_response or "").strip()
+        live_reasoning_text = (app.ui_state.live_reasoning or "").strip()
+        live_answer_text = (app.ui_state.live_response or "").strip()
+        live_streaming = bool(app.ui_state.turn_progress and (live_reasoning_text or live_answer_text))
+        live_phase = str(app.ui_state.live_generation_phase or "reasoning").replace("_", " ").strip()
+        live_tokens = int(app.ui_state.live_generation_tokens or 0)
+        reasoning_text = live_reasoning_text if live_streaming else (app.ui_state.last_reasoning or "").strip()
+        answer_text = live_answer_text if live_streaming else (app.ui_state.last_response or "").strip()
         reasoning_chars = len(reasoning_text)
         dominant_lane = self._dominant_active_lane(active_items)
         focus_item = (
@@ -3571,10 +3642,15 @@ class ChatScreen(Screen):
             body.append("Response material\n", style=f"bold {NEON}")
             if answer_lines:
                 body.append("\n".join(answer_lines), style=TEXT)
+            elif live_streaming and reasoning_text:
+                body.append(
+                    f"Qwen is still in visible {live_phase}; the operator-facing answer has not landed yet.",
+                    style=MUTED,
+                )
             else:
                 body.append("No operator-facing answer is persisted yet.", style=MUTED)
             body.append("\n\n", style=TEXT)
-            body.append("Reasoning signal\n", style=f"bold {AMBER}")
+            body.append("Live reasoning stream\n" if live_streaming else "Reasoning signal\n", style=f"bold {AMBER}")
             if reasoning_lines:
                 body.append("\n".join(reasoning_lines), style=TEXT)
             elif reasoning_text:
@@ -3589,11 +3665,18 @@ class ChatScreen(Screen):
                 )
             body.append("\n\n", style=TEXT)
             body.append("Runtime condition\n", style=f"bold {ICE}")
-            body.append(
+            runtime_condition = (
                 f"- state={state} profile={profile.get('profile_name', 'pending')} mode={profile.get('requested_mode', 'pending')} -> {profile.get('effective_mode', 'pending')}\n"
                 f"- pressure={budget.get('pressure_level', 'n/a')} response_cap={profile.get('response_char_cap', 'n/a')} retrieval_depth={profile.get('retrieval_depth', 'n/a')}\n"
                 f"- lane={dominant_lane} focus={safe_excerpt(str(focus_item.get('label', 'none yet')), limit=40)} reasoning_chars={reasoning_chars}\n"
-                f"- feedback={feedback_phrase}",
+            )
+            if live_streaming:
+                runtime_condition += (
+                    f"- live_phase={live_phase} live_tokens={live_tokens} answer_chars={len(answer_text)}\n"
+                )
+            runtime_condition += f"- feedback={feedback_phrase}"
+            body.append(
+                runtime_condition,
                 style=TEXT,
             )
             body.append("\n\n", style=TEXT)
@@ -3607,6 +3690,8 @@ class ChatScreen(Screen):
             "chain_like": "Chain-Like Trace",
             "hum_live": "Hum Live Trace",
         }.get(reasoning_mode, "Reasoning")
+        if live_streaming and reasoning_mode != "hum_live":
+            panel_title += " [LIVE]"
         border = ICE if reasoning_mode == "hum_live" and hum.get("present") else NEON if active_items or membrane_events else AMBER
         return Panel(body, title=panel_title, border_style=border, style=f"on {SHADE}")
 
@@ -4128,6 +4213,7 @@ class ChatScreen(Screen):
         text = self._composer_text().strip()
         if not text or not app.ui_state.session_id:
             return
+        self._reset_live_generation_artifacts()
         self._set_turn_progress(
             phase="preflight",
             detail="binding current draft and checking backend readiness",
@@ -4141,7 +4227,21 @@ class ChatScreen(Screen):
                 phase="assembling",
                 detail="assembling active set and prompt context",
             )
-            outcome = await asyncio.to_thread(partial(app.runtime.chat, session_id=app.ui_state.session_id, user_text=text))
+
+            def _progress_callback(payload: dict[str, Any]) -> None:
+                try:
+                    app.call_from_thread(self._apply_live_generation_update, payload)
+                except RuntimeError:
+                    return
+
+            outcome = await asyncio.to_thread(
+                partial(
+                    app.runtime.chat,
+                    session_id=app.ui_state.session_id,
+                    user_text=text,
+                    progress_callback=_progress_callback,
+                )
+            )
             app.ui_state.last_turn_id = outcome.turn["id"]
             app.ui_state.last_user_text = text
             app.ui_state.last_response = outcome.turn["membrane_text"]
@@ -4152,6 +4252,7 @@ class ChatScreen(Screen):
             app.ui_state.preview_trace = outcome.trace
             app.ui_state.current_budget = outcome.budget
             app.ui_state.current_profile = outcome.profile
+            self._reset_live_generation_artifacts()
             self._mark_graph_dirty()
             self._set_turn_progress(
                 phase="review",
@@ -4553,12 +4654,15 @@ class ChatScreen(Screen):
                 repetition_penalty=payload["repetition_penalty"],
                 retrieval_depth=payload["retrieval_depth"],
                 max_context_items=payload["max_context_items"],
+                history_turns=payload["history_turns"],
                 response_char_cap=payload["response_char_cap"],
             )
         )
         app.ui_state.session_title = updated["title"]
         app.ui_state.last_feedback = (
-            f"Updated session profile: {updated['title']} / {updated['mode']} / {updated['budget_mode']} / low_motion={updated['low_motion']}"
+            "Updated session profile: "
+            f"{updated['title']} / {updated['mode']} / {updated['budget_mode']} / "
+            f"history_turns={updated['history_turns']} / low_motion={updated['low_motion']}"
         )
         self.refresh_panels()
         self._schedule_preview_refresh()
@@ -4751,6 +4855,7 @@ class ChatScreen(Screen):
         if not self.is_mounted:
             return
         self.query_one("#runtime_action_menu", ActionStrip).refresh()
+        self._sync_focus_affordances()
 
     def _handle_scroll_keys(self, event: events.Key) -> bool:
         focused_id = getattr(self.app.focused, "id", None)
@@ -5390,6 +5495,10 @@ class EdenTuiApp(App):
         self.ui_state.last_user_text = snapshot.get("last_user_text", "")
         self.ui_state.last_response = snapshot.get("last_response", "")
         self.ui_state.last_reasoning = snapshot.get("last_reasoning", "")
+        self.ui_state.live_response = ""
+        self.ui_state.live_reasoning = ""
+        self.ui_state.live_generation_phase = ""
+        self.ui_state.live_generation_tokens = 0
         self.ui_state.last_active_set = list(snapshot.get("last_active_set") or [])
         self.ui_state.last_trace = list(snapshot.get("last_trace") or [])
         self.ui_state.preview_active_set = list(snapshot.get("last_active_set") or [])

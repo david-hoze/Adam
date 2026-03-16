@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from pathlib import Path
@@ -31,16 +32,19 @@ async def test_tui_boots_single_graph_mode_and_uses_multiline_composer(runtime, 
         assert str(app.screen.query_one("#aperture_drawer_panel").styles.width) == "26w"
         assert app.screen.query_one_optional("#hum_panel") is None
         menu = app.screen.query_one("#runtime_action_menu", ActionStrip)
+        composer = app.screen.query_one("#composer_input", TextArea)
         assert menu.value == "review"
+        assert str(composer.border_title) == ">> Composer"
         rendered_strip = menu.render().plain
         assert "01 Review Last Reply" in rendered_strip
         assert "08 Open Browser Observatory" in rendered_strip
         await pilot.press("tab")
         await pilot.pause(0.2)
         assert getattr(app.focused, "id", None) == "runtime_action_menu"
+        assert str(menu.border_title) == ">> Actions"
+        assert str(composer.border_title) == "Composer"
         await pilot.press("h", "i")
         await pilot.pause(0.2)
-        composer = app.screen.query_one("#composer_input", TextArea)
         assert composer.text == "hi"
         menu.set_value("toggle_aperture")
         menu.focus()
@@ -80,6 +84,11 @@ async def test_tui_boots_single_graph_mode_and_uses_multiline_composer(runtime, 
         assert app.screen.query_one("#chat_exchange_panel")
         assert app.screen.query_one("#signal_field")
         assert app.screen.query_one("#runtime_chyron_panel")
+        thinking_scroller = app.screen.query_one("#thinking_scroller")
+        thinking_scroller.focus()
+        await pilot.pause(0.2)
+        assert getattr(app.focused, "id", None) == "thinking_scroller"
+        assert str(thinking_scroller.border_title) == ">> Reasoning / Hum"
         assert app.screen.query_one("#runtime_chyron_panel").display is False
         await pilot.press("f11")
         await pilot.pause(0.3)
@@ -417,6 +426,58 @@ async def test_reasoning_mode_buttons_switch_feed_titles(runtime, tmp_path) -> N
 
 
 @pytest.mark.asyncio
+async def test_reasoning_panel_surfaces_live_visible_reasoning_during_turn(runtime, monkeypatch) -> None:
+    app = EdenTuiApp(runtime)
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.pause(1.0)
+        composer = app.screen.query_one("#composer_input", TextArea)
+        composer.load_text("Show the live reasoning stream.")
+
+        original_chat = runtime.chat
+
+        def live_chat(*, session_id: str, user_text: str, progress_callback=None):
+            if progress_callback is not None:
+                progress_callback(
+                    {
+                        "backend": "mock",
+                        "phase": "reasoning",
+                        "reasoning_text": "1. Inspect the active set.\n2. Check recent feedback.",
+                        "answer_text": "",
+                        "generation_tokens": 12,
+                    }
+                )
+                time.sleep(0.15)
+                progress_callback(
+                    {
+                        "backend": "mock",
+                        "phase": "reasoning",
+                        "reasoning_text": "1. Inspect the active set.\n2. Check recent feedback.\n3. Draft the answer.",
+                        "answer_text": "",
+                        "generation_tokens": 18,
+                    }
+                )
+                time.sleep(0.15)
+            return original_chat(session_id=session_id, user_text=user_text)
+
+        monkeypatch.setattr(runtime, "chat", live_chat)
+
+        send_task = asyncio.create_task(app.screen._send_turn())
+        await pilot.pause(0.2)
+
+        live_panel = app.screen.main_thinking_panel()
+        assert str(live_panel.title) == "Reasoning [LIVE]"
+        assert "Inspect the active set." in live_panel.renderable.plain
+        assert "Draft the answer." in live_panel.renderable.plain
+        assert "live_phase=reasoning" in live_panel.renderable.plain
+
+        await send_task
+        await pilot.pause(0.2)
+
+        assert app.ui_state.turn_progress is None
+        assert str(app.screen.main_thinking_panel().title) == "Reasoning"
+
+
+@pytest.mark.asyncio
 async def test_context_budget_panel_reports_used_and_remaining(runtime) -> None:
     app = EdenTuiApp(runtime)
     async with app.run_test(size=(140, 44)) as pilot:
@@ -618,6 +679,7 @@ async def test_tune_session_modal_restores_title_edit_and_recent_titles(runtime)
         assert title_input.value == "Field Notes"
 
         title_input.value = "June Session Revised"
+        modal.query_one("#history_turns_input", Input).value = "9"
         await pilot.pause(0.2)
         assert history_select.value == Select.NULL
 
@@ -628,7 +690,15 @@ async def test_tune_session_modal_restores_title_edit_and_recent_titles(runtime)
         assert app.ui_state.session_title == "June Session Revised"
         assert runtime.store.get_session(current_session["id"])["title"] == "June Session Revised"
         assert runtime.session_profile_request(current_session["id"])["title"] == "June Session Revised"
+        assert runtime.session_profile_request(current_session["id"])["history_turns"] == 9
         assert "Updated session profile: June Session Revised" in app.ui_state.last_feedback
+        assert "history_turns=9" in app.ui_state.last_feedback
+
+        app.screen.begin_edit_profile_flow()
+        await pilot.pause(0.5)
+        assert isinstance(app.screen, SessionConfigModal)
+        reopened_modal = app.screen
+        assert reopened_modal.query_one("#history_turns_input", Input).value == "9"
 
 
 @pytest.mark.asyncio

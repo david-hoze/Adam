@@ -4181,3 +4181,179 @@ Remaining uncertainties:
 - This pass extends actual conversation-history injection, but it does not add a separate operator-entered numeric prompt-budget ceiling; `budget_mode` remains the only direct prompt-envelope selector.
 Next shortest proof path:
 Run the TUI manually, open Tune Session, increase `Conversation History Turns`, and verify the compact context meter plus Deck budget panel respond as long conversations accumulate under `wide` budget mode.
+
+## [2026-03-16 12:57:51 EDT] PRE-FLIGHT
+Operator task:
+Make Tab-focus state in the prime TUI easier to see by adding an explicit active-element marker on focused surfaces.
+Task checksum:
+`d42077f37f96d397bf10af684b92a01a2ce79817f7cad4fce7fbadfdf7d26c0e`
+Repo situation:
+Worktree is clean except for a pre-existing `.DS_Store` modification. This turn is a bounded TUI affordance pass and should not disturb unrelated runtime or graph behavior.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+Natural-language contracts in force:
+Keyboard-only navigation must remain explicit and legible. Focus changes should be visible on the prime surface without changing the navigation model or inventing non-existent focus targets.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/tui/app.py`
+`/Users/brianray/Adam/tests/test_tui_smoke.py`
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+Status register:
+- Implemented:
+  - `Tab` / `Shift+Tab` cycle focus across the prime TUI focus chain.
+  - Current focus styling relies primarily on border-color shifts.
+- Instrumented:
+  - Action-strip status line exposes `focus=<widget_id>` for debug visibility.
+- Conceptual:
+  - A more explicit active-element marker on focused TUI surfaces.
+- Unknown:
+  - Which marker placement will be clearest without cluttering transcript/telemetry titles.
+Risks / invariants:
+Do not break focus order, key bindings, or compact layouts. Keep markers readable in both looks. Avoid introducing decorative noise on non-focused panels.
+Evidence plan:
+Add a shared focused-title marker path for primary focusable surfaces, update the TUI spec, add a smoke test that asserts the marker appears on the focused panel title, then run targeted and full pytest.
+Shortest proof path:
+Patch focused panel titles in `eden/tui/app.py`, ratchet with `tests/test_tui_smoke.py`, update `docs/TUI_SPEC.md`, then run `./.venv/bin/pytest -q tests/test_tui_smoke.py` followed by `./.venv/bin/pytest -q`.
+## [2026-03-16 13:04:32 EDT] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/eden/tui/app.py`
+`/Users/brianray/Adam/tests/test_tui_smoke.py`
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+Append-only `/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+Natural-language contracts added/revised/preserved:
+Preserved the existing Tab/Shift+Tab focus model and added an explicit textual focus marker for prime chat targets. Kept the marker ASCII (`>>`) rather than emoji so terminal width/render behavior stays stable.
+Behavior implemented or modified:
+Focused prime-surface widgets now show `>>` directly in their border title, and focused reasoning-mode buttons show the same marker in their label. This covers the action shelf, dialogue tape, composer, reasoning/hum viewport, and inline review inputs, so keyboard focus is legible without relying only on border-color changes.
+Evidence produced (tests / traces / commands / exports):
+`./.venv/bin/pytest -q tests/test_tui_smoke.py` -> `17 passed in 50.26s`
+`./.venv/bin/pytest -q` -> `77 passed in 62.87s (0:01:02)`
+Status register changes:
+- Implemented:
+  - Prime chat focus targets now carry an explicit active marker during Tab navigation.
+- Instrumented:
+  - None added.
+- Conceptual:
+  - Emoji-based focus markers remain intentionally unimplemented because terminal glyph width would be less stable than plain text markers.
+- Unknown:
+  - Whether the operator will want the same affordance extended into modal-only controls beyond the prime chat surface.
+Truth-table / limitations updates:
+No truth-table or limitations surface changed; this pass adjusted a documented TUI affordance rather than capability status.
+Remaining uncertainties:
+- `.DS_Store` remains an unrelated modified file and was left untouched.
+- This pass targets the prime chat surface only; startup/session modals still rely on their existing focus styling.
+Next shortest proof path:
+Run the TUI manually, cycle with `Tab`, and verify the `>>` marker reads cleanly in both Amber Dark and Typewriter Light while the focus chain moves through composer, action shelf, reasoning buttons, scroll panes, and inline review fields.
+## [2026-03-16 13:11:28 EDT] PRE-FLIGHT
+Operator task:
+Show Qwen's visible reasoning live in the prime chat reasoning lens while the model is still generating, rather than only after the turn finishes.
+Task checksum:
+`7137a1e73dc52cae9246254699c4ef1bc346e35d7a9d4dd5970046ce2d53bf0b`
+Repo situation:
+Worktree is dirty from the immediately preceding prime-TUI focus-marker pass plus the standing `.DS_Store` change. This turn should extend the same TUI/runtime path without disturbing unrelated graph or observatory behavior.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+`/Users/brianray/Adam/docs/TURN_LOOP_AND_MEMBRANE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+Natural-language contracts in force:
+The reasoning lens may show only operator-visible model reasoning artifacts. It must not imply hidden chain-of-thought access. The turn loop remains retrieve -> generate -> membrane -> persist; this pass can add live observability during generation but must not falsify what is actually persisted or exposed.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/models/base.py`
+`/Users/brianray/Adam/eden/models/mlx_backend.py`
+`/Users/brianray/Adam/eden/models/mock.py`
+`/Users/brianray/Adam/eden/runtime.py`
+`/Users/brianray/Adam/eden/tui/app.py`
+`/Users/brianray/Adam/tests/test_model_output.py`
+`/Users/brianray/Adam/tests/test_tui_smoke.py`
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+Status register:
+- Implemented:
+  - The TUI reasoning lens renders only the most recently completed turn's visible reasoning artifact.
+  - The runtime blocks on `model.generate()` and only assigns `last_reasoning` after `runtime.chat()` returns.
+  - `mlx_lm.stream_generate()` exists in the local `.venv`, so incremental model text is technically available.
+- Instrumented:
+  - Turn progress phases are surfaced in the topbar and refreshed from runtime log events.
+- Conceptual:
+  - Live reasoning updates in the prime chat lens during generation.
+- Unknown:
+  - How much incremental answer text should also be surfaced during live reasoning without confusing the persisted post-turn lens semantics.
+Risks / invariants:
+Do not expose anything beyond model-emitted visible reasoning text. Keep the persisted turn result unchanged. Preserve the fallback answer pass when the thinking-enabled stream yields reasoning without a usable answer. Keep mock/backend compatibility and avoid blocking the TUI event loop.
+Evidence plan:
+Add a progressive model-output parser plus optional generation progress callback, wire MLX streaming through the model/runtime layers, store live reasoning/answer buffers in UI state, render them in the thinking panel while generation is active, update the TUI spec, add unit and TUI smoke tests, then run targeted and full pytest.
+Shortest proof path:
+Patch `eden/models/*`, `eden/runtime.py`, and `eden/tui/app.py`; ratchet with `tests/test_model_output.py` and `tests/test_tui_smoke.py`; update `docs/TUI_SPEC.md`; then run `./.venv/bin/pytest -q tests/test_model_output.py tests/test_tui_smoke.py` followed by `./.venv/bin/pytest -q`.
+## [2026-03-16 13:22:42 EDT] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/eden/models/base.py`
+`/Users/brianray/Adam/eden/models/mlx_backend.py`
+`/Users/brianray/Adam/eden/models/mock.py`
+`/Users/brianray/Adam/eden/runtime.py`
+`/Users/brianray/Adam/eden/tui/app.py`
+`/Users/brianray/Adam/tests/test_model_output.py`
+`/Users/brianray/Adam/tests/test_tui_smoke.py`
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+Append-only `/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+Natural-language contracts added/revised/preserved:
+Preserved the “visible model reasoning only” boundary. Revised the prime TUI contract so the `Reasoning` lens may update live during MLX/Qwen generation when the backend emits visible reasoning text, without implying hidden chain-of-thought access or changing what gets persisted after the membrane step.
+Behavior implemented or modified:
+Added a progressive model-output splitter and optional generation progress callback in the model base layer. The MLX adapter now uses `mlx_lm.stream_generate()` when a progress callback is supplied, streaming visible reasoning/answer text into the prime chat reasoning lens while generation is active and preserving the existing non-thinking fallback answer pass. The runtime now forwards an optional progress callback through `chat()`, and the TUI keeps transient live reasoning/answer buffers that drive the `Reasoning [LIVE]` panel until the turn completes, after which the lens falls back to the persisted post-turn artifact.
+Evidence produced (tests / traces / commands / exports):
+`python3.12 -m py_compile /Users/brianray/Adam/eden/models/base.py /Users/brianray/Adam/eden/models/mlx_backend.py /Users/brianray/Adam/eden/models/mock.py /Users/brianray/Adam/eden/runtime.py /Users/brianray/Adam/eden/tui/app.py` -> success
+`./.venv/bin/pytest -q tests/test_model_output.py tests/test_tui_smoke.py` -> `23 passed in 52.37s`
+`./.venv/bin/pytest -q` -> `80 passed in 64.90s (0:01:04)`
+Status register changes:
+- Implemented:
+  - Prime `Reasoning` lens now streams visible model reasoning during generation when the backend emits it.
+  - MLX adapter now supports incremental progress callbacks via native `stream_generate()`.
+- Instrumented:
+  - TUI now holds transient live generation buffers for visible reasoning/answer text while a turn is active.
+- Conceptual:
+  - No new modal-only or browser-observatory live reasoning surface was added in this pass.
+- Unknown:
+  - How well the live stream performs on very long local generations with the real 35B model under heavier load; correctness is proved, but local subjective smoothness is still a manual runtime check.
+Truth-table / limitations updates:
+Updated the TUI spec, truth table, and limitations docs to record live visible reasoning in the prime chat lens while preserving the no-hidden-chain-of-thought boundary.
+Remaining uncertainties:
+- `.DS_Store` remains an unrelated modified file and was left untouched.
+- The live stream appears only when the backend emits incremental visible reasoning text; `Hum Live` remains a separate bounded continuity lens.
+Next shortest proof path:
+Run the real local MLX backend, keep the prime feed on `Reasoning`, submit a prompt that triggers `<think>` output, and verify the panel title flips to `Reasoning [LIVE]` while the text grows incrementally before the persisted turn lands.
+
+## [2026-03-16 14:26:29 EDT] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/eden/tui/app.py`
+`/Users/brianray/Adam/tests/test_tui_smoke.py`
+Append-only `/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+None. Existing `Tune Session` contract already required `Conversation History Turns`; this turn repaired implementation drift against the current spec.
+Natural-language contracts added/revised/preserved:
+Preserved the current `Tune Session` contract from `docs/TUI_SPEC.md` and `docs/INFERENCE_PROFILES.md`: `Conversation History Turns` is a bounded session profile field that should persist when the operator applies the profile.
+Behavior implemented or modified:
+Fixed the Tune Session apply path so `history_turns` is forwarded into `runtime.update_session_profile_request(...)` instead of being dropped. Extended the operator feedback string to echo the persisted `history_turns` value. Added a TUI smoke ratchet that changes `history_turns`, applies the profile, reopens Tune Session, and verifies the saved value is still present.
+Evidence produced (tests / traces / commands / exports):
+`./.venv/bin/pytest -q tests/test_tui_smoke.py tests/test_inference_profiles.py` -> `22 passed in 53.06s`
+`./.venv/bin/pytest -q` -> `80 passed in 65.41s (0:01:05)`
+Status register changes:
+- Implemented:
+  - Tune Session now persists `Conversation History Turns` when applying a session profile.
+  - The TUI regression test now proves reopen-time persistence for `history_turns`.
+- Instrumented:
+  - Operator feedback now surfaces `history_turns=<n>` after profile apply.
+- Conceptual:
+  - No new profile fields or budget semantics were introduced in this pass.
+- Unknown:
+  - None material for this bug after the full suite; the repaired field is covered by both targeted and suite-level evidence.
+Truth-table / limitations updates:
+None. Feature status did not change; this turn repaired a bug in an already-specified implemented surface.
+Remaining uncertainties:
+- `/Users/brianray/Adam/.DS_Store` remains a separate unrelated modification and was left untouched.
+- Other pre-existing changes in the worktree were preserved.
+Next shortest proof path:
+Manual operator check in the TUI: open `Tune Session`, set `Conversation History Turns` to a non-default value, apply, reopen `Tune Session`, and confirm the field and top-level feedback line match the saved number.

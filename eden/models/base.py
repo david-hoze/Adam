@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
+from typing import Any, Callable
 
 
 THINK_BLOCK_RE = re.compile(r"<think>\s*(.*?)\s*</think>\s*(.*)", re.DOTALL)
+GenerationProgressCallback = Callable[[dict[str, Any]], None]
 
 
 def split_model_output(text: str) -> tuple[str, str]:
@@ -22,6 +24,25 @@ def split_model_output(text: str) -> tuple[str, str]:
                 reasoning, answer = stripped.split(marker, 1)
                 return reasoning.strip(), marker.strip() + answer
         return stripped, stripped
+    return "", stripped
+
+
+def split_model_output_progressive(text: str) -> tuple[str, str]:
+    stripped = (text or "").strip()
+    if not stripped:
+        return "", ""
+    if "<think>" in stripped:
+        _, tail = stripped.split("<think>", 1)
+        if "</think>" in tail:
+            reasoning, answer = tail.split("</think>", 1)
+            return reasoning.strip(), answer.strip()
+        return tail.strip(), ""
+    if stripped.startswith("Thinking Process:"):
+        for marker in ("\nFinal Answer:", "\nAnswer:"):
+            if marker in stripped:
+                reasoning, answer = stripped.split(marker, 1)
+                return reasoning.strip(), marker.strip() + answer
+        return stripped, ""
     return "", stripped
 
 
@@ -57,5 +78,6 @@ class BaseModelAdapter:
         temperature: float = 0.0,
         top_p: float = 0.0,
         repetition_penalty: float = 0.0,
+        progress_callback: GenerationProgressCallback | None = None,
     ) -> ModelResult:
         raise NotImplementedError
