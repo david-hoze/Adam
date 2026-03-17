@@ -77,8 +77,22 @@ describe("EDEN Observatory App", () => {
             filter_dimensions: { kinds: ["meme"], domains: ["knowledge"], evidence_labels: ["OPERATOR_ASSERTED"] },
             statistics_capabilities: { heavy_graph_node_cap: 320, rankings: ["degree", "pagerank"] },
             export_formats: ["gexf", "graphml", "gdf", "gml", "graphviz_dot", "pajek_net", "netdraw_vna", "ucinet_dl", "tulip_tlp", "tgf", "nodes_csv", "edges_csv", "selection_json"],
-            semantic_nodes: [{ id: "meme-1", label: "Persistence", kind: "meme", domain: "knowledge", render_coords: { force: { x: 0, y: 0 } } }],
-            semantic_edges: [],
+            nodes: [
+              { id: "meme-1", label: "Persistence", kind: "meme", domain: "knowledge", degree: 1, render_coords: { force: { x: 0, y: 0 } } },
+              { id: "meme-2", label: "Retrieval", kind: "meme", domain: "knowledge", degree: 2, render_coords: { force: { x: 1, y: 1 } } },
+              { id: "meme-3", label: "Reference Note", kind: "meme", domain: "knowledge", degree: 1, render_coords: { force: { x: 2, y: 2 } } },
+              { id: "memode-1", label: "Persistence memode", kind: "memode", domain: "behavior" },
+            ],
+            edges: [
+              { id: "edge-1", source: "meme-1", target: "meme-2", type: "SUPPORTS", weight: 1, evidence_label: "AUTO_DERIVED" },
+              { id: "edge-2", source: "meme-2", target: "meme-3", type: "REFERENCES", weight: 0.4, evidence_label: "AUTO_DERIVED" },
+            ],
+            semantic_nodes: [
+              { id: "meme-1", label: "Persistence", kind: "meme", domain: "knowledge", render_coords: { force: { x: 0, y: 0 } } },
+              { id: "meme-2", label: "Retrieval", kind: "meme", domain: "knowledge", render_coords: { force: { x: 1, y: 1 } } },
+              { id: "meme-3", label: "Reference Note", kind: "meme", domain: "knowledge", render_coords: { force: { x: 2, y: 2 } } },
+            ],
+            semantic_edges: [{ id: "edge-1", source: "meme-1", target: "meme-2", type: "SUPPORTS", weight: 1, evidence_label: "AUTO_DERIVED" }],
             runtime_nodes: [],
             runtime_edges: [],
             assemblies: [
@@ -86,23 +100,122 @@ describe("EDEN Observatory App", () => {
                 id: "memode-1",
                 label: "Persistence memode",
                 domain: "behavior",
-                member_meme_ids: ["meme-1"],
+                member_meme_ids: ["meme-1", "meme-2"],
                 supporting_edge_ids: ["edge-1"],
-                member_order: [],
+                member_order: ["meme-1", "meme-2"],
                 invariance_summary: "Reusable persistence pattern",
                 measurement_history: [],
               },
             ],
+            memode_audit: {
+              summary: {
+                memodes: 1,
+                admissible_memodes: 1,
+                flagged_memodes: 0,
+                materialized_support_edges: 1,
+                informational_relations: 1,
+                knowledge_informational_relations: 1,
+                unmaterialized_support_candidates: 0,
+              },
+              memodes: [
+                {
+                  id: "memode-1",
+                  label: "Persistence memode",
+                  summary: "Reusable persistence pattern",
+                  domain: "behavior",
+                  evidence_label: "AUTO_DERIVED",
+                  operator_label: "",
+                  confidence: 0.8,
+                  member_meme_ids: ["meme-1", "meme-2"],
+                  member_memes: [
+                    { id: "meme-1", label: "Persistence", domain: "knowledge", evidence_label: "AUTO_DERIVED", recent_active_set_presence: 2, usage_count: 1, feedback_count: 0 },
+                    { id: "meme-2", label: "Retrieval", domain: "knowledge", evidence_label: "AUTO_DERIVED", recent_active_set_presence: 1, usage_count: 1, feedback_count: 0 },
+                  ],
+                  declared_support_edge_ids: ["edge-1"],
+                  declared_support_edges: [
+                    {
+                      id: "edge-1",
+                      identity: "edge-1",
+                      source: "meme-1",
+                      target: "meme-2",
+                      type: "SUPPORTS",
+                      weight: 1,
+                      evidence_label: "AUTO_DERIVED",
+                      assertion_origin: "auto_derived",
+                      operator_label: "",
+                      confidence: 1,
+                      source_label: "Persistence",
+                      target_label: "Retrieval",
+                      source_domain: "knowledge",
+                      target_domain: "knowledge",
+                      relation_class: "declared_support",
+                      overlapping_memode_ids: [],
+                    },
+                  ],
+                  support_edge_ids: ["edge-1"],
+                  support_edges: [
+                    {
+                      id: "edge-1",
+                      identity: "edge-1",
+                      source: "meme-1",
+                      target: "meme-2",
+                      type: "SUPPORTS",
+                      weight: 1,
+                      evidence_label: "AUTO_DERIVED",
+                      assertion_origin: "auto_derived",
+                      operator_label: "",
+                      confidence: 1,
+                      source_label: "Persistence",
+                      target_label: "Retrieval",
+                      source_domain: "knowledge",
+                      target_domain: "knowledge",
+                      relation_class: "materialized_support",
+                      overlapping_memode_ids: ["memode-1"],
+                    },
+                  ],
+                  informational_edge_ids: [],
+                  informational_edges: [],
+                  admissibility: {
+                    minimum_members: true,
+                    support_edges_present: true,
+                    all_members_supported: true,
+                    connected_support_graph: true,
+                    passes: true,
+                    unsupported_member_ids: [],
+                  },
+                },
+              ],
+              informational_relations: [
+                {
+                  id: "edge-2",
+                  identity: "edge-2",
+                  source: "meme-2",
+                  target: "meme-3",
+                  type: "REFERENCES",
+                  weight: 0.4,
+                  evidence_label: "AUTO_DERIVED",
+                  assertion_origin: "auto_derived",
+                  operator_label: "",
+                  confidence: 1,
+                  source_label: "Retrieval",
+                  target_label: "Reference Note",
+                  source_domain: "knowledge",
+                  target_domain: "knowledge",
+                  relation_class: "knowledge_informational",
+                  overlapping_memode_ids: [],
+                },
+              ],
+            },
             cluster_summaries: [
               {
                 cluster_signature: "cluster-1",
                 display_label: "Persistence cluster",
-                member_meme_ids: ["meme-1"],
-                top_meme_ids: ["meme-1"],
+                member_meme_ids: ["meme-1", "meme-2"],
+                top_meme_ids: ["meme-1", "meme-2"],
               },
             ],
             active_set_slices: [],
-            counts: { memes: 1, edges: 0 },
+            counts: { memes: 3, edges: 2, memodes: 1 },
           });
         }
         if (url.endsWith("basin.json")) {
@@ -156,6 +269,10 @@ describe("EDEN Observatory App", () => {
     expect(screen.getByText("Identity")).toBeTruthy();
     expect(screen.getByText("Ontology")).toBeTruthy();
     expect(screen.getByText("Measurement History")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Memode audit Persistence memode" })).toBeTruthy();
+    expect(screen.getByText("Memode Audit Summary")).toBeTruthy();
+    expect(screen.getByText("Unmaterialized Relations")).toBeTruthy();
+    expect(screen.getByText("knowledge informational")).toBeTruthy();
 
     const forceDirectedFamily = screen.getByRole("heading", { name: "1. Force-Directed Layout Algorithms" }).closest("section");
     if (!forceDirectedFamily) throw new Error("Missing force-directed family section");

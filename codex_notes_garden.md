@@ -5173,3 +5173,94 @@ Remaining uncertainties:
 - The gap is usability, not total absence of evidence surfaces.
 Next shortest proof path:
 If Brian wants this easier, implement a dedicated memode audit table/export that shows member set, qualifying support edges, connectedness/admissibility checks, assertion origin, evidence label, confidence, feedback channels, and measurement history in one place.
+
+## [2026-03-17T14:00:26Z] PRE-FLIGHT
+Operator task:
+Build a first-class `Memode Audit` surface in the observatory that lets Brian the operator inspect memodes, member memes, qualifying memetic support edges, and non-memetic knowledge relations that remain informational rather than materializing as memodes.
+Task checksum:
+Observatory memode audit implementation.
+Repo situation:
+Working tree should be treated as potentially dirty from prior ingest, TUI, and observatory work. Need bounded edits in the browser observatory source plus payload builders, then rebuild the checked-in static bundle. Do not disturb unrelated runtime surfaces.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/CANONICAL_ONTOLOGY.md`
+`/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`
+`/Users/brianray/Adam/docs/OBSERVATORY_INTERACTION_SPEC.md`
+`/Users/brianray/Adam/docs/MEASUREMENT_EVENT_MODEL.md`
+Natural-language contracts in force:
+Memodes are derived second-order structures with an admissibility floor and attributable provenance. Semantic Map remains meme-first. Browser workbench surfaces may add audit tooling, but layout/view state must remain non-evidentiary and operator assertions must stay distinguishable from auto-derived facts.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/observatory/graph_planes.py`
+`/Users/brianray/Adam/eden/observatory/exporters.py`
+`/Users/brianray/Adam/web/observatory/src/App.tsx`
+`/Users/brianray/Adam/web/observatory/src/App.test.tsx`
+`/Users/brianray/Adam/web/observatory/src/styles.css`
+`/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`
+`/Users/brianray/Adam/docs/OBSERVATORY_INTERACTION_SPEC.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+Status register:
+- Implemented:
+  - Graph payloads already expose `nodes`, `edges`, `semantic_nodes`, `semantic_edges`, `assemblies`, and measurement history.
+- Instrumented:
+  - Existing observatory inspector and measurement ledger provide distributed memode evidence.
+- Conceptual:
+  - A dedicated `Memode Audit` surface and explicit classification of memetic support edges vs informational knowledge edges.
+- Unknown:
+  - Whether existing payload metadata is sufficient for the desired audit without adding a derived audit plane.
+Risks / invariants:
+Do not collapse semantic support edges with all knowledge edges. Preserve the existing Graph surface semantics while making the audit explicit. Rebuild the checked-in frontend assets after source changes. Keep the audit truthful when support edges are missing or malformed.
+Evidence plan:
+Implement a derived memode-audit payload plane plus a browser card/table surface, add frontend tests, rebuild the observatory assets, and run repo tests needed to prove the feature.
+Shortest proof path:
+Add backend-derived audit rows from `nodes`/`edges`/`assemblies`, render them in the observatory sidebar/Data Lab, verify with `vitest`, rebuild static assets, and run `pytest -q` to confirm repo integration remains intact.
+
+## [2026-03-17T14:28:46Z] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/eden/observatory/contracts.py`
+`/Users/brianray/Adam/eden/observatory/graph_planes.py`
+`/Users/brianray/Adam/eden/observatory/exporters.py`
+`/Users/brianray/Adam/web/observatory/src/App.tsx`
+`/Users/brianray/Adam/web/observatory/src/App.test.tsx`
+`/Users/brianray/Adam/web/observatory/src/styles.css`
+`/Users/brianray/Adam/eden/observatory/static/observatory_app/index.js`
+`/Users/brianray/Adam/eden/observatory/static/observatory_app/style.css`
+`/Users/brianray/Adam/eden/observatory/static/observatory_app/build-meta.json`
+`/Users/brianray/Adam/tests/test_observatory_measurements.py`
+`/Users/brianray/Adam/tests/test_runtime_e2e.py`
+`/Users/brianray/Adam/tests/test_observatory_server.py`
+`/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`
+`/Users/brianray/Adam/docs/OBSERVATORY_INTERACTION_SPEC.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+`/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+`/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`
+`/Users/brianray/Adam/docs/OBSERVATORY_INTERACTION_SPEC.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+Natural-language contracts added/revised/preserved:
+Added a first-class `memode_audit` payload plane and workbench contract. Preserved the existing distinction between memetic support structure and non-memetic informational knowledge relations. Preserved the rule that browser-local view/layout state is non-evidentiary.
+Behavior implemented or modified:
+The observatory graph payload now derives `memode_audit` from the full meme/edge plane. The React observatory now renders a dedicated `Memode Audit` workbench with per-memode admissibility, member memes, materialized support edges, member-local informational relations, and unmaterialized meme-to-meme relations. Static assets were rebuilt and now match source hash `408874a128f49c87`.
+Evidence produced (tests / traces / commands / exports):
+`npm test` in `/Users/brianray/Adam/web/observatory` -> `2 passed / 7 passed`
+`npm run build` in `/Users/brianray/Adam/web/observatory` -> rebuilt checked-in assets
+`./.venv/bin/pytest -q /Users/brianray/Adam/tests/test_observatory_measurements.py /Users/brianray/Adam/tests/test_runtime_e2e.py /Users/brianray/Adam/tests/test_observatory_server.py` -> `22 passed`
+`./.venv/bin/pytest -q` -> `97 passed in 85.39s`
+`./.venv/bin/python /Users/brianray/Adam/scripts/check_observatory_build_meta.py` -> `ok: true`, matching source/built hash `408874a128f49c87`
+Status register changes:
+- Implemented:
+  - Dedicated `memode_audit` graph payload plane.
+  - Browser-visible `Memode Audit` workbench tied to the graph payload.
+- Instrumented:
+  - None newly added beyond the implemented audit plane.
+- Conceptual:
+  - No learned semantic memeticity model; audit remains bounded to graph rules and provenance.
+- Unknown:
+  - None blocking this bounded patch.
+Truth-table / limitations updates:
+Updated truth table to mark the `Memode Audit` workbench implemented. Updated limitations to state that the audit proves the implemented admissibility floor, not deeper semantic memeticity, and that older static exports must be refreshed to expose the new plane.
+Remaining uncertainties:
+- Worktree still contains unrelated dirty items outside this patch (`.DS_Store`, `scratch_space_writing_tasks/`). They were left untouched.
+Next shortest proof path:
+Open the browser observatory on the live graph, select a memode in `Memode Audit`, and verify the detail panel shows member memes, materialized support edges, and knowledge/informational relations for the same neighborhood.

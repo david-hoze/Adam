@@ -67,6 +67,7 @@ def test_single_graph_bootstrap_chat_feedback_and_exports(runtime, tmp_path) -> 
         for node in graph_payload["semantic_nodes"]
     )
     assert any(edge.get("export_label") and edge["export_label"] != edge.get("type") for edge in graph_payload["semantic_edges"])
+    assert "memode_audit" in graph_payload
     geometry_payload = json.loads((tmp_path / "exports" / "geometry_diagnostics.json").read_text())
     assert "local_reports" in geometry_payload
 

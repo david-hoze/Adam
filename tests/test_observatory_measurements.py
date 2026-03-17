@@ -163,6 +163,47 @@ def test_memode_assert_and_membership_update_persist(tmp_path, runtime) -> None:
     assert update["event"]["action_type"] == "memode_update_membership"
 
 
+def test_memode_audit_plane_distinguishes_support_from_informational_relations(tmp_path, runtime) -> None:
+    experiment, session, memes = _seed_session(runtime, tmp_path)
+    left_id, right_id = _connected_meme_pair(runtime, experiment["id"])
+    informational_target = _isolated_meme(runtime, experiment["id"], "Observatory informational target")
+
+    runtime.commit_observatory_action(
+        experiment_id=experiment["id"],
+        session_id=session["id"],
+        turn_id=None,
+        action={
+            "action_type": "memode_assert",
+            "selected_node_ids": [left_id, right_id],
+            "label": "Audit persistence motif",
+            "summary": "Memode used to verify the observatory audit plane.",
+            "domain": "behavior",
+            "confidence": 0.88,
+            "operator_label": "test_operator",
+            "evidence_label": "OPERATOR_ASSERTED",
+            "rationale": "build a known memode before checking audit output",
+        },
+    )
+
+    runtime.store.set_edge(
+        experiment_id=experiment["id"],
+        src_kind="meme",
+        src_id=right_id,
+        dst_kind="meme",
+        dst_id=informational_target["id"],
+        edge_type="REFERENCES",
+        provenance={"assertion_origin": "operator_asserted", "evidence_label": "OPERATOR_ASSERTED", "confidence": 0.73},
+    )
+
+    payload = runtime.observatory_service.graph_payload(experiment_id=experiment["id"], session_id=session["id"])
+    audit = payload["memode_audit"]
+    assert audit["summary"]["memodes"] >= 1
+    assert audit["summary"]["materialized_support_edges"] >= 1
+    assert any(row["admissibility"]["passes"] for row in audit["memodes"])
+    assert any(edge["relation_class"] == "materialized_support" for row in audit["memodes"] for edge in row["support_edges"])
+    assert any(edge["relation_class"] == "knowledge_informational" for edge in audit["informational_relations"])
+
+
 def test_measurement_only_action_persists_without_topology_mutation(tmp_path, runtime) -> None:
     experiment, session, memes = _seed_session(runtime, tmp_path)
     counts_before = runtime.store.graph_counts(experiment["id"])

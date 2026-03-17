@@ -41,7 +41,7 @@ EDEN v1.2 treats the observatory as a constructive measurement instrument. Obser
 
 ## Precision drawer and side rails
 
-- the graph workbench keeps a search/filter rail, selection summary, coordinate-mode selector, measurement ledger panel, runtime trace panel, and Data Lab available beside the main graph surface
+- the graph workbench keeps a search/filter rail, selection summary, coordinate-mode selector, measurement ledger panel, runtime trace panel, `Memode Audit`, and Data Lab available beside the main graph surface
 - the precision drawer is the single browser control surface for:
   - `Preview`
   - `Commit`
@@ -88,6 +88,21 @@ Known memodes are operator-facing structured claims about reusable motifs. They 
 - `Runtime` isolates turns, sessions, documents, feedback, and provenance relations
 - `Active Set` foregrounds turn-bounded retrieval participation
 - `Compare` keeps baseline vs modified state visible without hiding the measurement ledger
+
+## Memode audit workflow
+
+- open `Memode Audit` from the graph workbench while staying on the graph surface
+- inspect the per-memode admissibility readout:
+  - minimum member count
+  - materialized support-edge presence
+  - member participation in that support graph
+  - connectedness of the support graph
+- inspect member memes directly from the audit table
+- inspect materialized memetic support edges separately from:
+  - member-local informational relations
+  - unmaterialized support candidates
+  - knowledge informational relations that remain non-memetic
+- use relation focus from the audit table to hand off into inspector / precision-drawer workflows without collapsing evidence families together
 
 Inspector workflow:
 

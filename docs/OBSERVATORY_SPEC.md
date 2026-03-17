@@ -65,6 +65,7 @@ Generated per experiment under `exports/<experiment_id>/`:
   - `runtime_nodes`
   - `runtime_edges`
   - `assemblies`
+  - `memode_audit`
   - `cluster_summaries`
   - `active_set_slices`
 - browser workbench metadata surfaces:
@@ -92,11 +93,12 @@ Generated per experiment under `exports/<experiment_id>/`:
 - inspector surfaces structured cards for identity, ontology, domain, provenance, evidence/confidence, cluster membership, memode membership, supporting relations, active-set presence, measurement history, and preview delta
 - raw JSON survives only as a debug tab
 - coordinate modes remain explicit view modes, not evidence claims
+- `memode_audit` is a derived audit plane over the full meme/edge graph. It keeps materialized memode support edges distinct from unmaterialized support candidates and informational knowledge relations that remain non-memetic.
 
 ## Browser-local workbench surfaces
 
 - the graph tab exposes explicit mode controls for `INSPECT`, `MEASURE`, `EDIT`, `ABLATE`, and `COMPARE`
-- the shell keeps a search/filter rail, coordinate-mode selector, selection summary, precision drawer, measurement ledger actions, runtime trace panel, and Data Lab tables visible as first-class workbench surfaces
+- the shell keeps a search/filter rail, coordinate-mode selector, selection summary, precision drawer, measurement ledger actions, runtime trace panel, a dedicated `Memode Audit` workbench, and Data Lab tables visible as first-class workbench surfaces
 - compare mode renders baseline vs modified state from preview responses without committing mutation
 - local layout execution is browser-only:
   - layouts run through a worker-backed `LayoutRunner`
@@ -109,6 +111,12 @@ Generated per experiment under `exports/<experiment_id>/`:
 - appearance controls can style node / edge color, size, label visibility, and opacity from EDEN attributes such as kind, domain, cluster, evidence label, active-set presence, degree, weight, and regard/reward/risk where present
 - filter controls can constrain text, attribute/range slices, connected components, isolated-node visibility, and ego neighborhoods without mutating graph facts
 - the Data Lab provides node/edge tables, sorting, bulk selection, CSV/JSON export of the current selection, and precision-drawer handoff
+- the `Memode Audit` workbench provides:
+  - per-memode admissibility status
+  - member meme inspection
+  - materialized support-edge inspection
+  - member-local informational relation inspection
+  - unmaterialized meme-to-meme relation inspection across the current graph payload
 - export interoperability includes Gephi-accepted graph documents for the current browser-visible graph slice: `gexf`, `graphml`, `gdf`, `gml`, `graphviz dot`, `pajek net`, `netdraw vna`, `ucinet dl`, `tulip tlp`, `tgf`, plus node/edge CSV tables for Gephi spreadsheet import
 
 ## Public browser payload contract

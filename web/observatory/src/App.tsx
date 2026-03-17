@@ -75,11 +75,14 @@ type GraphPayload = {
   assembly_render_modes?: AssemblyRenderMode[];
   interaction_modes?: InteractionMode[];
   evidence_legend?: Record<string, any>;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
   semantic_nodes: GraphNode[];
   semantic_edges: GraphEdge[];
   runtime_nodes: GraphNode[];
   runtime_edges: GraphEdge[];
   assemblies: any[];
+  memode_audit?: MemodeAuditPayload;
   cluster_summaries: any[];
   active_set_slices: any[];
   counts?: Record<string, number>;
@@ -92,6 +95,69 @@ type GraphPayload = {
   filter_dimensions?: Record<string, any>;
   statistics_capabilities?: Record<string, any>;
   export_formats?: string[];
+};
+
+type MemodeAuditRelation = {
+  id: string;
+  identity: string;
+  source: string;
+  target: string;
+  type: string;
+  weight: number;
+  evidence_label: string;
+  assertion_origin: string;
+  operator_label: string;
+  confidence: number;
+  source_label: string;
+  target_label: string;
+  source_domain: string;
+  target_domain: string;
+  relation_class: string;
+  overlapping_memode_ids: string[];
+};
+
+type MemodeAuditMember = {
+  id: string;
+  label: string;
+  domain: string;
+  evidence_label: string;
+  recent_active_set_presence: number;
+  usage_count: number;
+  feedback_count: number;
+};
+
+type MemodeAuditRow = {
+  id: string;
+  label: string;
+  summary: string;
+  domain: string;
+  evidence_label: string;
+  operator_label: string;
+  confidence: number;
+  created_at?: string;
+  updated_at?: string;
+  member_meme_ids: string[];
+  member_memes: MemodeAuditMember[];
+  declared_support_edge_ids: string[];
+  declared_support_edges: MemodeAuditRelation[];
+  support_edge_ids: string[];
+  support_edges: MemodeAuditRelation[];
+  informational_edge_ids: string[];
+  informational_edges: MemodeAuditRelation[];
+  admissibility: {
+    minimum_members: boolean;
+    support_edges_present: boolean;
+    all_members_supported: boolean;
+    connected_support_graph: boolean;
+    passes: boolean;
+    unsupported_member_ids: string[];
+  };
+};
+
+type MemodeAuditPayload = {
+  summary?: Record<string, number>;
+  memodes: MemodeAuditRow[];
+  informational_relations: MemodeAuditRelation[];
 };
 
 const DEFAULT_EXPORT_FORMATS = [
@@ -109,6 +175,12 @@ const DEFAULT_EXPORT_FORMATS = [
   "edges_csv",
   "selection_json",
 ] as const;
+
+const EMPTY_MEMODE_AUDIT: MemodeAuditPayload = {
+  summary: {},
+  memodes: [],
+  informational_relations: [],
+};
 
 type BasinPayload = {
   turns: any[];
@@ -408,6 +480,16 @@ function excerptText(value: unknown, limit = 560): string {
   return text.length > limit ? `${text.slice(0, limit - 1).trimEnd()}…` : text;
 }
 
+function relationClassLabel(value: string): string {
+  if (value === "materialized_support") return "memetic support";
+  if (value === "declared_support") return "declared support";
+  if (value === "unmaterialized_support_candidate") return "unmaterialized support candidate";
+  if (value === "knowledge_informational") return "knowledge informational";
+  if (value === "member_informational") return "member informational";
+  if (value === "non_memetic_relation") return "non-memetic relation";
+  return value || "relation";
+}
+
 function chainLikeSteps(value: unknown, limit = 6): string[] {
   const raw = String(value ?? "").replace(/\r/g, "\n").trim();
   if (!raw) return [];
@@ -538,6 +620,13 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
   const visibleGraphEdges = useMemo(() => cappedItems(filteredBaseline.edges), [filteredBaseline.edges]);
   const visibleBasinTurns = useMemo(() => cappedItems(data.basin?.turns ?? []), [data.basin]);
   const visibleAssemblies = useMemo(() => cappedItems(data.graph?.assemblies ?? []), [data.graph]);
+  const memodeAudit = useMemo(() => data.graph?.memode_audit ?? EMPTY_MEMODE_AUDIT, [data.graph?.memode_audit]);
+  const selectedMemodeAudit = useMemo(
+    () => memodeAudit.memodes.find((row) => row.id === selectedAssemblyId) ?? memodeAudit.memodes[0] ?? null,
+    [memodeAudit.memodes, selectedAssemblyId],
+  );
+  const visibleMemodeAuditRows = useMemo(() => cappedItems(memodeAudit.memodes), [memodeAudit.memodes]);
+  const visibleAuditInformationalRelations = useMemo(() => cappedItems(memodeAudit.informational_relations), [memodeAudit.informational_relations]);
   const latestTranscriptTurn = useMemo(() => {
     const turns = data.transcript?.turns ?? [];
     return turns.length ? turns[turns.length - 1] : null;
@@ -1696,6 +1785,185 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
     );
   }
 
+  function renderRelationAuditTable(rows: MemodeAuditRelation[], emptyCopy: string) {
+    if (!rows.length) {
+      return <p className="placeholder-copy">{emptyCopy}</p>;
+    }
+    return (
+      <div className="table-scroll">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Relation</th>
+              <th>Class</th>
+              <th>Weight</th>
+              <th>Focus</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((edge) => (
+              <tr key={edge.identity}>
+                <td>{`${edge.type}: ${edge.source_label} -> ${edge.target_label}`}</td>
+                <td>{relationClassLabel(edge.relation_class)}</td>
+                <td>{Number(edge.weight ?? 0).toFixed(2)}</td>
+                <td>
+                  <button className="table-button" disabled={!edge.id} onClick={() => edge.id && handleSelectEdge(edge.id)} type="button">
+                    Focus
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  function renderMemberAuditTable(members: MemodeAuditMember[]) {
+    if (!members.length) {
+      return <p className="placeholder-copy">No member memes were captured for this memode.</p>;
+    }
+    return (
+      <div className="table-scroll">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Meme</th>
+              <th>Domain</th>
+              <th>Active-set presence</th>
+              <th>Focus</th>
+            </tr>
+          </thead>
+          <tbody>
+            {members.map((member) => (
+              <tr key={member.id}>
+                <td>{member.label}</td>
+                <td>{member.domain || "—"}</td>
+                <td>{member.recent_active_set_presence}</td>
+                <td>
+                  <button className="table-button" onClick={() => handleFocusNode(member.id)} type="button">
+                    Focus
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  function renderMemodeAuditSidebar() {
+    return (
+      <Card title="Memode Audit" accent={`${memodeAudit.summary?.memodes ?? 0} rows`}>
+        {data.graph ? (
+          <>
+            <MetricList
+              items={[
+                ["Memodes", memodeAudit.summary?.memodes ?? 0],
+                ["Admissible", memodeAudit.summary?.admissible_memodes ?? 0],
+                ["Flagged", memodeAudit.summary?.flagged_memodes ?? 0],
+                ["Knowledge relations", memodeAudit.summary?.knowledge_informational_relations ?? 0],
+              ]}
+            />
+            {visibleMemodeAuditRows.capped ? (
+              <p className="placeholder-copy">Showing first {TEXT_ACCESS_LIMIT} of {visibleMemodeAuditRows.total} memode audit rows. This browser list is capped and not exhaustive.</p>
+            ) : null}
+            <div className="transcript-list">
+              {visibleMemodeAuditRows.items.map((row) => (
+                <button
+                  aria-label={`Memode audit ${row.label}`}
+                  key={row.id}
+                  className={row.id === selectedMemodeAudit?.id ? "transcript-turn is-active" : "transcript-turn"}
+                  data-state={row.id === selectedMemodeAudit?.id ? "active" : "inactive"}
+                  onClick={() => handleSelectAssembly(row.id)}
+                  type="button"
+                >
+                  <span>{row.label}</span>
+                  <span>{row.admissibility.passes ? "admissible" : "flagged"} · {row.member_meme_ids.length} memes · {row.support_edges.length} support edges</span>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="placeholder-copy">Graph payload {payloadStatuses.graph.status}. Memode audit rows appear after the semantic graph bundle arrives.</p>
+        )}
+      </Card>
+    );
+  }
+
+  function renderMemodeAuditPanel() {
+    if (!data.graph) return null;
+    return (
+      <div className="audit-grid">
+        <Card title="Memode Audit Summary" accent={`${memodeAudit.summary?.memodes ?? 0} memodes`}>
+          <MetricList
+            items={[
+              ["Memodes", memodeAudit.summary?.memodes ?? 0],
+              ["Admissible memodes", memodeAudit.summary?.admissible_memodes ?? 0],
+              ["Flagged memodes", memodeAudit.summary?.flagged_memodes ?? 0],
+              ["Materialized support edges", memodeAudit.summary?.materialized_support_edges ?? 0],
+              ["Unmaterialized support candidates", memodeAudit.summary?.unmaterialized_support_candidates ?? 0],
+              ["Knowledge informational relations", memodeAudit.summary?.knowledge_informational_relations ?? 0],
+            ]}
+          />
+          <p className="placeholder-copy">
+            Memode audit reads the full meme/edge plane. Materialized support edges remain distinct from informational knowledge relations that were not promoted into a memode.
+          </p>
+        </Card>
+        <Card title={selectedMemodeAudit ? `Audit Detail: ${selectedMemodeAudit.label}` : "Audit Detail"} accent={selectedMemodeAudit ? (selectedMemodeAudit.admissibility.passes ? "admissible" : "flagged") : "none"}>
+          {selectedMemodeAudit ? (
+            <>
+              <MetricList
+                items={[
+                  ["Summary", selectedMemodeAudit.summary],
+                  ["Domain", selectedMemodeAudit.domain],
+                  ["Evidence label", selectedMemodeAudit.evidence_label],
+                  ["Declared support ids", selectedMemodeAudit.declared_support_edge_ids.length],
+                  ["Materialized support edges", selectedMemodeAudit.support_edges.length],
+                  ["Informational member relations", selectedMemodeAudit.informational_edges.length],
+                  ["Unsupported members", selectedMemodeAudit.admissibility.unsupported_member_ids],
+                ]}
+              />
+              <div className="audit-status-row">
+                <span className={selectedMemodeAudit.admissibility.minimum_members ? badgeClass("observed") : badgeClass("warning")}>min members</span>
+                <span className={selectedMemodeAudit.admissibility.support_edges_present ? badgeClass("observed") : badgeClass("warning")}>support edges</span>
+                <span className={selectedMemodeAudit.admissibility.all_members_supported ? badgeClass("observed") : badgeClass("warning")}>member participation</span>
+                <span className={selectedMemodeAudit.admissibility.connected_support_graph ? badgeClass("observed") : badgeClass("warning")}>connected support graph</span>
+              </div>
+              <div className="audit-section">
+                <h4>Member Memes</h4>
+                {renderMemberAuditTable(selectedMemodeAudit.member_memes)}
+              </div>
+              <div className="audit-section">
+                <h4>Memetic Support Edges</h4>
+                {renderRelationAuditTable(selectedMemodeAudit.support_edges, "No materialized support edges were captured for this memode.")}
+              </div>
+              <div className="audit-section">
+                <h4>Informational / Non-Memetic Relations Within Member Set</h4>
+                {renderRelationAuditTable(
+                  selectedMemodeAudit.informational_edges,
+                  "No informational or non-memetic relations were found inside this memode member set.",
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="placeholder-copy">No memode audit rows are available yet.</p>
+          )}
+        </Card>
+        <Card title="Unmaterialized Relations" accent={String(memodeAudit.summary?.informational_relations ?? 0)}>
+          <p className="placeholder-copy">
+            These meme-to-meme relations remain informational or are only support candidates. They are visible here specifically because they have not been materialized as memode support.
+          </p>
+          {visibleAuditInformationalRelations.capped ? (
+            <p className="placeholder-copy">Showing first {TEXT_ACCESS_LIMIT} of {visibleAuditInformationalRelations.total} unmaterialized relations. This browser list is capped and not exhaustive.</p>
+          ) : null}
+          {renderRelationAuditTable(visibleAuditInformationalRelations.items, "No unmaterialized informational relations are present in the current graph payload.")}
+        </Card>
+      </div>
+    );
+  }
+
   function renderDataLab() {
     if (!data.graph) return null;
     return (
@@ -1786,6 +2054,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
       <aside className="sidebar">
         {surface === "graph" ? renderFilterRail() : null}
         {surface === "graph" ? renderDataLab() : null}
+        {surface === "graph" ? renderMemodeAuditSidebar() : null}
         <Card title="Assemblies">
           {data.graph ? (
             <>
@@ -2235,6 +2504,7 @@ export default function App({ bootstrap }: { bootstrap: Bootstrap }) {
         ) : (
           graphCanvas
         )}
+        {renderMemodeAuditPanel()}
       </>
     );
   }
