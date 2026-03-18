@@ -6162,3 +6162,167 @@ Remaining uncertainties:
 - No fresh real-user GraphML/CSV export was generated from the operator's full graph in this turn, so the final proof for the actual production graph still requires one fresh export after starting a new session on the patched build.
 Next shortest proof path:
 Start a fresh session on the patched build, let session-start normalization run once, export `Assemblies` again, and verify that the new GraphML/edges CSV contain explicit author/work nodes plus typed edges such as `AUTHOR_OF` instead of only `CO_OCCURS_WITH`.
+
+## [2026-03-18T14:20:29Z] PRE-FLIGHT
+Operator task:
+Harmonize the three-step Adam whitepaper prompt chain inside `/Users/brianray/Adam/scratch_space_writing_tasks/wp_draft_prompt.md` so Step 1, Step 2, and Step 3 share the same governance family, shared `RUN_CONFIG` vocabulary, comparator policy, research-library resolution, and drift-input discipline without flattening step-specific responsibilities.
+Task checksum:
+Whitepaper prompt chain harmonization patch.
+Repo situation:
+The working tree remains dirty from prior unrelated turns. The target source consolidates all three prompt blocks in one file. Step 3 already carries the stronger governance/run-config/authority stack; Step 1 and Step 2 still have lighter variants and a few naming drifts (`comparators_enabled`, Step 2 Claude sentence, duplicated pipeline-root wording).
+Relevant spec surfaces read:
+`/Users/brianray/Adam/AGENTS.md`
+Natural-language contracts in force:
+Adam is the default project/runtime name. Pipeline-root artifact directories are canonical lineage surfaces, not implementation proof. Governance must fail closed. Prompt edits must preserve Step 1 as an audit brief, Step 2 as an advisory memo, and Step 3 as the full whitepaper-generation contract.
+Files/modules likely in scope:
+`/Users/brianray/Adam/scratch_space_writing_tasks/wp_draft_prompt.md`
+`/Users/brianray/Adam/codex_notes_garden.md`
+Status register:
+- Implemented:
+  - Step 3 already contains the hardened governance, run-config, research-library, comparator, and authority-stack contract family.
+- Instrumented:
+  - Step 1 / Step 2 wording drift is directly visible in the consolidated prompt source.
+- Conceptual:
+  - None needed beyond the requested harmonization edits.
+- Unknown:
+  - No live end-to-end whitepaper pipeline run has yet exercised the fully harmonized three-step chain.
+Risks / invariants:
+Do not import Step 3-only whitepaper machinery into Step 1 or Step 2. Do not relax degraded-mode restrictions. Do not reintroduce Claude language. Preserve step-specific deliverable identities and keep the patch surgical.
+Evidence plan:
+Patch the consolidated prompt in place, then verify the aligned governance, run-config, comparator, research-library, and drift-input sections by search and diff.
+Shortest proof path:
+Append this PRE-FLIGHT note, patch Step 1 and Step 2 to inherit the Step 3 contract family where requested, add the small Step 3 upstream-run-config clarification, and confirm the three prompt blocks now read as one pipeline contract with step-specific roles intact.
+
+## [2026-03-18T14:24:19Z] PRE-FLIGHT
+Operator task:
+Broaden Adam's session-start "wake up" pass so a new conversation can trigger an explicit MLX-backed graph audit that reclassifies ambiguous graph material into performative `meme` versus constative `information`, preserves memodes as behavior-only second-order objects, and surfaces any higher-order clustering/memeplex signal without laundering it into hidden-planner behavior.
+Task checksum:
+Session-start Adam graph taxonomy audit and bounded higher-order memetic derivation patch.
+Repo situation:
+The worktree is already dirty from prior ontology/observatory/runtime turns and unrelated prompt/doc edits. The currently implemented session-start normalization only repairs bounded legacy knowledge relations (`AUTHOR_OF`, `INFLUENCES`, `REFERENCES`) plus missing `author` / `work` information nodes. No existing runtime pass performs a model-backed taxonomy audit across ambiguous graph rows or emits a memeplex-oriented summary object.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/CANONICAL_ONTOLOGY.md`
+`/Users/brianray/Adam/docs/TURN_LOOP_AND_MEMBRANE.md`
+`/Users/brianray/Adam/docs/INFERENCE_PROFILES.md`
+`/Users/brianray/Adam/docs/DOCUMENT_INGEST.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+Natural-language contracts in force:
+Memes are first-class performative behavior units. Information nodes are constative and non-memetic. Memodes are derived second-order behavior objects only. Any MLX wake-up pass must remain explicit, bounded, attributable, and separate from the Brian-facing reply loop. New canonical terminology requires spec anchoring and evidence this turn.
+Files/modules likely in scope:
+`/Users/brianray/Adam/eden/runtime.py`
+`/Users/brianray/Adam/eden/ontology_projection.py`
+`/Users/brianray/Adam/eden/semantic_relations.py`
+`/Users/brianray/Adam/tests/test_runtime_e2e.py`
+`/Users/brianray/Adam/docs/CANONICAL_ONTOLOGY.md`
+`/Users/brianray/Adam/docs/TURN_LOOP_AND_MEMBRANE.md`
+`/Users/brianray/Adam/docs/INFERENCE_PROFILES.md`
+`/Users/brianray/Adam/docs/DOCUMENT_INGEST.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+`/Users/brianray/Adam/codex_notes_garden.md`
+Status register:
+- Implemented:
+  - Session-start bounded legacy knowledge normalization with optional Adam-identity MLX review for typed informational relations.
+  - Behavior-domain memodes materialize during indexing when at least two behavior memes plus support edges are present.
+- Instrumented:
+  - `GRAPH_NORMALIZATION` trace events and session metadata reports already expose the bounded legacy normalization path.
+- Conceptual:
+  - Session-start model-backed taxonomy across ambiguous rows.
+  - Any explicit memeplex summary/audit surface.
+- Unknown:
+  - How often existing graph rows need reclassification in the operator's full production graph.
+  - Live MLX quality for broader taxonomy judgments beyond the already tested relation-review hook.
+Risks / invariants:
+Do not universalize all nodes as memes. Do not let knowledge constatives become memodes. Do not silently create a governor or hidden planner. If `memeplex` becomes a runtime term, anchor it carefully as a derived summary/audit surface rather than overstating it as an established first-class object without spec/evidence.
+Evidence plan:
+Patch a bounded session-start graph audit that classifies uncertain rows and derives behavior-only memodes from repaired local structure, add trace/session-report surfaces, add tests for deterministic and MLX-reviewed taxonomy outcomes, then run focused tests and `./.venv/bin/pytest -q`.
+Shortest proof path:
+Append this PRE-FLIGHT note, extend runtime session-start normalization into a bounded wake-up audit with explicit MLX JSON schema, prove the classification/materialization path in `tests/test_runtime_e2e.py`, update the governing docs/truth-table/limitations, and finish with full pytest evidence.
+
+## [2026-03-18T14:42:29Z] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/eden/runtime.py`
+`/Users/brianray/Adam/tests/test_runtime_e2e.py`
+`/Users/brianray/Adam/docs/CANONICAL_ONTOLOGY.md`
+`/Users/brianray/Adam/docs/TURN_LOOP_AND_MEMBRANE.md`
+`/Users/brianray/Adam/docs/INFERENCE_PROFILES.md`
+`/Users/brianray/Adam/docs/DOCUMENT_INGEST.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+`/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+Revised the ontology, turn-loop, inference-profile, ingest, truth-table, and limitations surfaces to rename the session-start behavior from narrow graph normalization into a two-phase graph wake-up audit with explicit knowledge repair, explicit behavior-taxonomy/memode derivation, and report-only memeplex summaries.
+Natural-language contracts added/revised/preserved:
+Preserved the ontology split: constative knowledge remains `information`, performative behavior remains `meme`, and memodes remain behavior-only second-order objects. Added the bounded wake-up contract: session start may repair legacy knowledge rows and audit turn-attached behavior bundles, while `memeplex` remains a derived report summary rather than a first-class persisted graph object.
+Behavior implemented or modified:
+- `start_session()` now runs `_run_session_start_graph_audit()` instead of only `_normalize_legacy_knowledge_graph()`.
+- The wake-up audit writes three session metadata surfaces: `session_graph_normalization`, `session_graph_taxonomy`, and `session_graph_wakeup`.
+- The new behavior-taxonomy phase audits bounded turn-attached behavior bundles from Adam responses and explicit feedback, can strengthen candidate first-order behavior memes, and can materialize bounded behavior memodes from existing support edges.
+- On the MLX path, Adam can review one behavior bundle at a time in an Adam-identity JSON-only taxonomy pass before memode persistence.
+- The wake-up audit now emits `GRAPH_TAXONOMY_AUDIT` and `GRAPH_WAKEUP_AUDIT` trace events in addition to the existing `GRAPH_NORMALIZATION` event.
+- The runtime now produces bounded `memeplex_summaries` inside the session-start wake-up report from overlapping audited behavior memodes; these summaries are not persisted as graph objects.
+Evidence produced (tests / traces / commands / exports):
+- `./.venv/bin/pytest -q tests/test_runtime_e2e.py` -> `12 passed`
+- `./.venv/bin/pytest -q` -> `114 passed`
+- New runtime tests now prove:
+  - deterministic session-start behavior-taxonomy audit materializes an audited memode and strengthens selected behavior memes
+  - MLX-mode session-start behavior taxonomy accepts a reviewed member set/label and persists it into the graph/session report
+Status register changes:
+- Implemented:
+  - Session-start two-phase graph wake-up audit with explicit session metadata and trace surfaces.
+  - Deterministic behavior-taxonomy audit over Adam/feedback turn bundles with bounded behavior memode materialization.
+  - Adam-identity MLX behavior-taxonomy review hook for the wake-up pass.
+  - Report-only memeplex summaries derived from overlapping audited behavior memodes.
+- Instrumented:
+  - The wake-up pass now records separate normalization, taxonomy, and aggregate trace/session-report surfaces.
+- Conceptual:
+  - Whole-graph unconstrained Adam rewrite remains out of scope; the wake-up audit is still bounded by candidate limits and strict JSON schemas.
+- Unknown:
+  - Live-model quality on the operator's full real graph remains unproved in this turn beyond the deterministic path and the MLX control-path test coverage.
+Truth-table / limitations updates:
+Updated `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md` and `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md` to reflect the new wake-up audit, its bounded MLX hooks, and the report-only status of `memeplex`.
+Remaining uncertainties:
+- Behavior-taxonomy auditing currently targets bounded turn-attached Adam/feedback bundles, not every possible historical behavior surface in the graph.
+- `Memeplex` is now named and summarized in the wake-up report, but there is still no first-class persisted memeplex graph object or observatory panel dedicated to that summary surface.
+- The worktree remains dirty from unrelated pre-existing changes outside this patch and they were left untouched.
+Next shortest proof path:
+Start a fresh conversation on the patched build, inspect the new session metadata / trace surfaces for `session_graph_wakeup` and `GRAPH_WAKEUP_AUDIT`, then export the graph again and confirm that wake-up-derived behavior memodes now appear alongside the already-repaired informational structure.
+
+## [2026-03-18T14:29:02Z] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/scratch_space_writing_tasks/wp_draft_prompt.md`
+`/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+None. This was a prompt-chain harmonization patch; no canonical `docs/` surface changed.
+Natural-language contracts added/revised/preserved:
+Revised the consolidated whitepaper prompt chain so Step 1, Step 2, and Step 3 now share the same fail-closed governance family, execution-status vocabulary, shared uppercase `RUN_CONFIG` fields, opt-in comparator policy, research-library path resolution, and default expectation-probe wording. Preserved Step 1 as an audit brief, Step 2 as an advisory memo, and Step 3 as the full whitepaper-generation contract.
+Behavior implemented or modified:
+- Step 1 now inherits Step 3-style fail-closed governance, degraded mode, mandatory PRE/POST note discipline, execution-status recording, shared `RUN_CONFIG`, shared research-library rules, and a light prompt/artifact drift-input bridge.
+- Step 2 now inherits the same governance family, shared `RUN_CONFIG`, shared research-library rules, shared comparator policy, stronger authority/instruction precedence, and light drift-input handling without importing Step 3-only whitepaper machinery.
+- Step 2 no longer mentions Claude and now frames the intelligence brief as the only expected upstream artifact class.
+- Step 3 now explicitly marks upstream `RUN_CONFIG` echoes from the brief/memo as advisory inputs only.
+- Step 2 pipeline-path wording was tightened so `WHITE PAPER PIPELINE ROOT` remains the canonical path contract and `PIPELINE ARTIFACT RESOLUTION` now functions as a short artifact-resolution clarification instead of a competing near-duplicate.
+Evidence produced (tests / traces / commands / exports):
+- `rg -n 'FAIL-CLOSED GOVERNANCE RESOLUTION|GOVERNANCE GATE PRECEDENCE|MANDATORY PRE / POST RUN-NOTE DISCIPLINE|EXECUTION STATUS DISCIPLINE|RUN CONFIG / CONTROL-FLOW GUARD|COMPARATIVE CLAIMS — OPT-IN ONLY|RESEARCH LIBRARY / CANONICAL SECONDARY DISCIPLINE|AUTHORITY STACK / SOURCE OF TRUTH|OPERATIONAL INSTRUCTION PRECEDENCE|PROMPT / ARTIFACT DRIFT INPUTS|Claude|comparators_enabled|baseline_draft_path|Upstream .*RUN_CONFIG.*advisory' /Users/brianray/Adam/scratch_space_writing_tasks/wp_draft_prompt.md`
+- `sed -n '1,240p' /Users/brianray/Adam/scratch_space_writing_tasks/wp_draft_prompt.md`
+- `sed -n '420,780p' /Users/brianray/Adam/scratch_space_writing_tasks/wp_draft_prompt.md`
+- `sed -n '700,1065p' /Users/brianray/Adam/scratch_space_writing_tasks/wp_draft_prompt.md`
+- `sed -n '1518,1558p' /Users/brianray/Adam/scratch_space_writing_tasks/wp_draft_prompt.md`
+- `git diff -- /Users/brianray/Adam/scratch_space_writing_tasks/wp_draft_prompt.md /Users/brianray/Adam/codex_notes_garden.md`
+Status register changes:
+- Implemented:
+  - `wp_draft_prompt.md` now reads as a single three-step pipeline contract with aligned governance, run-config, comparator, research-library, and drift-input semantics.
+- Instrumented:
+  - Verification remained textual through targeted section reads, search checks, and diff review.
+- Conceptual:
+  - No new conceptual runtime or repo behavior was added; this turn only revised the prompt contract.
+- Unknown:
+  - No live end-to-end whitepaper pipeline run has yet exercised the fully harmonized three-step chain.
+Truth-table / limitations updates:
+None. No Adam capability status changed.
+Remaining uncertainties:
+- The working tree remains dirty from prior unrelated edits; they were left untouched.
+- Step-specific prose remains intentionally different where responsibilities differ, so a future patch should avoid treating all non-identical wording as drift by default.
+Next shortest proof path:
+Run the three prompt steps in sequence on a bounded whitepaper cycle and confirm that governance, `RUN_CONFIG`, comparator gating, and research-library behavior now behave consistently across all three stages.

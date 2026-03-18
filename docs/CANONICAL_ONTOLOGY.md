@@ -18,6 +18,7 @@
 ## Derived objects
 
 - `Memode`: derived second-order structure built from at least two behavior-domain memes plus a connected qualifying memetic support subgraph.
+- `Memeplex summary`: derived report-level cluster over mutually reinforcing behavior memes and/or memodes. In v1.2 it is a wake-up/observability summary, not a first-class persisted graph object.
 - `ActiveSet snapshot`: bounded retrieval result for a turn.
 - `Basin summary`: trajectory and attractor summary derived from turns and active sets.
 - `Cluster / motif summary`: derived semantic neighborhood label or graph-health summary. Clusters are not memodes.
@@ -52,6 +53,8 @@
 - Knowledge relations and memode relations are not interchangeable. Informational edges such as `AUTHOR_OF`, `INFLUENCES`, and `REFERENCES` may be auto-derived and persisted, but they do not silently become memode support unless they are admitted by the qualifying support-edge rules.
 - Knowledge constatives do not auto-materialize memodes. Informational edges remain non-memetic even when they connect multiple knowledge nodes.
 - Semantic clusters are derived summaries over behavior-meme neighborhoods only. They may carry manual labels, but they are never auto-promoted into memodes.
+- Session-start graph wake-up may strengthen candidate behavior memes and materialize bounded behavior memodes from turn-attached behavior bundles, but it does not silently promote knowledge constatives or cluster labels into memodes.
+- Any `memeplex` output in the current build is a derived audit/report summary over audited behavior memodes, not a new first-class node or edge family.
 - Regard acts over memes and memodes, not over tokens.
 - `The hum`, when referenced, names a low-bandwidth continuity artifact rather than a first-class runtime object. It is not identical to the active set, turn history, full graph, basin summary, cluster summary, or observatory payload.
 - Active-set assembly mixes behavior and knowledge but keeps their provenance visible.
@@ -61,6 +64,7 @@
 - `information`: local constative knowledge unit with provenance
 - `meme`: local performative behavioral part
 - `memode`: reusable selected behavioral subassembly or historically stabilized motif
+- `memeplex summary`: overlapping ecology or family resemblance across multiple memodes/meme neighborhoods
 - `persona`: persistent assembly ecology of memodes
 
 This patch treats a memode as more than a pairwise relation or a UI label. In practical EDEN terms, a memode is an assembly-stabilized, temporally thick causal motif whose identity may be distributed across a structured neighborhood.

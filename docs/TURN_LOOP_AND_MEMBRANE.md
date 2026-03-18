@@ -11,13 +11,25 @@
 7. Accept explicit feedback.
 8. Update graph channels and derive new memes/memodes from feedback.
 
-## Session-start graph normalization
+## Session-start graph wake-up audit
 
-- session start can run an explicit graph-normalization pass before the first operator turn
-- the pass is limited to legacy knowledge rows whose current graph state is still missing author/work information nodes or typed informational edges
-- deterministic relation extraction runs first; on the MLX path, a bounded Adam-identity JSON review can refine those candidate relations before persistence
-- the pass is not part of Adam's operator-facing reply generation and does not mutate behavior-domain memodes
-- every run is recorded as a visible `GRAPH_NORMALIZATION` trace event and stored in session metadata under `session_graph_normalization`
+- session start can run an explicit wake-up audit before the first operator turn
+- phase 1 is legacy knowledge normalization:
+  - it is limited to knowledge rows whose graph state is still missing author/work information nodes or typed informational edges
+  - deterministic relation extraction runs first; on the MLX path, a bounded Adam-identity JSON review can refine those candidate relations before persistence
+- phase 2 is behavior taxonomy:
+  - it audits bounded turn-attached behavior bundles from Adam responses and explicit feedback
+  - it can strengthen first-order behavior memes and materialize bounded behavior memodes when at least two selected behavior memes plus qualifying support edges are present
+  - any `memeplex` output is report-only and does not become a first-class graph object in this pass
+- the wake-up audit is not part of Adam's operator-facing reply generation
+- every run is recorded as visible trace:
+  - `GRAPH_NORMALIZATION`
+  - `GRAPH_TAXONOMY_AUDIT`
+  - `GRAPH_WAKEUP_AUDIT`
+- session metadata stores:
+  - `session_graph_normalization`
+  - `session_graph_taxonomy`
+  - `session_graph_wakeup`
 
 ## What the membrane does
 

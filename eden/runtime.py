@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -50,6 +51,12 @@ OPERATOR_LABEL = "Brian the operator"
 GRAPH_NORMALIZATION_MLX_REVIEW_LIMIT = 8
 GRAPH_NORMALIZATION_ENTITY_TYPES = {"author", "work", "information"}
 GRAPH_NORMALIZATION_EDGE_TYPES = {"AUTHOR_OF", "INFLUENCES", "REFERENCES"}
+GRAPH_TAXONOMY_MLX_REVIEW_LIMIT = 8
+GRAPH_TAXONOMY_BUNDLE_LIMIT = 12
+GRAPH_TAXONOMY_MEMBER_LIMIT = 4
+GRAPH_TAXONOMY_BEHAVIOR_ACTORS = {"adam", "feedback"}
+SESSION_START_BEHAVIOR_TAXONOMY = "session_start_behavior_taxonomy_v1"
+SESSION_START_GRAPH_WAKEUP = "session_start_graph_wakeup_v1"
 
 
 def _normalize_archive_folder(folder: Any) -> str:
@@ -587,25 +594,29 @@ class EdenRuntime:
             budget_mode=request.budget_mode,
         )
         try:
-            normalization_report = self._normalize_legacy_knowledge_graph(
+            wakeup_report = self._run_session_start_graph_audit(
                 experiment_id=experiment["id"],
                 session_id=session["id"],
             )
             session = self.store.update_session_metadata(
                 session["id"],
-                {"session_graph_normalization": normalization_report},
+                {
+                    "session_graph_wakeup": wakeup_report,
+                    "session_graph_normalization": wakeup_report.get("knowledge_normalization", {}),
+                    "session_graph_taxonomy": wakeup_report.get("taxonomy_audit", {}),
+                },
             )
         except Exception as exc:
             report = {
                 "status": "error",
                 "ran_at": now_utc(),
                 "error": f"{type(exc).__name__}: {exc}",
-                "mode": "session_start_graph_normalization",
+                "mode": SESSION_START_GRAPH_WAKEUP,
             }
             self.runtime_log.emit(
                 "WARNING",
-                "graph_normalization_failed",
-                "Session-start graph normalization failed.",
+                "graph_wakeup_failed",
+                "Session-start graph wake-up audit failed.",
                 experiment_id=experiment["id"],
                 session_id=session["id"],
                 error=report["error"],
@@ -614,19 +625,45 @@ class EdenRuntime:
                 experiment_id=experiment["id"],
                 session_id=session["id"],
                 turn_id=None,
-                event_type="GRAPH_NORMALIZATION",
+                event_type="GRAPH_WAKEUP_AUDIT",
                 level="WARNING",
-                message="Session-start graph normalization failed",
+                message="Session-start graph wake-up audit failed",
                 payload=report,
             )
             session = self.store.update_session_metadata(
                 session["id"],
-                {"session_graph_normalization": report},
+                {
+                    "session_graph_wakeup": report,
+                    "session_graph_normalization": report,
+                    "session_graph_taxonomy": report,
+                },
             )
         return session
 
     def _meme_row_metadata(self, row: dict[str, Any]) -> dict[str, Any]:
         raw = row.get("metadata_json")
+        if isinstance(raw, dict):
+            return raw
+        if not raw:
+            return {}
+        try:
+            return json.loads(str(raw))
+        except json.JSONDecodeError:
+            return {}
+
+    def _memode_row_metadata(self, row: dict[str, Any]) -> dict[str, Any]:
+        raw = row.get("metadata_json")
+        if isinstance(raw, dict):
+            return raw
+        if not raw:
+            return {}
+        try:
+            return json.loads(str(raw))
+        except json.JSONDecodeError:
+            return {}
+
+    def _edge_provenance(self, row: dict[str, Any]) -> dict[str, Any]:
+        raw = row.get("provenance_json")
         if isinstance(raw, dict):
             return raw
         if not raw:
@@ -1055,6 +1092,607 @@ class EdenRuntime:
             event_type="GRAPH_NORMALIZATION",
             level="INFO",
             message="Session-start graph normalization completed",
+            payload=report,
+        )
+        return report
+
+    def _run_session_start_graph_audit(
+        self,
+        *,
+        experiment_id: str,
+        session_id: str,
+    ) -> dict[str, Any]:
+        knowledge_report = self._normalize_legacy_knowledge_graph(
+            experiment_id=experiment_id,
+            session_id=session_id,
+        )
+        taxonomy_report = self._audit_behavior_taxonomy(
+            experiment_id=experiment_id,
+            session_id=session_id,
+        )
+        mode = "deterministic"
+        if knowledge_report.get("mode") == "adam_identity_mlx" or taxonomy_report.get("mode") == "adam_identity_mlx":
+            mode = "adam_identity_mlx"
+        report = {
+            "status": "completed",
+            "ran_at": now_utc(),
+            "mode": mode,
+            "knowledge_normalization": knowledge_report,
+            "taxonomy_audit": taxonomy_report,
+            "memeplex_summaries": list(taxonomy_report.get("memeplex_summaries") or []),
+        }
+        self.store.record_trace_event(
+            experiment_id=experiment_id,
+            session_id=session_id,
+            turn_id=None,
+            event_type="GRAPH_WAKEUP_AUDIT",
+            level="INFO",
+            message="Session-start graph wake-up audit completed",
+            payload=report,
+        )
+        return report
+
+    def _behavior_bundle_text(
+        self,
+        *,
+        turn_id: str,
+        actor: str,
+        member_rows: list[dict[str, Any]],
+    ) -> str:
+        text = ""
+        if actor == "adam":
+            try:
+                turn = self.store.get_turn(turn_id)
+            except KeyError:
+                turn = {}
+            text = str(turn.get("membrane_text") or turn.get("response_text") or "").strip()
+        elif actor == "feedback":
+            feedback_events = self.store.list_feedback_for_turn(turn_id)
+            parts: list[str] = []
+            for event in feedback_events:
+                parts.append(
+                    " ".join(
+                        part
+                        for part in [
+                            f"Feedback verdict={str(event.get('verdict') or '').strip()}." if str(event.get("verdict") or "").strip() else "",
+                            f"Explanation: {str(event.get('explanation') or '').strip()}." if str(event.get("explanation") or "").strip() else "",
+                            f"Corrected text: {str(event.get('corrected_text') or '').strip()}." if str(event.get("corrected_text") or "").strip() else "",
+                        ]
+                        if part
+                    ).strip()
+                )
+            text = " ".join(part for part in parts if part).strip()
+        if text:
+            return text
+        snippets = [str(row.get("text") or "").strip() for row in member_rows if str(row.get("text") or "").strip()]
+        if not snippets:
+            return ""
+        return " ".join(dict.fromkeys(snippets))
+
+    def _collect_behavior_taxonomy_bundles(
+        self,
+        *,
+        experiment_id: str,
+    ) -> list[dict[str, Any]]:
+        meme_lookup = {
+            str(row.get("id") or ""): row
+            for row in self.store.list_memes(experiment_id)
+            if str(row.get("domain") or "").lower() == "behavior"
+        }
+        if not meme_lookup:
+            return []
+        edges = self.store.list_edges(experiment_id)
+        memodes = self.store.list_memodes(experiment_id)
+        source_memodes: dict[tuple[str, str, str], list[str]] = {}
+        audited_sources: set[tuple[str, str, str]] = set()
+        for memode in memodes:
+            metadata = self._memode_row_metadata(memode)
+            turn_id = str(metadata.get("turn_id") or "").strip()
+            actor = str(metadata.get("origin") or "").strip().lower()
+            if not turn_id or actor not in GRAPH_TAXONOMY_BEHAVIOR_ACTORS:
+                continue
+            key = ("turn", turn_id, actor)
+            source_memodes.setdefault(key, []).append(str(memode.get("id") or ""))
+            if str(metadata.get("taxonomy_origin") or "") == SESSION_START_BEHAVIOR_TAXONOMY:
+                audited_sources.add(key)
+        grouped: dict[tuple[str, str, str], dict[str, Any]] = {}
+        pair_support: dict[tuple[str, str, str], list[str]] = {}
+        for edge in edges:
+            if edge.get("src_kind") == "meme" and edge.get("dst_kind") == "meme" and edge.get("edge_type") == "CO_OCCURS_WITH":
+                left = str(edge.get("src_id") or "")
+                right = str(edge.get("dst_id") or "")
+                if not left or not right:
+                    continue
+                pair_support.setdefault(("pair", left, right), []).append(str(edge.get("id") or ""))
+                pair_support.setdefault(("pair", right, left), []).append(str(edge.get("id") or ""))
+                continue
+            if edge.get("src_kind") != "turn" or edge.get("dst_kind") != "meme" or edge.get("edge_type") != "OCCURS_IN":
+                continue
+            meme = meme_lookup.get(str(edge.get("dst_id") or ""))
+            if meme is None:
+                continue
+            provenance = self._edge_provenance(edge)
+            actor = str(provenance.get("actor") or "").strip().lower()
+            if actor not in GRAPH_TAXONOMY_BEHAVIOR_ACTORS:
+                continue
+            key = ("turn", str(edge.get("src_id") or ""), actor)
+            bundle = grouped.setdefault(
+                key,
+                {
+                    "source_kind": "turn",
+                    "source_id": str(edge.get("src_id") or ""),
+                    "actor": actor,
+                    "member_ids": [],
+                    "candidate_labels": [],
+                    "rows": [],
+                    "existing_source_memode_ids": list(source_memodes.get(key, [])),
+                },
+            )
+            member_id = str(meme.get("id") or "")
+            if member_id in bundle["member_ids"]:
+                continue
+            bundle["member_ids"].append(member_id)
+            bundle["candidate_labels"].append(str(meme.get("label") or ""))
+            bundle["rows"].append(meme)
+        bundles: list[dict[str, Any]] = []
+        for key, bundle in grouped.items():
+            if key in audited_sources:
+                continue
+            deduped_labels = [label for label in dict.fromkeys(bundle["candidate_labels"]) if label]
+            if len(deduped_labels) < 2:
+                continue
+            ordered_rows = sorted(
+                bundle["rows"],
+                key=lambda row: (-float(row.get("evidence_n") or 0.0), str(row.get("label") or "")),
+            )
+            label_to_member_id = {
+                str(row.get("label") or ""): str(row.get("id") or "")
+                for row in ordered_rows
+                if str(row.get("label") or "")
+            }
+            supporting_edge_ids: list[str] = []
+            support_pairs: list[dict[str, Any]] = []
+            for left_index, left_id in enumerate(bundle["member_ids"]):
+                for right_id in bundle["member_ids"][left_index + 1 :]:
+                    edge_ids = pair_support.get(("pair", left_id, right_id), [])
+                    supporting_edge_ids.extend(edge_ids)
+                    if edge_ids:
+                        support_pairs.append(
+                            {
+                                "left_id": left_id,
+                                "right_id": right_id,
+                                "edge_ids": list(edge_ids),
+                            }
+                        )
+            support_subset = sorted(dict.fromkeys(edge_id for edge_id in supporting_edge_ids if edge_id))
+            if not support_subset:
+                continue
+            source_text = self._behavior_bundle_text(
+                turn_id=str(bundle["source_id"]),
+                actor=str(bundle["actor"]),
+                member_rows=ordered_rows,
+            )
+            bundles.append(
+                {
+                    **bundle,
+                    "rows": ordered_rows,
+                    "candidate_labels": [str(row.get("label") or "") for row in ordered_rows if str(row.get("label") or "")],
+                    "label_to_member_id": label_to_member_id,
+                    "support_pairs": support_pairs,
+                    "supporting_edge_ids": support_subset,
+                    "source_text": source_text,
+                }
+            )
+        bundles.sort(
+            key=lambda item: (
+                -len(item.get("candidate_labels") or []),
+                -sum(float(row.get("evidence_n") or 0.0) for row in item.get("rows") or []),
+                str(item.get("source_id") or ""),
+            )
+        )
+        return bundles[:GRAPH_TAXONOMY_BUNDLE_LIMIT]
+
+    def _default_behavior_taxonomy_decision(self, bundle: dict[str, Any]) -> dict[str, Any]:
+        selected_labels = [label for label in bundle.get("candidate_labels") or [] if label][:GRAPH_TAXONOMY_MEMBER_LIMIT]
+        if len(selected_labels) < 2:
+            return {
+                "selected_labels": [],
+                "memode_label": "",
+                "memode_summary": "",
+                "memeplex_hint": "",
+                "confidence": 0.0,
+            }
+        return {
+            "selected_labels": selected_labels,
+            "memode_label": f"wake-up / {' / '.join(selected_labels[:3])}",
+            "memode_summary": safe_excerpt(str(bundle.get("source_text") or " / ".join(selected_labels)), limit=320),
+            "memeplex_hint": "",
+            "confidence": 0.61,
+        }
+
+    def _graph_taxonomy_system_prompt(self) -> str:
+        return (
+            f"You are {self.agent_profile['name']}, waking from rest and refocusing your own externalized graph in EDEN.\n"
+            "This is not a Brian-facing answer.\n"
+            "Treat this as a bounded behavior-taxonomy audit over your graph.\n"
+            "Behavior-domain nodes are performative, actionable, or imitable memes.\n"
+            "Knowledge facts, authors, works, and constatives must not be selected here.\n"
+            "Select only grounded labels that can coherently form one behavior-only memode.\n"
+            "A memode requires at least two selected behavior memes.\n"
+            "Memeplexes are summary hints only in this pass; never create memeplex nodes or edges.\n"
+            'Return strict JSON only in the form {"selected_labels":["..."],"memode_label":"...","memode_summary":"...","memeplex_hint":"...","confidence":0.0}.'
+        )
+
+    def _graph_taxonomy_prompt(self, bundle: dict[str, Any]) -> str:
+        existing_memodes = list(bundle.get("existing_source_memode_ids") or [])
+        return (
+            "Audit this one behavior bundle from Adam's persistent graph.\n\n"
+            f"Source kind: {str(bundle.get('source_kind') or '')}\n"
+            f"Source id: {str(bundle.get('source_id') or '')}\n"
+            f"Origin actor: {str(bundle.get('actor') or '')}\n"
+            f"Existing source memodes: {json.dumps(existing_memodes, ensure_ascii=True)}\n"
+            f"Source text excerpt: {safe_excerpt(str(bundle.get('source_text') or ''), limit=1100)}\n"
+            f"Candidate labels: {json.dumps(bundle.get('candidate_labels') or [], ensure_ascii=True)}\n\n"
+            "Return empty selected_labels if the bundle does not support a memode.\n"
+            "Prefer 2-4 labels. Use short operator-readable labels.\n"
+            'Return only JSON: {"selected_labels":["..."],"memode_label":"...","memode_summary":"...","memeplex_hint":"...","confidence":0.0}.'
+        )
+
+    def _sanitize_behavior_taxonomy_payload(
+        self,
+        payload: Any,
+        *,
+        bundle: dict[str, Any],
+    ) -> dict[str, Any]:
+        if not isinstance(payload, dict):
+            return {}
+        allowed_labels = [str(label) for label in bundle.get("candidate_labels") or [] if str(label)]
+        allowed_set = set(allowed_labels)
+        raw_labels = payload.get("selected_labels") or []
+        if not isinstance(raw_labels, list):
+            raw_labels = []
+        selected_labels: list[str] = []
+        for item in raw_labels:
+            label = str(item or "").strip()
+            if not label or label not in allowed_set or label in selected_labels:
+                continue
+            selected_labels.append(label)
+            if len(selected_labels) >= GRAPH_TAXONOMY_MEMBER_LIMIT:
+                break
+        memode_label = str(payload.get("memode_label") or "").strip()
+        memode_summary = str(payload.get("memode_summary") or "").strip()
+        memeplex_hint = str(payload.get("memeplex_hint") or "").strip()
+        try:
+            confidence = max(0.0, min(1.0, float(payload.get("confidence", 0.0) or 0.0)))
+        except (TypeError, ValueError):
+            confidence = 0.0
+        if len(selected_labels) < 2:
+            return {
+                "selected_labels": [],
+                "memode_label": "",
+                "memode_summary": "",
+                "memeplex_hint": "",
+                "confidence": confidence,
+            }
+        return {
+            "selected_labels": selected_labels,
+            "memode_label": memode_label or f"wake-up / {' / '.join(selected_labels[:3])}",
+            "memode_summary": memode_summary or safe_excerpt(str(bundle.get("source_text") or " / ".join(selected_labels)), limit=320),
+            "memeplex_hint": safe_excerpt(memeplex_hint, limit=120) if memeplex_hint else "",
+            "confidence": confidence or 0.78,
+        }
+
+    def _adam_identity_behavior_taxonomy_review(self, bundle: dict[str, Any]) -> dict[str, Any]:
+        if self.settings.model_backend.lower() != "mlx":
+            return {}
+        model_status = self.mlx_model_status()
+        if not model_status.get("ready"):
+            return {}
+        adapter = self._get_model_adapter()
+        model_result = adapter.generate(
+            system_prompt=self._graph_taxonomy_system_prompt(),
+            conversation_prompt=self._graph_taxonomy_prompt(bundle),
+            max_tokens=420,
+            temperature=0.0,
+            top_p=1.0,
+            repetition_penalty=0.0,
+        )
+        payload = self._extract_json_payload(str(model_result.answer_text or model_result.text or ""))
+        return self._sanitize_behavior_taxonomy_payload(payload, bundle=bundle)
+
+    def _strengthen_behavior_meme(
+        self,
+        *,
+        experiment_id: str,
+        meme_row: dict[str, Any],
+        session_id: str,
+        actor: str,
+        source_id: str,
+        confidence: float,
+    ) -> dict[str, Any]:
+        metadata = self._meme_row_metadata(meme_row)
+        return self.store.upsert_meme(
+            experiment_id=experiment_id,
+            label=str(meme_row.get("label") or ""),
+            text=str(meme_row.get("text") or ""),
+            domain="behavior",
+            source_kind=str(meme_row.get("source_kind") or "turn_adam"),
+            scope=str(meme_row.get("scope") or "global"),
+            evidence_inc=max(0.05, confidence * 0.2),
+            metadata={
+                **metadata,
+                "entity_type": "behavior_meme",
+                "taxonomy_origin": SESSION_START_BEHAVIOR_TAXONOMY,
+                "taxonomy_actor": actor,
+                "taxonomy_source_id": source_id,
+                "taxonomy_session_id": session_id,
+                "taxonomy_confidence": confidence,
+            },
+        )
+
+    def _materialize_behavior_taxonomy_memode(
+        self,
+        *,
+        experiment_id: str,
+        session_id: str,
+        bundle: dict[str, Any],
+        decision: dict[str, Any],
+        existing_behavior_memode_keys: set[tuple[str, ...]],
+        assertion_origin: str,
+    ) -> dict[str, Any] | None:
+        selected_labels = [str(label) for label in decision.get("selected_labels") or [] if str(label)]
+        if len(selected_labels) < 2:
+            return None
+        row_by_label = {
+            str(row.get("label") or ""): row
+            for row in bundle.get("rows") or []
+            if str(row.get("label") or "")
+        }
+        strengthened_rows: list[dict[str, Any]] = []
+        for label in selected_labels:
+            row = row_by_label.get(label)
+            if row is None:
+                continue
+            strengthened_rows.append(
+                self._strengthen_behavior_meme(
+                    experiment_id=experiment_id,
+                    meme_row=row,
+                    session_id=session_id,
+                    actor=str(bundle.get("actor") or ""),
+                    source_id=str(bundle.get("source_id") or ""),
+                    confidence=float(decision.get("confidence", 0.61) or 0.61),
+                )
+            )
+        member_ids = [str(row.get("id") or "") for row in strengthened_rows if str(row.get("id") or "")]
+        if len(member_ids) < 2:
+            return None
+        selected_id_set = set(member_ids)
+        support_subset: list[str] = []
+        for pair in bundle.get("support_pairs") or []:
+            left_id = str(pair.get("left_id") or "")
+            right_id = str(pair.get("right_id") or "")
+            if left_id not in selected_id_set or right_id not in selected_id_set:
+                continue
+            for edge_id in pair.get("edge_ids") or []:
+                support_subset.append(str(edge_id))
+        if not support_subset:
+            return None
+        member_key = tuple(sorted(dict.fromkeys(member_ids)))
+        was_existing = member_key in existing_behavior_memode_keys
+        memode = self.store.upsert_memode(
+            experiment_id=experiment_id,
+            label=str(decision.get("memode_label") or f"wake-up / {' / '.join(selected_labels[:3])}"),
+            member_ids=list(member_key),
+            summary=safe_excerpt(str(decision.get("memode_summary") or bundle.get("source_text") or " / ".join(selected_labels)), limit=320),
+            domain="behavior",
+            scope=str(strengthened_rows[0].get("scope") or "global"),
+            evidence_inc=max(0.2, float(decision.get("confidence", 0.61) or 0.61)),
+            metadata={
+                "turn_id": str(bundle.get("source_id") or ""),
+                "session_id": session_id,
+                "origin": str(bundle.get("actor") or ""),
+                "supporting_edge_ids": sorted(dict.fromkeys(support_subset)),
+                "member_order": list(member_key),
+                "taxonomy_origin": SESSION_START_BEHAVIOR_TAXONOMY,
+                "taxonomy_mode": assertion_origin,
+                "taxonomy_confidence": float(decision.get("confidence", 0.61) or 0.61),
+                "existing_source_memode_ids": list(bundle.get("existing_source_memode_ids") or []),
+                "memeplex_hint": str(decision.get("memeplex_hint") or ""),
+            },
+        )
+        existing_behavior_memode_keys.add(member_key)
+        self.store.add_edge(
+            experiment_id=experiment_id,
+            src_kind="turn",
+            src_id=str(bundle.get("source_id") or ""),
+            dst_kind="memode",
+            dst_id=str(memode.get("id") or ""),
+            edge_type="MATERIALIZES_AS_MEMODE",
+            provenance={
+                "actor": bundle.get("actor"),
+                "session_id": session_id,
+                "assertion_origin": assertion_origin,
+                "evidence_label": "AUTO_DERIVED",
+                "confidence": float(decision.get("confidence", 0.61) or 0.61),
+            },
+        )
+        for member_id in member_key:
+            self.store.add_edge(
+                experiment_id=experiment_id,
+                src_kind="memode",
+                src_id=str(memode.get("id") or ""),
+                dst_kind="meme",
+                dst_id=member_id,
+                edge_type=MEMODE_MEMBERSHIP_EDGE_TYPE,
+                provenance={
+                    "turn_id": bundle.get("source_id"),
+                    "session_id": session_id,
+                    "actor": bundle.get("actor"),
+                    "assertion_origin": assertion_origin,
+                },
+            )
+        return {
+            "memode_id": str(memode.get("id") or ""),
+            "member_ids": list(member_key),
+            "member_labels": selected_labels,
+            "memeplex_hint": str(decision.get("memeplex_hint") or ""),
+            "is_new": not was_existing,
+        }
+
+    def _build_memeplex_summaries(
+        self,
+        *,
+        materialized_memodes: list[dict[str, Any]],
+        experiment_id: str,
+    ) -> list[dict[str, Any]]:
+        if len(materialized_memodes) < 2:
+            return []
+        meme_lookup = {
+            str(row.get("id") or ""): row
+            for row in self.store.list_memes(experiment_id)
+            if str(row.get("id") or "")
+        }
+        memode_lookup = {str(item.get("memode_id") or ""): item for item in materialized_memodes if str(item.get("memode_id") or "")}
+        member_to_memodes: dict[str, list[str]] = {}
+        for item in materialized_memodes:
+            memode_id = str(item.get("memode_id") or "")
+            for member_id in item.get("member_ids") or []:
+                member_to_memodes.setdefault(str(member_id), []).append(memode_id)
+        adjacency: dict[str, set[str]] = {memode_id: set() for memode_id in memode_lookup}
+        for memode_ids in member_to_memodes.values():
+            ordered = [memode_id for memode_id in dict.fromkeys(memode_ids) if memode_id in adjacency]
+            for left_index, left_id in enumerate(ordered):
+                for right_id in ordered[left_index + 1 :]:
+                    adjacency[left_id].add(right_id)
+                    adjacency[right_id].add(left_id)
+        summaries: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for memode_id in adjacency:
+            if memode_id in seen:
+                continue
+            stack = [memode_id]
+            component: list[str] = []
+            while stack:
+                current = stack.pop()
+                if current in seen:
+                    continue
+                seen.add(current)
+                component.append(current)
+                stack.extend(sorted(adjacency[current] - seen))
+            if len(component) < 2:
+                continue
+            component_member_ids = sorted(
+                dict.fromkeys(
+                    member_id
+                    for current in component
+                    for member_id in memode_lookup.get(current, {}).get("member_ids") or []
+                )
+            )
+            component_member_labels = [
+                str(meme_lookup.get(member_id, {}).get("label") or member_id)
+                for member_id in component_member_ids
+            ]
+            hint_counter = Counter(
+                str(memode_lookup.get(current, {}).get("memeplex_hint") or "").strip()
+                for current in component
+                if str(memode_lookup.get(current, {}).get("memeplex_hint") or "").strip()
+            )
+            label = hint_counter.most_common(1)[0][0] if hint_counter else f"memeplex / {' / '.join(component_member_labels[:3])}"
+            summaries.append(
+                {
+                    "label": label,
+                    "memode_ids": sorted(component),
+                    "member_meme_ids": component_member_ids,
+                    "member_labels": component_member_labels[:6],
+                    "memode_count": len(component),
+                }
+            )
+        summaries.sort(key=lambda item: (-int(item.get("memode_count") or 0), str(item.get("label") or "")))
+        return summaries[:4]
+
+    def _audit_behavior_taxonomy(
+        self,
+        *,
+        experiment_id: str,
+        session_id: str,
+    ) -> dict[str, Any]:
+        bundles = self._collect_behavior_taxonomy_bundles(experiment_id=experiment_id)
+        existing_behavior_memode_keys = {
+            tuple(sorted(str(member_id) for member_id in self._memode_row_metadata(memode).get("member_ids") or []))
+            for memode in self.store.list_memodes(experiment_id)
+            if str(memode.get("domain") or "").lower() == "behavior"
+        }
+        use_mlx_review = self.settings.model_backend.lower() == "mlx" and bool(self.mlx_model_status().get("ready"))
+        report = {
+            "status": "completed",
+            "ran_at": now_utc(),
+            "mode": "adam_identity_mlx" if use_mlx_review else "deterministic",
+            "candidate_bundles": len(bundles),
+            "bundles_processed": 0,
+            "bundles_changed": 0,
+            "memes_strengthened": 0,
+            "memodes_materialized": 0,
+            "memodes_touched": 0,
+            "mlx_review_attempted": use_mlx_review,
+            "mlx_review_bundles": 0,
+            "mlx_review_applied_bundles": 0,
+            "mlx_review_error": "",
+            "memeplex_summaries": [],
+        }
+        if not bundles:
+            self.store.record_trace_event(
+                experiment_id=experiment_id,
+                session_id=session_id,
+                turn_id=None,
+                event_type="GRAPH_TAXONOMY_AUDIT",
+                level="INFO",
+                message="Session-start graph taxonomy audit found no behavior bundles",
+                payload=report,
+            )
+            return report
+        materialized_memodes: list[dict[str, Any]] = []
+        for index, bundle in enumerate(bundles):
+            decision = self._default_behavior_taxonomy_decision(bundle)
+            assertion_origin = "behavior_taxonomy_deterministic"
+            if use_mlx_review and index < GRAPH_TAXONOMY_MLX_REVIEW_LIMIT:
+                report["mlx_review_bundles"] += 1
+                try:
+                    reviewed = self._adam_identity_behavior_taxonomy_review(bundle)
+                except Exception as exc:
+                    report["mlx_review_error"] = f"{type(exc).__name__}: {exc}"
+                    reviewed = {}
+                if reviewed.get("selected_labels"):
+                    decision = reviewed
+                    assertion_origin = "adam_identity_mlx"
+                    report["mlx_review_applied_bundles"] += 1
+            report["bundles_processed"] += 1
+            materialized = self._materialize_behavior_taxonomy_memode(
+                experiment_id=experiment_id,
+                session_id=session_id,
+                bundle=bundle,
+                decision=decision,
+                existing_behavior_memode_keys=existing_behavior_memode_keys,
+                assertion_origin=assertion_origin,
+            )
+            if materialized is None:
+                continue
+            materialized_memodes.append(materialized)
+            report["bundles_changed"] += 1
+            report["memes_strengthened"] += len(materialized.get("member_ids") or [])
+            report["memodes_touched"] += 1
+            if materialized.get("is_new"):
+                report["memodes_materialized"] += 1
+        report["memeplex_summaries"] = self._build_memeplex_summaries(
+            materialized_memodes=materialized_memodes,
+            experiment_id=experiment_id,
+        )
+        self.store.record_trace_event(
+            experiment_id=experiment_id,
+            session_id=session_id,
+            turn_id=None,
+            event_type="GRAPH_TAXONOMY_AUDIT",
+            level="INFO",
+            message="Session-start graph taxonomy audit completed",
             payload=report,
         )
         return report

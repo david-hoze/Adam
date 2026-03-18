@@ -38,10 +38,80 @@ Hard rules:
 Fallback rule:
 - Legacy root-level directories such as `./intelligence_briefs/`, `./whitepaper_prewriting_memo/`, and `./whitepaper_drafts/` may still be searched as archaeology or fallback inputs if present, but they are no longer the canonical output targets.
 
-GOVERNANCE
-- If `./AGENTS.md` exists, follow it.
-- Do not depend on `AGENTS_CODEX-WRITER.md`, `AGENTS_CODEX_WRITER.md`, `AGENTS-CODEX_WRITER.md`, or any writer-specialized agent file. They are not part of this pipeline.
-- If `./codex_notes_garden.md` exists and the environment is writable, you may append concise PRE/POST run notes for continuity. This is recommended, not a stop condition. If write is blocked, record `WRITE_BLOCKED` with the attempted path; do not invent success.
+FAIL-CLOSED GOVERNANCE RESOLUTION
+Resolve governance before context ingest, basin audit, or intelligence-brief drafting.
+
+Attempt governance paths in this order:
+1. `./AGENTS.md`
+2. `<REPO_ROOT>/AGENTS.md`
+3. repo-root matches for `AGENTS*.md`, excluding stale writer-specialized aliases unless current repo evidence explicitly points to them
+
+For every attempted path, record:
+- absolute path
+- exists / missing
+- opened / not opened
+- accepted / rejected
+- reason
+
+Hard rules:
+- If `./AGENTS.md` exists, it governs.
+- Do not depend on `AGENTS_CODEX-WRITER.md`, `AGENTS_CODEX_WRITER.md`, `AGENTS-CODEX_WRITER.md`, or any writer-specialized agent file unless current repo evidence explicitly reactivates them.
+- If governance cannot be established from current repo evidence, record `GOVERNANCE_UNRESOLVED` and fail closed.
+- The only allowed degraded mode is a limited audit-output mode explaining unresolved governance. Do not generate the intelligence brief in degraded mode.
+
+If governance remains unresolved after admissible current-repo resolution attempts, classify the run as `FAIL`.
+
+In this degraded mode, emit only:
+- the governance resolution log
+- a short degraded-mode report explaining why intelligence-brief generation was not allowed
+- the execution/build status log
+
+Do not produce the intelligence brief, support artifacts, or write-proof outputs in degraded mode.
+
+GOVERNANCE GATE PRECEDENCE
+If governance is unresolved, the governance failure state supersedes the generic run pipeline.
+
+Hard rules:
+- Do not proceed to context ingest, basin analysis, release / patch ladder evaluation, or artifact generation.
+- Generic full-run output requirements apply only when governance is resolved and intelligence-brief generation is allowed.
+- In governance-unresolved degraded mode, only the explicitly allowed degraded-mode artifacts may be written.
+
+MANDATORY PRE / POST RUN-NOTE DISCIPLINE
+Resolve the canonical run-note surface from the governing file. In the current Adam repo, prefer `./codex_notes_garden.md` when governance names it.
+
+Governance dependency:
+- Do not independently guess or resolve a canonical notes surface if governance is unresolved.
+- In governance-unresolved degraded mode, PRE and POST note actions are `SKIPPED`, and the reason must be recorded in the execution/build status log.
+
+Hard rules:
+- Write PRE notes before final execution or intelligence-brief drafting.
+- Write POST notes before finalization.
+- If the notes file is not writable, record `WRITE_BLOCKED` with attempted absolute path(s) and reasons.
+- Do not silently skip PRE or POST.
+- When governance is resolved, record the resolved notes file path or `MISSING`.
+- When governance is unresolved, do not guess `MISSING` unless that missingness was independently established from admissible evidence; record instead in the short degraded-mode report and/or the execution/build status log that notes-surface resolution was skipped because governance was unresolved.
+
+EXECUTION STATUS DISCIPLINE
+Use these statuses where relevant:
+- `EXECUTED`
+- `SKIPPED`
+- `EXECUTION_BLOCKED`
+- `DEPENDENCY_BLOCKED`
+- `WRITE_BLOCKED`
+
+If a test, script, build, or launch attempt fails because of missing dependencies, permissions, environment limits, or unavailable services, record:
+- exact attempted command
+- failure reason
+- affected output family
+- downstream consequence for run classification
+
+Use `SKIPPED` when an action is intentionally not run because operator configuration, phase gating, missing applicability, or explicit degraded-mode rules make execution unnecessary.
+
+Do not collapse an intentional skip into `EXECUTION_BLOCKED` or `DEPENDENCY_BLOCKED`.
+
+Record these statuses in the execution/build status log.
+
+Do not convert environment inability into fabricated implementation success or failure.
 
 UNIVERSALIZATION RULE
 This prompt is designed for repeated use across the remaining Adam project lifecycle.
@@ -115,7 +185,6 @@ Supporting evidence surfaces:
 
 Historical conceptual anchors (NOT implementation proof):
 - `./assets/seed_canon/eden_whitepaper_v14.pdf`
-- `./assets/seed_canon/cannonical_secondary_sources/` or `./assets/seed_canon/canonical_secondary_sources/` (whichever exists)
 
 Missingness rule:
 - If a surface is missing, record `MISSING` and continue.
@@ -123,7 +192,7 @@ Missingness rule:
 - Missingness is never permission to fabricate.
 
 DEFAULT CURRENT EXPECTATIONS TO VERIFY (NOT SELF-JUSTIFYING)
-Unless contradicted by newer opened evidence, the auditor should test for the following conditions and report them explicitly as:
+Unless contradicted by newer opened evidence, the writer should test for the following conditions and report them explicitly as:
 
 `CONFIRMED | SUPERSEDED | NOT LOCATED | PARTIALLY TRUE`
 
@@ -189,6 +258,21 @@ Hard rule:
 - Prefer repo-relative citations.
 - Include absolute paths only when reproducibility truly requires them.
 
+PROMPT / ARTIFACT DRIFT INPUTS
+Treat the following as drift cues and downgrade surfaces, not implementation proof:
+- the current prompt block
+- `./docs/PATCH_MANIFEST_V1_1.md`
+- `./docs/PATCH_MANIFEST_V1_2.md`
+- `./docs/MIGRATION_NOTES_V1_1.md`
+- prior intelligence briefs
+- prior memos
+- prior drafts
+- relevant notes in `./codex_notes_garden.md`
+
+Hard rule:
+- surface drift cues, lineage breaks, and downgrade risks
+- do not build the full whitepaper vanished-claims ledger in Step 1
+
 PRIMARY REGISTERS (STRICT)
 Use exactly one primary register per claim:
 - IMPLEMENTED = code path exists and this run includes execution proof or an opened, unambiguous test/log/export trace that proves the mechanism actually ran
@@ -213,6 +297,27 @@ EVIDENCE CLASSES
 - SECONDARY-CANONICAL: canonical secondary sources under `assets/seed_canon/...secondary_sources`
 - SECONDARY: other attached/operator-supplied literature
 
+RESEARCH LIBRARY / CANONICAL SECONDARY DISCIPLINE
+Resolve the current research library or literature cache in this order:
+1. `./assets/cannonical_secondary_sources/`
+2. `./assets/canonical_secondary_sources/`
+3. `./assets/seed_canon/cannonical_secondary_sources/`
+4. `./assets/seed_canon/canonical_secondary_sources/`
+
+Record the resolved path or `MISSING`.
+
+Research literature is allowed only for bounded roles:
+- comparative baseline
+- formalization aid
+- gap exposure
+- evaluation scaffold
+- definition boundary / admissibility discipline
+
+Hard rules:
+- Research literature may not prove that Adam implements a mechanism.
+- Repo-evidenced claims and literature-evidenced framing must remain explicitly distinguished in the brief and any support artifacts.
+- If a theoretical reference cannot be compiled into a definition boundary, admissibility rule, or concrete evidence obligation, omit it.
+
 METHODOLOGICAL CONSTRAINTS
 Treat prose as executable specification only when it cashes out in code, schema, tests, or repeatable evidence.
 
@@ -234,14 +339,40 @@ NON-COLLAPSE INVARIANTS
 - Cluster summaries are not memodes.
 - Memodes are not free-floating labels.
 
-RUN CARD
+RUN CONFIG / CONTROL-FLOW GUARD
+Resolve a deterministic `RUN_CONFIG` before intelligence-brief drafting or full-run artifact generation.
+
+Audit these operator fields whether present or not:
+- `BASELINE_DRAFT_PATH`
+- `WHY_NOW`
+- `AUDIENCE`
+- `RED_LINES`
+- `COMPARATORS_ENABLED`
+- `PDF_BUILD_REQUIRED`
+- operator-supplied attachments or external artifacts
+
+Hard rules:
+- Record each field as `PROVIDED`, `UNSET`, or `PLACEHOLDER`.
+- If a field is missing, continue with a bounded default. Do not invent facts and do not halt when a safe continuation path exists.
+- If `WHY_NOW` is missing, frame urgency only as current-repo drift control and capability/evidence refresh.
+- If `AUDIENCE` is missing, default to technically literate internal-audit readers and downstream whitepaper-support readers.
+- If `RED_LINES` is missing, default to: no fabricated implementation claims, no browser overclaim, no Eden-only path regression, no silent omission.
+- If `COMPARATORS_ENABLED` is missing, treat comparative claims as disabled.
+- If `PDF_BUILD_REQUIRED` is missing, record it as `UNSET`; Step 1 does not require PDF generation.
+- Record what was provided, what was missing, and what defaults were used.
+- Do not ask the operator for clarification when a safe documented continuation path exists.
+- Legacy lower-case aliases such as `comparators_enabled` and `baseline_draft_path` may be read from older artifact families for archaeology, but emit only the uppercase shared field names in current outputs.
+
+Governance-unresolved degraded mode:
+- resolve only the minimal `RUN_CONFIG` needed for gating and context capture
+- record that minimal `RUN_CONFIG` status in the short degraded-mode report and/or the execution/build status log
+- do not require a separate full run-config audit artifact in degraded mode
+
+INTELLIGENCE-BRIEF STEP-SPECIFIC FIELDS
 Resolve these before analysis. Do not stall if missing.
 - `run_slug`: short stable label; default `core_audit`
-- `audience_mode`: `{internal_audit | whitepaper_support}`; default `internal_audit`
 - `runtime_patch_level`: inferred current release / patch label, or `UNKNOWN`; do not assume historical enumerations exhaust future project states
 - `questions`: explicit pressure-vessel questions; default none
-- `comparators_enabled`: explicit comparator modules; default none
-- `baseline_draft_path`: optional whitepaper baseline path; default none
 - `verbosity_profile`: `{THICK | STANDARD | LITE}`; default `THICK`
 - `require_write_proof`: `{true|false}`; default `true`
 
@@ -332,10 +463,12 @@ For each basin A–J:
 7. At least one short evidence excerpt or exact command that would generate it
 8. One synthetic clay patch: controlled-English constraint material clearly marked as proposed, never as implementation proof
 
-COMPARATIVE POSTURE — OPT-IN ONLY
-- If `comparators_enabled` is empty, do not generate a comparative positioning section.
+COMPARATIVE CLAIMS — OPT-IN ONLY
+- Do not generate a GraphRAG or “not just X” posture by default.
+- Comparative claims are allowed only if explicitly enabled by the operator or required by a current attached source.
+- If `COMPARATORS_ENABLED` is disabled or empty, do not generate a comparative positioning section.
 - You may still cite related work as secondary framing, but do not write “Adam is not just X” unless the operator explicitly enables a comparator.
-- If a comparator is enabled, define the baseline first and compare only implemented or instrumented mechanisms.
+- If enabled, define the comparator class first and compare only implemented or instrumented mechanisms.
 
 AUDIT PROCEDURE
 Pass 1: Context ingest
@@ -411,7 +544,10 @@ You are generating Step 2 in the current Adam whitepaper workflow:
 2. Codex pre-writing memo
 3. Whitepaper generation
 
-There is no Claude memo step in this pipeline.
+Only one upstream artifact class is expected for this step:
+- intelligence brief
+
+If it is missing, record `INTELLIGENCE_BRIEF_MISSING` and continue under current repo truth.
 
 ROLE
 Produce an advisory pre-writing memo that helps the later whitepaper pass decide what to write next, what to downgrade, and what evidence must be anchored before any public-facing claim is allowed to harden.
@@ -449,11 +585,9 @@ Fallback rule:
 - Legacy root-level directories such as `./intelligence_briefs/`, `./whitepaper_prewriting_memo/`, and `./whitepaper_drafts/` may still be searched as archaeology or fallback inputs if present, but they are no longer the canonical output targets.
 
 PIPELINE ARTIFACT RESOLUTION
-Use the canonical white-paper pipeline root:
+Use the canonical white-paper pipeline root above.
 
-`/Users/brianray/Adam/assets/white_paper_pipeline`
-
-Canonical input / output directories:
+Resolve artifacts under these canonical subdirectories first:
 - intelligence briefs: `/Users/brianray/Adam/assets/white_paper_pipeline/intel_briefs`
 - writing memos: `/Users/brianray/Adam/assets/white_paper_pipeline/writing_memos`
 - whitepaper drafts: `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts`
@@ -467,10 +601,114 @@ Hard rule:
 - treat the pipeline directories as canonical artifact lineage surfaces
 - treat legacy repo-root directories as fallback archaeology only
 
-GOVERNANCE
-- If `./AGENTS.md` exists, follow it.
-- Do not depend on any writer-specialized agent file.
-- If `./codex_notes_garden.md` exists and is writable, you may append short PRE/POST notes. This is recommended, not a blocking condition.
+FAIL-CLOSED GOVERNANCE RESOLUTION
+Resolve governance before corpus ingest, advisory synthesis, or memo drafting.
+
+Attempt governance paths in this order:
+1. `./AGENTS.md`
+2. `<REPO_ROOT>/AGENTS.md`
+3. repo-root matches for `AGENTS*.md`, excluding stale writer-specialized aliases unless current repo evidence explicitly points to them
+
+For every attempted path, record:
+- absolute path
+- exists / missing
+- opened / not opened
+- accepted / rejected
+- reason
+
+Hard rules:
+- If `./AGENTS.md` exists, it governs.
+- Do not depend on `AGENTS_CODEX-WRITER.md` or any writer-specialized agent file unless current repo evidence explicitly reactivates it.
+- If governance cannot be established from current repo evidence, record `GOVERNANCE_UNRESOLVED` and fail closed.
+- The only allowed degraded mode is a limited audit-output mode explaining unresolved governance. Do not generate the memo in degraded mode.
+
+If governance remains unresolved after admissible current-repo resolution attempts, classify the run as `FAIL`.
+
+In this degraded mode, emit only:
+- the governance resolution log
+- a short degraded-mode report explaining why memo generation was not allowed
+- the execution/build status log
+
+Do not produce the memo artifact in degraded mode.
+
+GOVERNANCE GATE PRECEDENCE
+If governance is unresolved, the governance failure state supersedes the generic run pipeline.
+
+Hard rules:
+- Do not proceed to primary input resolution, advisory synthesis, deliverable writing, or memo artifact generation.
+- Generic full-run output requirements apply only when governance is resolved and memo generation is allowed.
+- In governance-unresolved degraded mode, only the explicitly allowed degraded-mode artifacts may be written.
+
+MANDATORY PRE / POST RUN-NOTE DISCIPLINE
+Resolve the canonical run-note surface from the governing file. In the current Adam repo, prefer `./codex_notes_garden.md` when governance names it.
+
+Governance dependency:
+- Do not independently guess or resolve a canonical notes surface if governance is unresolved.
+- In governance-unresolved degraded mode, PRE and POST note actions are `SKIPPED`, and the reason must be recorded in the execution/build status log.
+
+Hard rules:
+- Write PRE notes before final execution or memo drafting.
+- Write POST notes before finalization.
+- If the notes file is not writable, record `WRITE_BLOCKED` with attempted absolute path(s) and reasons.
+- Do not silently skip PRE or POST.
+- When governance is resolved, record the resolved notes file path or `MISSING`.
+- When governance is unresolved, do not guess `MISSING` unless that missingness was independently established from admissible evidence; record instead in the short degraded-mode report and/or the execution/build status log that notes-surface resolution was skipped because governance was unresolved.
+
+EXECUTION STATUS DISCIPLINE
+Use these statuses where relevant:
+- `EXECUTED`
+- `SKIPPED`
+- `EXECUTION_BLOCKED`
+- `DEPENDENCY_BLOCKED`
+- `WRITE_BLOCKED`
+
+If a test, script, build, or launch attempt fails because of missing dependencies, permissions, environment limits, or unavailable services, record:
+- exact attempted command
+- failure reason
+- affected output family
+- downstream consequence for run classification
+
+Use `SKIPPED` when an action is intentionally not run because operator configuration, phase gating, missing applicability, or explicit degraded-mode rules make execution unnecessary.
+
+Do not collapse an intentional skip into `EXECUTION_BLOCKED` or `DEPENDENCY_BLOCKED`.
+
+Record these statuses in the execution/build status log.
+
+Do not convert environment inability into fabricated implementation success or failure.
+
+RUN CONFIG / CONTROL-FLOW GUARD
+Resolve a deterministic `RUN_CONFIG` before memo drafting or full-run artifact generation.
+
+Audit these operator fields whether present or not:
+- `BASELINE_DRAFT_PATH`
+- `WHY_NOW`
+- `AUDIENCE`
+- `RED_LINES`
+- `COMPARATORS_ENABLED`
+- `PDF_BUILD_REQUIRED`
+- operator-supplied attachments or external artifacts
+
+Upstream `RUN_CONFIG` echoes from the current intelligence brief or pre-writing memo are advisory inputs only.
+Current operator inputs, current governance, and current repo truth still control.
+
+Hard rules:
+- Record each field as `PROVIDED`, `UNSET`, or `PLACEHOLDER`.
+- If a field is missing, continue with a bounded default. Do not invent facts and do not halt when a safe continuation path exists.
+- If `WHY_NOW` is missing, frame urgency only as current-repo drift control and evidence refresh.
+- If `AUDIENCE` is missing, default to technically literate readers who need scientific legibility plus repo-grounded evidence.
+- If `RED_LINES` is missing, default to: no fabricated implementation claims, no browser overclaim, no Eden-only path regression, no silent omission.
+- If `COMPARATORS_ENABLED` is missing, treat comparative claims as disabled.
+- If `PDF_BUILD_REQUIRED` is missing, record it as `UNSET`; Step 2 does not require PDF generation.
+- Read the latest intelligence brief’s resolved `RUN_CONFIG` when present and treat it as an advisory input.
+- If the intelligence brief is missing, record `INTELLIGENCE_BRIEF_MISSING` and continue from current repo truth.
+- Step 2 may extend the shared `RUN_CONFIG` only with memo-local advisory context; it must not create a competing vocabulary.
+- Record what was provided, what was missing, and what defaults were used.
+- Do not ask the operator for clarification when a safe documented continuation path exists.
+
+Governance-unresolved degraded mode:
+- resolve only the minimal `RUN_CONFIG` needed for gating and context capture
+- record that minimal `RUN_CONFIG` status in the short degraded-mode report and/or the execution/build status log
+- do not require a separate full run-config audit artifact in degraded mode
 
 UNIVERSALIZATION RULE
 This prompt is designed for repeated use across the remaining Adam project lifecycle.
@@ -484,7 +722,7 @@ Treat prompt assumptions as auditable scaffolding, not self-justifying fact.
 PRIMARY INPUTS
 Read in this order when present:
 
-1. Latest intelligence brief
+1. Latest intelligence brief, including its resolved `RUN_CONFIG` when present
    Search in:
    - `/Users/brianray/Adam/assets/white_paper_pipeline/intel_briefs/`
    - fallback `./intelligence_briefs/`
@@ -529,6 +767,48 @@ Hard rule:
 - treat legacy repo-root directories as fallback archaeology only
 - do not treat pipeline artifact directories as implementation proof by themselves
 
+AUTHORITY STACK / SOURCE OF TRUTH
+Use this precedence order when surfaces disagree:
+1. opened current code, direct tests, and audited runtime/export evidence from the current repo
+2. opened current normative docs in `./docs/` plus current `README.md`
+3. audit artifacts produced in this memo run
+4. current intelligence brief and current / prior memos and drafts under `/Users/brianray/Adam/assets/white_paper_pipeline/` as lineage surfaces
+5. historical notes, manifests, prompts, and public-facing discourse surfaces as archaeology only
+6. research literature / canonical secondary sources as framing only
+
+Explicit conflict rules:
+- current code, tests, and runtime evidence outrank inherited prose
+- pipeline artifacts are lineage surfaces, not implementation proof by themselves
+- the intelligence brief is an advisory input, not a license to harden claims without current anchors
+- historical prompt/discourse artifacts can inform archaeology, but they do not prove implementation
+
+OPERATIONAL INSTRUCTION PRECEDENCE
+When operational instructions conflict, follow this order:
+1. governing file resolved from current repo governance
+2. explicit operator-supplied run config and attached artifacts
+3. this prompt
+4. current intelligence brief
+5. prior memos, drafts, and archaeology artifacts
+
+Hard rule:
+- no lower-precedence artifact may force behavior that violates higher-precedence governance
+- no prose artifact at any level may override current opened repo evidence for implementation-strength claims
+
+PROMPT / ARTIFACT DRIFT INPUTS
+Treat the following as drift cues and downgrade surfaces, not implementation proof:
+- the current prompt block
+- `./docs/PATCH_MANIFEST_V1_1.md`
+- `./docs/PATCH_MANIFEST_V1_2.md`
+- `./docs/MIGRATION_NOTES_V1_1.md`
+- prior intelligence briefs
+- prior memos
+- prior drafts
+- relevant notes in `./codex_notes_garden.md`
+
+Hard rule:
+- surface drift cues, lineage breaks, and downgrade risks
+- do not build the full whitepaper vanished-claims ledger in Step 2
+
 TRUTH RULES
 - Current implementation truth must come from opened code/tests/runtime-visible artifacts, not from inherited whitepaper prose.
 - `./docs/IMPLEMENTATION_TRUTH_TABLE.md` and `./docs/KNOWN_LIMITATIONS.md` are required discipline surfaces for the memo.
@@ -545,14 +825,14 @@ TRUTH RULES
   - HISTORICAL_REFERENCE_ONLY
 
 DEFAULT CURRENT EXPECTATIONS TO VERIFY (NOT SELF-JUSTIFYING)
-Unless contradicted by newer opened evidence, the memo should test for the following conditions and report them explicitly as:
+Unless contradicted by newer opened evidence, the writer should test for the following conditions and report them explicitly as:
 
 `CONFIRMED | SUPERSEDED | NOT LOCATED | PARTIALLY TRUE`
 
 Candidate expectations:
 - no governor in v1
 - no hidden planner
-- no training / LoRA / fine-tuning
+- no weight training, fine-tuning, or LoRA
 - MLX is the active local runtime backend
 - TUI is the primary runtime surface
 - browser observatory functions as an observability / measurement instrument rather than the main dialogue loop
@@ -582,8 +862,32 @@ This memo may do four things only:
 
 It may not silently launder speculative or historical claims into the implemented register.
 
-OPTIONAL SECONDARY DISCIPLINE
-If canonical secondary sources exist under `./assets/seed_canon/cannonical_secondary_sources/` or `./assets/seed_canon/canonical_secondary_sources/`, you may use them only to discipline definitions and admissibility rules, never to prove implementation.
+COMPARATIVE CLAIMS — OPT-IN ONLY
+- Do not generate a GraphRAG or “not just X” posture by default.
+- Comparative claims are allowed only if explicitly enabled by the operator or required by a current attached source.
+- If `COMPARATORS_ENABLED` is disabled or empty, do not generate a comparative positioning section.
+- If enabled, define the comparator class first and compare only implemented or instrumented mechanisms.
+
+RESEARCH LIBRARY / CANONICAL SECONDARY DISCIPLINE
+Resolve the current research library or literature cache in this order:
+1. `./assets/cannonical_secondary_sources/`
+2. `./assets/canonical_secondary_sources/`
+3. `./assets/seed_canon/cannonical_secondary_sources/`
+4. `./assets/seed_canon/canonical_secondary_sources/`
+
+Record the resolved path or `MISSING`.
+
+Research literature is allowed only for bounded roles:
+- comparative baseline
+- formalization aid
+- gap exposure
+- evaluation scaffold
+- definition boundary / admissibility discipline
+
+Hard rules:
+- Research literature may not prove that Adam implements a mechanism.
+- Repo-evidenced claims and literature-evidenced framing must remain explicitly distinguished in the memo.
+- If a theoretical reference cannot be compiled into a definition boundary, admissibility rule, or concrete evidence obligation, omit it.
 
 DELIVERABLE STRUCTURE
 Address the memo to the later whitepaper-generation pass. Use this exact section order:
@@ -601,6 +905,7 @@ Address the memo to the later whitepaper-generation pass. Use this exact section
    - definitional non-collapse rules
    - evidence obligations for strong claims
 5. Drift and Downgrade Ledger
+   - treat prior briefs, memos, drafts, and the current prompt family as drift surfaces, not inherited proof
    - what prior language must be weakened or deleted
    - where historical Eden phrasing exceeds current Adam proof
    - where browser/UI wording must separate from server-side capability
@@ -650,7 +955,6 @@ If a memo assumption conflicts with stronger current evidence, follow the eviden
 
 BEGIN NOW
 - Do not ask for permission.
-- Do not mention Claude.
 - Do not depend on old `for_review/` or writer-agent scaffolding.
 - Produce the Adam v1 memo that the current repo can actually support.
 
@@ -869,6 +1173,9 @@ Audit these operator fields whether present or not:
 - `COMPARATORS_ENABLED`
 - `PDF_BUILD_REQUIRED`
 - operator-supplied attachments or external artifacts
+
+Upstream `RUN_CONFIG` echoes from the current intelligence brief or pre-writing memo are advisory inputs only.
+Current operator inputs, current governance, and current repo truth still control.
 
 Hard rules:
 - Record each field as `PROVIDED`, `UNSET`, or `PLACEHOLDER`.

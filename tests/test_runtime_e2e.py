@@ -397,3 +397,175 @@ def test_start_session_uses_adam_identity_mlx_review_for_graph_normalization(run
     assert provenance["assertion_origin"] == "adam_identity_mlx"
     assert session_meta["session_graph_normalization"]["mode"] == "adam_identity_mlx"
     assert session_meta["session_graph_normalization"]["mlx_review_applied_rows"] >= 1
+
+
+def test_start_session_runs_behavior_taxonomy_audit(runtime) -> None:
+    experiment = runtime.initialize_experiment("blank")
+    seed_session = runtime.start_session(experiment["id"], title="Seed behavior")
+    turn = runtime.store.record_turn(
+        experiment_id=experiment["id"],
+        session_id=seed_session["id"],
+        user_text="Brian the operator: refine yourself",
+        prompt_context="",
+        response_text="Offer a repair plan, compare it against the graph, and revise the answer.",
+        membrane_text="Offer a repair plan, compare it against the graph, and revise the answer.",
+        active_set=[],
+        trace=[],
+    )
+
+    member_ids: list[str] = []
+    for label in ["Offer a repair plan", "Compare it against the graph", "Revise the answer"]:
+        meme = runtime.store.upsert_meme(
+            experiment_id=experiment["id"],
+            label=label,
+            text=turn["membrane_text"],
+            domain="behavior",
+            source_kind="turn_adam",
+            scope=f"session:{seed_session['id']}",
+            evidence_inc=1.0,
+            metadata={
+                "turn_id": turn["id"],
+                "session_id": seed_session["id"],
+                "origin": "adam",
+                "candidate_kind": "phrase",
+            },
+        )
+        member_ids.append(str(meme["id"]))
+        runtime.store.add_edge(
+            experiment_id=experiment["id"],
+            src_kind="turn",
+            src_id=turn["id"],
+            dst_kind="meme",
+            dst_id=str(meme["id"]),
+            edge_type="OCCURS_IN",
+            provenance={"actor": "adam"},
+        )
+    for left_index, left_id in enumerate(member_ids):
+        for right_id in member_ids[left_index + 1 :]:
+            runtime.store.set_edge(
+                experiment_id=experiment["id"],
+                src_kind="meme",
+                src_id=left_id,
+                dst_kind="meme",
+                dst_id=right_id,
+                edge_type="CO_OCCURS_WITH",
+                provenance={
+                    "turn_id": turn["id"],
+                    "actor": "adam",
+                    "assertion_origin": "auto_derived",
+                    "evidence_label": "AUTO_DERIVED",
+                    "confidence": 1.0,
+                },
+            )
+
+    wake_session = runtime.start_session(experiment["id"], title="Wake audit")
+    session_meta = json.loads(runtime.store.get_session(wake_session["id"])["metadata_json"] or "{}")
+    memodes = runtime.store.list_memodes(experiment["id"])
+    audited_memode = next(
+        memode
+        for memode in memodes
+        if json.loads(memode["metadata_json"] or "{}").get("taxonomy_origin") == runtime_module.SESSION_START_BEHAVIOR_TAXONOMY
+    )
+    audited_metadata = json.loads(audited_memode["metadata_json"] or "{}")
+    strengthened = {
+        meme["label"]: json.loads(meme["metadata_json"] or "{}")
+        for meme in runtime.store.list_memes(experiment["id"])
+        if meme["label"] in {"Offer a repair plan", "Compare it against the graph", "Revise the answer"}
+    }
+    trace_events = runtime.store.list_trace_events(experiment["id"], session_id=wake_session["id"])
+
+    assert session_meta["session_graph_taxonomy"]["bundles_changed"] >= 1
+    assert session_meta["session_graph_taxonomy"]["memodes_touched"] >= 1
+    assert audited_metadata["origin"] == "adam"
+    assert audited_metadata["turn_id"] == turn["id"]
+    assert audited_metadata["supporting_edge_ids"]
+    assert all(metadata["entity_type"] == "behavior_meme" for metadata in strengthened.values())
+    assert any(event["event_type"] == "GRAPH_TAXONOMY_AUDIT" for event in trace_events)
+
+
+def test_start_session_uses_adam_identity_mlx_for_behavior_taxonomy(runtime, monkeypatch) -> None:
+    runtime.settings.model_backend = "mlx"
+    monkeypatch.setattr(runtime, "mlx_model_status", lambda: {"ready": True})
+    monkeypatch.setattr(
+        runtime,
+        "_adam_identity_behavior_taxonomy_review",
+        lambda bundle: {
+            "selected_labels": ["Offer a repair plan", "Revise the answer"],
+            "memode_label": "repair loop",
+            "memode_summary": "A focused repair cycle that proposes and then revises.",
+            "memeplex_hint": "reflective repair chain",
+            "confidence": 0.94,
+        },
+    )
+
+    experiment = runtime.initialize_experiment("blank")
+    seed_session = runtime.start_session(experiment["id"], title="Seed behavior mlx")
+    turn = runtime.store.record_turn(
+        experiment_id=experiment["id"],
+        session_id=seed_session["id"],
+        user_text="Brian the operator: repair",
+        prompt_context="",
+        response_text="Offer a repair plan, compare it against the graph, and revise the answer.",
+        membrane_text="Offer a repair plan, compare it against the graph, and revise the answer.",
+        active_set=[],
+        trace=[],
+    )
+
+    member_ids: list[str] = []
+    for label in ["Offer a repair plan", "Compare it against the graph", "Revise the answer"]:
+        meme = runtime.store.upsert_meme(
+            experiment_id=experiment["id"],
+            label=label,
+            text=turn["membrane_text"],
+            domain="behavior",
+            source_kind="turn_adam",
+            scope=f"session:{seed_session['id']}",
+            evidence_inc=1.0,
+            metadata={
+                "turn_id": turn["id"],
+                "session_id": seed_session["id"],
+                "origin": "adam",
+                "candidate_kind": "phrase",
+            },
+        )
+        member_ids.append(str(meme["id"]))
+        runtime.store.add_edge(
+            experiment_id=experiment["id"],
+            src_kind="turn",
+            src_id=turn["id"],
+            dst_kind="meme",
+            dst_id=str(meme["id"]),
+            edge_type="OCCURS_IN",
+            provenance={"actor": "adam"},
+        )
+    for left_index, left_id in enumerate(member_ids):
+        for right_id in member_ids[left_index + 1 :]:
+            runtime.store.set_edge(
+                experiment_id=experiment["id"],
+                src_kind="meme",
+                src_id=left_id,
+                dst_kind="meme",
+                dst_id=right_id,
+                edge_type="CO_OCCURS_WITH",
+                provenance={
+                    "turn_id": turn["id"],
+                    "actor": "adam",
+                    "assertion_origin": "auto_derived",
+                    "evidence_label": "AUTO_DERIVED",
+                    "confidence": 1.0,
+                },
+            )
+
+    wake_session = runtime.start_session(experiment["id"], title="Wake audit mlx")
+    session_meta = json.loads(runtime.store.get_session(wake_session["id"])["metadata_json"] or "{}")
+    audited_memode = next(
+        memode
+        for memode in runtime.store.list_memodes(experiment["id"])
+        if json.loads(memode["metadata_json"] or "{}").get("taxonomy_origin") == runtime_module.SESSION_START_BEHAVIOR_TAXONOMY
+    )
+    audited_metadata = json.loads(audited_memode["metadata_json"] or "{}")
+
+    assert audited_memode["label"] == "repair loop"
+    assert audited_metadata["memeplex_hint"] == "reflective repair chain"
+    assert session_meta["session_graph_taxonomy"]["mode"] == "adam_identity_mlx"
+    assert session_meta["session_graph_taxonomy"]["mlx_review_applied_bundles"] >= 1
