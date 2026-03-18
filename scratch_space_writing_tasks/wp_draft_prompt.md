@@ -258,6 +258,17 @@ Hard rule:
 - Prefer repo-relative citations.
 - Include absolute paths only when reproducibility truly requires them.
 
+OPERATIONAL INSTRUCTION PRECEDENCE
+When operational instructions conflict, follow this order:
+1. governing file resolved from current repo governance
+2. explicit operator-supplied run config and attached artifacts
+3. this prompt
+4. prior briefs, memos, drafts, and archaeology artifacts
+
+Hard rule:
+- no lower-precedence artifact may force behavior that violates higher-precedence governance
+- no prose artifact at any level may override current opened repo evidence for implementation-strength claims
+
 PROMPT / ARTIFACT DRIFT INPUTS
 Treat the following as drift cues and downgrade surfaces, not implementation proof:
 - the current prompt block
@@ -618,7 +629,7 @@ For every attempted path, record:
 
 Hard rules:
 - If `./AGENTS.md` exists, it governs.
-- Do not depend on `AGENTS_CODEX-WRITER.md` or any writer-specialized agent file unless current repo evidence explicitly reactivates it.
+- Do not depend on `AGENTS_CODEX-WRITER.md`, `AGENTS_CODEX_WRITER.md`, `AGENTS-CODEX_WRITER.md`, or any writer-specialized agent file unless current repo evidence explicitly reactivates them.
 - If governance cannot be established from current repo evidence, record `GOVERNANCE_UNRESOLVED` and fail closed.
 - The only allowed degraded mode is a limited audit-output mode explaining unresolved governance. Do not generate the memo in degraded mode.
 
@@ -719,6 +730,34 @@ Prefer current repo truth over prompt inertia.
 
 Treat prompt assumptions as auditable scaffolding, not self-justifying fact.
 
+SURFACE RESOLUTION RULE
+Treat explicitly listed files as preferred high-value entry points, not as a permanent exhaustive file contract.
+
+If a listed file is missing, search nearby current-repo equivalents before concluding `MISSING`.
+
+Hard rule:
+- prefer opened current equivalents over stale filename loyalty
+- do not hallucinate equivalence
+- record the resolved substitute path explicitly
+
+UPSTREAM ARTIFACT RESOLUTION
+Resolve the latest intelligence brief from canonical pipeline directories first:
+- `/Users/brianray/Adam/assets/white_paper_pipeline/intel_briefs/`
+
+Use legacy fallback only if canonical directories do not contain a qualifying artifact:
+- `./intelligence_briefs/`
+
+Choose the latest deterministic candidate by:
+1. explicit timestamp in filename when present
+2. otherwise highest explicit version marker when present
+3. otherwise newest modified timestamp
+
+Exclude support artifacts unless the memo explicitly needs them as supporting evidence.
+
+Record the selected upstream artifact path and hash when one is used.
+
+If none exists, record `INTELLIGENCE_BRIEF_MISSING` and continue under current repo truth.
+
 PRIMARY INPUTS
 Read in this order when present:
 
@@ -729,11 +768,13 @@ Read in this order when present:
    - If missing: record `INTELLIGENCE_BRIEF_MISSING` and proceed from current repo truth surfaces.
 
 2. Current repo truth surfaces:
+- `./README.md`
 - `./docs/PROJECT_CHARTER.md`
 - `./docs/CANONICAL_ONTOLOGY.md`
 - `./docs/IMPLEMENTATION_TRUTH_TABLE.md`
 - `./docs/KNOWN_LIMITATIONS.md`
 - `./docs/REGARD_MECHANISM.md`
+- `./docs/GRAPH_SCHEMA.md`
 - `./docs/TURN_LOOP_AND_MEMBRANE.md`
 - `./docs/TUI_SPEC.md`
 - `./docs/OBSERVATORY_SPEC.md`
@@ -756,7 +797,9 @@ Read in this order when present:
 - `./assets/seed_canon/eden_whitepaper_v14.pdf` as historical context only
 
 4. Evidence and runtime surfaces as needed:
+- current runtime code under `./eden/` or the current equivalent runtime package/directory
 - `./tests/`
+- `./scripts/`
 - `./logs/runtime.jsonl`
 - `./exports/context/latest.md`
 - selected `./exports/conversations/**/*.md`
@@ -850,6 +893,13 @@ For any observatory mutation or measurement capability, distinguish:
 - server-side tested contract
 - browser-exposed contract
 - current browser gap or partial exposure
+
+Use the modifier:
+- `EXPLICIT_BROWSER_CONTRACT_GAP`
+
+when a server-side mechanism exists but current browser exposure is incomplete.
+
+Keep documented contract, server-side tested contract, and browser-exposed contract distinct.
 
 Do not let the memo hard-code specific UI gaps unless the currently opened evidence proves them.
 
@@ -977,7 +1027,8 @@ Only two upstream artifact classes are expected for this run:
 - intelligence brief
 - Codex pre-writing memo
 
-If either is missing, record the missingness and continue under current repo truth.
+If the intelligence brief is missing, record `INTELLIGENCE_BRIEF_MISSING` and continue under current repo truth.
+If the pre-writing memo is missing, record `CODEX_PREWRITING_MEMO_MISSING` and continue under current repo truth.
 
 ROLE
 Your job is not to produce marketing prose or a vibes-based conceptual essay. Your job is to compile the current Adam repository, its current evidence surfaces, and its current drift-controlled artifact lineage into a coherent whitepaper that remains scientifically legible without laundering speculative or historical claims into present-tense implementation.
@@ -1036,7 +1087,7 @@ For every attempted path, record:
 
 Hard rules:
 - If `./AGENTS.md` exists, it governs.
-- Do not depend on `AGENTS_CODEX-WRITER.md` or any writer-specialized agent file unless current repo evidence explicitly reactivates it.
+- Do not depend on `AGENTS_CODEX-WRITER.md`, `AGENTS_CODEX_WRITER.md`, `AGENTS-CODEX_WRITER.md`, or any writer-specialized agent file unless current repo evidence explicitly reactivates them.
 - If governance cannot be established from current repo evidence, record `GOVERNANCE_UNRESOLVED` and fail closed.
 - The only allowed degraded mode is a limited audit-output mode explaining unresolved governance. Do not draft or canonize the whitepaper in degraded mode.
 
@@ -1977,6 +2028,27 @@ Classify the run at the end as one of:
 - `FAIL` = the run breaks core protocol (fabricated evidence, broken build without honest record, missing required output families, or silent omission of required audit artifacts)
 
 Unresolved governance cannot receive `PASS` or `PARTIAL`; it is a fail-closed `FAIL` with degraded-mode limited audit outputs.
+
+UPSTREAM ARTIFACT RESOLUTION
+Resolve upstream artifacts from canonical pipeline directories first:
+- intelligence briefs: `/Users/brianray/Adam/assets/white_paper_pipeline/intel_briefs/`
+- writing memos: `/Users/brianray/Adam/assets/white_paper_pipeline/writing_memos/`
+
+Use legacy fallback only if canonical directories do not contain a qualifying artifact:
+- `./intelligence_briefs/`
+- `./whitepaper_prewriting_memo/`
+
+Choose the latest deterministic candidate by:
+1. explicit timestamp in filename when present
+2. otherwise highest explicit version marker when present
+3. otherwise newest modified timestamp
+
+Record selected upstream artifact paths and hashes when used.
+
+If the intelligence brief is missing, record `INTELLIGENCE_BRIEF_MISSING`.
+If the memo is missing, record `CODEX_PREWRITING_MEMO_MISSING`.
+
+Missing upstream artifacts do not override current repo truth.
 
 WHITEPAPER INPUT SURFACES TO READ
 At minimum consider these:

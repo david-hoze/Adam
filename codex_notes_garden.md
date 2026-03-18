@@ -6326,3 +6326,73 @@ Remaining uncertainties:
 - Step-specific prose remains intentionally different where responsibilities differ, so a future patch should avoid treating all non-identical wording as drift by default.
 Next shortest proof path:
 Run the three prompt steps in sequence on a bounded whitepaper cycle and confirm that governance, `RUN_CONFIG`, comparator gating, and research-library behavior now behave consistently across all three stages.
+
+## [2026-03-18T14:53:00Z] PRE-FLIGHT
+Operator task:
+Apply a micro-patch to `/Users/brianray/Adam/scratch_space_writing_tasks/wp_draft_prompt.md` so the three prompt blocks share deterministic upstream-artifact resolution, tighter Step 2 code/schema ingest, aligned browser-gap wording, explicit Step 1 operational instruction precedence, and exact Step 3 upstream-missingness tokens.
+Task checksum:
+Whitepaper prompt chain deterministic handoff micro-patch.
+Repo situation:
+The working tree remains dirty from prior unrelated turns. The consolidated prompt file already shares most governance and run-config rigor. The remaining seams are narrow: Step 2 and Step 3 do not yet define deterministic upstream artifact selection, Step 3 still uses vague upstream-missingness wording, Step 2 is slightly too doc-first, and Step 1 still lacks a named `OPERATIONAL INSTRUCTION PRECEDENCE` section.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/AGENTS.md`
+Natural-language contracts in force:
+Fail-closed governance remains authoritative. Adam naming and canonical pipeline-root pathing are already aligned and must stay aligned. Step identities must remain distinct: Step 1 forensic brief, Step 2 advisory memo, Step 3 final whitepaper generation.
+Files/modules likely in scope:
+`/Users/brianray/Adam/scratch_space_writing_tasks/wp_draft_prompt.md`
+`/Users/brianray/Adam/codex_notes_garden.md`
+Status register:
+- Implemented:
+  - Shared governance family, shared uppercase `RUN_CONFIG` vocabulary, shared comparator policy, and shared research-library rules already exist across the chain.
+- Instrumented:
+  - The remaining handoff seams are visible by direct section reads and targeted search hits.
+- Conceptual:
+  - None beyond the requested prompt-contract refinements.
+- Unknown:
+  - No live three-step pipeline run has yet exercised the deterministic upstream-selection behavior after patching.
+Risks / invariants:
+Do not weaken degraded-mode behavior or broaden speculative claims. Do not turn Step 2 into a mini-whitepaper or Step 1 into a vanished-claims ledger. Keep the patch surgical.
+Evidence plan:
+Patch only the targeted sections, then verify the new headings, token strings, and input-surface additions by search and diff.
+Shortest proof path:
+Append this PRE-FLIGHT note, patch deterministic upstream resolution and the remaining wording seams, then confirm the three-step chain now uses one handoff grammar without losing role separation.
+
+## [2026-03-18T14:54:42Z] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/scratch_space_writing_tasks/wp_draft_prompt.md`
+`/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+None. This was a prompt-chain micro-patch; no canonical `docs/` surface changed.
+Natural-language contracts added/revised/preserved:
+Revised the consolidated whitepaper prompt chain so Step 1, Step 2, and Step 3 now share deterministic handoff grammar for upstream artifact selection, Step 3 uses exact upstream-missingness tokens, Step 2 explicitly ingests code/schema surfaces, Step 2 binds browser-gap analysis back to `EXPLICIT_BROWSER_CONTRACT_GAP`, and Step 1 now has an explicit `OPERATIONAL INSTRUCTION PRECEDENCE` section. Preserved all existing governance rigor, degraded-mode behavior, run-note discipline, register vocabulary, browser-gap discipline, canonical pipeline-root paths, and Adam naming discipline.
+Behavior implemented or modified:
+- Added `OPERATIONAL INSTRUCTION PRECEDENCE` to Step 1 using the requested stage-appropriate ordering.
+- Added Step 2 `SURFACE RESOLUTION RULE` plus deterministic `UPSTREAM ARTIFACT RESOLUTION` for the latest intelligence brief, including canonical-first search, fallback behavior, support-artifact exclusion, and path/hash recording.
+- Expanded Step 2 `PRIMARY INPUTS` so the memo explicitly ingests `./README.md`, `./docs/GRAPH_SCHEMA.md`, current runtime code under `./eden/` or the current equivalent runtime package/directory, and `./scripts/`.
+- Strengthened Step 2 `BROWSER EXPOSURE DISCIPLINE` so server-side/browser distinctions explicitly bind back to the `EXPLICIT_BROWSER_CONTRACT_GAP` modifier.
+- Replaced Step 3’s vague upstream missingness line with exact tokens: `INTELLIGENCE_BRIEF_MISSING` and `CODEX_PREWRITING_MEMO_MISSING`.
+- Added Step 3 deterministic `UPSTREAM ARTIFACT RESOLUTION` for intelligence briefs and writing memos, including canonical-first search, fallback behavior, deterministic latest-candidate selection, and path/hash recording.
+- Aligned Step 2 and Step 3 governance alias exclusions to match Step 1’s stricter list of writer-specialized `AGENTS*` variants.
+Evidence produced (tests / traces / commands / exports):
+- `rg -n 'PRIMARY INPUTS|BROWSER EXPOSURE DISCIPLINE|FAIL-CLOSED GOVERNANCE RESOLUTION|WHITEPAPER INPUT SURFACES TO READ|Only two upstream artifact classes|If either is missing|AGENTS_CODEX-WRITER|AGENTS_CODEX_WRITER|AGENTS-CODEX_WRITER|SURFACE RESOLUTION RULE|OPERATIONAL INSTRUCTION PRECEDENCE|RUN CONFIG / CONTROL-FLOW GUARD' /Users/brianray/Adam/scratch_space_writing_tasks/wp_draft_prompt.md`
+- `sed -n '600,900p' /Users/brianray/Adam/scratch_space_writing_tasks/wp_draft_prompt.md`
+- `sed -n '960,1060p' /Users/brianray/Adam/scratch_space_writing_tasks/wp_draft_prompt.md`
+- `sed -n '1968,2015p' /Users/brianray/Adam/scratch_space_writing_tasks/wp_draft_prompt.md`
+- `rg -n 'UPSTREAM ARTIFACT RESOLUTION|INTELLIGENCE_BRIEF_MISSING|CODEX_PREWRITING_MEMO_MISSING|SURFACE RESOLUTION RULE|OPERATIONAL INSTRUCTION PRECEDENCE|EXPLICIT_BROWSER_CONTRACT_GAP|AGENTS_CODEX-WRITER.md|AGENTS_CODEX_WRITER.md|AGENTS-CODEX_WRITER.md|./docs/GRAPH_SCHEMA.md|current runtime code under `./eden/` or the current equivalent runtime package/directory|./scripts/|If the intelligence brief is missing|If the pre-writing memo is missing' /Users/brianray/Adam/scratch_space_writing_tasks/wp_draft_prompt.md`
+- `git diff -- /Users/brianray/Adam/scratch_space_writing_tasks/wp_draft_prompt.md /Users/brianray/Adam/codex_notes_garden.md`
+Status register changes:
+- Implemented:
+  - `wp_draft_prompt.md` now uses deterministic upstream-artifact selection and aligned handoff grammar across Step 1, Step 2, and Step 3.
+- Instrumented:
+  - Verification remained textual through targeted section reads, search checks, and diff review.
+- Conceptual:
+  - None added in this turn.
+- Unknown:
+  - No live three-step pipeline run has yet exercised the deterministic upstream-selection behavior after patching.
+Truth-table / limitations updates:
+None. No Adam capability status changed.
+Remaining uncertainties:
+- The working tree remains dirty from prior unrelated edits; they were left untouched.
+- Step 2 still intentionally remains advisory rather than adopting Step 3’s heavier traversal / evidence-mining machinery.
+Next shortest proof path:
+Run the three prompt steps on a bounded whitepaper cycle and confirm that Step 2 and Step 3 now select the same upstream artifacts deterministically, use the same missingness tokens, and preserve stage-specific roles while sharing one handoff grammar.
