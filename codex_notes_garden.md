@@ -6780,3 +6780,48 @@ Evidence plan:
 Inspect the current export action path, add bounded scope selection plus tests proving node/edge filtering for each scope, update observatory docs, and run targeted frontend tests plus the full backend suite if shared contracts changed.
 Shortest proof path:
 Patch the browser export pipeline so it can derive `full`, `behavior`, and `information` graph slices from the authoritative payload planes, expose that choice in the export controls, add Vitest coverage for the slice filter, and rebuild the observatory bundle.
+
+## [2026-03-19T14:41:11Z] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/web/observatory/src/App.tsx`
+`/Users/brianray/Adam/web/observatory/src/workbench/graphUtils.ts`
+`/Users/brianray/Adam/web/observatory/src/workbench/graphUtils.test.ts`
+`/Users/brianray/Adam/web/observatory/src/App.test.tsx`
+`/Users/brianray/Adam/web/observatory/src/styles.css`
+`/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+`/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+`/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`
+`/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+Natural-language contracts added/revised/preserved:
+Preserved the existing `current view` export workflow and added explicit export-scope language for `full ontology`, `behavior only`, and `information only`. Preserved the ontology contract that `Assemblies` is the authoritative mixed-domain second-order plane and used that plane as the source of the new non-current exports.
+Behavior implemented or modified:
+- Data Lab now exposes an `Export scope` control with `Current view`, `Full ontology`, `Behavior only`, and `Information only`.
+- Graph-document and node/edge CSV exports now derive their data from the selected scope rather than always using only the current filtered graph.
+- `Full ontology` exports the authoritative `Assemblies` plane without current-view filtering so constative information, performative behavior memes, and behavior memodes export together.
+- `Behavior only` and `Information only` exports filter the authoritative `Assemblies` plane by domain while preserving only edges whose endpoints remain inside the selected slice.
+- Exported filenames now carry a stable suffix for non-current scopes (for example `eden-graph-full.graphml`, `eden-graph-behavior.graphml`, `eden-graph-information.graphml`).
+- `selection_json` remains current-selection scoped and unchanged.
+Evidence produced (tests / traces / commands / exports):
+- `npm --prefix /Users/brianray/Adam/web/observatory test -- --run src/workbench/graphUtils.test.ts src/App.test.tsx`
+- `npm --prefix /Users/brianray/Adam/web/observatory run build`
+- `./.venv/bin/pytest -q`
+- The checked-in observatory bundle was rebuilt after the source changes.
+Status register changes:
+- Implemented:
+  - Explicit export scopes for `current view`, `full ontology`, `behavior only`, and `information only` are now present in the browser export path.
+- Instrumented:
+  - Vitest coverage proves scope-derived node/edge filtering and the presence of the new scope selector in the shell.
+- Conceptual:
+  - A future Gephi-oriented enhancement could still add visualization metadata so the imported Graph view reflects ontology without manual styling.
+- Unknown:
+  - I did not manually import a newly exported `full` / `behavior` / `information` GraphML into Gephi during this turn.
+Truth-table / limitations updates:
+- Updated `docs/OBSERVATORY_SPEC.md` to document the new export scopes and clarify that `full ontology` is derived from `Assemblies`.
+- Updated `docs/IMPLEMENTATION_TRUTH_TABLE.md` to record explicit export-scope support in Data Lab / Gephi export interoperability.
+Remaining uncertainties:
+- The working tree remains dirty from prior unrelated runtime/TUI/docs changes and the rebuilt frontend bundle; they were preserved.
+- Graph view styling in Gephi is still separate from ontology export; this patch improves export slicing, not imported visual appearance.
+Next shortest proof path:
+Open the observatory, choose `Full ontology`, `Behavior only`, and `Information only` in Data Lab, export fresh GraphML or GEXF files for each, and confirm in Gephi that the new files isolate the intended ontology slices while preserving memodes in the mixed-domain export.

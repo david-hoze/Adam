@@ -4,9 +4,11 @@ import {
   buildNodeLookup,
   csvForEdges,
   csvForNodes,
+  exportScopeSuffix,
   gdfForGraph,
   gexfForGraph,
   gmlForGraph,
+  graphForExportScope,
   graphMLForGraph,
   graphVizDotForGraph,
   lookupNodesForPayload,
@@ -218,5 +220,90 @@ describe("graph export serializers", () => {
     expect(memodeNode?.cluster_signature).toBe("cluster-2");
     expect(lookup.get("memode-1")?.storage_kind).toBe("memode");
     expect(lookup.get("memode-1")?.source_kind).toBe("memode");
+  });
+
+  it("derives current, full, behavior, and information export slices from the assembly plane", () => {
+    const payload = {
+      semantic_nodes: [
+        {
+          id: "meme-2",
+          label: "adaptive key phrase",
+          kind: "meme",
+          entity_type: "behavior_meme",
+          speech_act_mode: "performative",
+          storage_kind: "meme",
+          domain: "behavior",
+          source_kind: "document",
+        },
+      ],
+      semantic_edges: [],
+      assembly_nodes: [
+        {
+          id: "info-1",
+          label: "Michel Foucault",
+          kind: "information",
+          entity_type: "author",
+          speech_act_mode: "constative",
+          storage_kind: "projection",
+          domain: "knowledge",
+          source_kind: "projection",
+        },
+        {
+          id: "meme-2",
+          label: "adaptive key phrase",
+          kind: "meme",
+          entity_type: "behavior_meme",
+          speech_act_mode: "performative",
+          storage_kind: "meme",
+          domain: "behavior",
+          source_kind: "document",
+        },
+        {
+          id: "memode-1",
+          label: "Persistence Memode",
+          kind: "memode",
+          entity_type: "memode",
+          speech_act_mode: "performative",
+          storage_kind: "memode",
+          domain: "behavior",
+          source_kind: "memode",
+        },
+      ],
+      assembly_edges: [
+        {
+          id: "edge-knowledge",
+          source: "info-1",
+          target: "info-1",
+          type: "REFERENCES",
+          weight: 1,
+        },
+        {
+          id: "edge-behavior",
+          source: "memode-1",
+          target: "meme-2",
+          type: "MEMODE_HAS_MEMBER",
+          weight: 1,
+        },
+      ],
+      runtime_nodes: [],
+      runtime_edges: [],
+    };
+    const currentGraph = {
+      nodes: [payload.assembly_nodes[1]],
+      edges: [],
+    };
+
+    const fullGraph = graphForExportScope(payload, currentGraph, "full");
+    const behaviorGraph = graphForExportScope(payload, currentGraph, "behavior");
+    const informationGraph = graphForExportScope(payload, currentGraph, "information");
+
+    expect(graphForExportScope(payload, currentGraph, "current")).toEqual(currentGraph);
+    expect(fullGraph.nodes.map((node) => node.id).sort()).toEqual(["info-1", "meme-2", "memode-1"]);
+    expect(behaviorGraph.nodes.map((node) => node.id).sort()).toEqual(["meme-2", "memode-1"]);
+    expect(behaviorGraph.edges.map((edge) => edge.id)).toEqual(["edge-behavior"]);
+    expect(informationGraph.nodes.map((node) => node.id)).toEqual(["info-1"]);
+    expect(informationGraph.edges.map((edge) => edge.id)).toEqual(["edge-knowledge"]);
+    expect(exportScopeSuffix("current")).toBe("");
+    expect(exportScopeSuffix("full")).toBe("-full");
   });
 });

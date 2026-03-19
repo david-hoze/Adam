@@ -24,6 +24,7 @@ export type GraphPatch = {
 };
 
 export type GraphMode = "Semantic Map" | "Assemblies" | "Runtime" | "Active Set" | "Compare";
+export type ExportScope = "current" | "full" | "behavior" | "information";
 
 export type FilterState = {
   search: string;
@@ -55,6 +56,8 @@ export type VisibleGraph = {
   edges: GraphEdge[];
   componentIndex: Map<string, number>;
 };
+
+export type GraphSlice = Pick<VisibleGraph, "nodes" | "edges">;
 
 export type CoordinateMap = Record<string, { x: number; y: number }>;
 
@@ -118,6 +121,32 @@ export function lookupNodesForPayload(payload: any): GraphNode[] {
     ...((payload?.semantic_nodes ?? []) as GraphNode[]),
     ...((payload?.runtime_nodes ?? []) as GraphNode[]),
   ]);
+}
+
+function filterGraphSlice(nodes: GraphNode[], edges: GraphEdge[], predicate: (node: GraphNode) => boolean): GraphSlice {
+  const selectedIds = new Set(nodes.filter(predicate).map((node) => node.id));
+  return {
+    nodes: nodes.filter((node) => selectedIds.has(node.id)),
+    edges: edges.filter((edge) => selectedIds.has(edge.source) && selectedIds.has(edge.target)),
+  };
+}
+
+export function graphForExportScope(payload: any, currentGraph: GraphSlice, scope: ExportScope): GraphSlice {
+  if (scope === "current" || !payload) return currentGraph;
+  const assemblyGraph = visibleGraphForMode(payload, "Assemblies");
+  if (scope === "full") return assemblyGraph;
+  if (scope === "behavior") {
+    return filterGraphSlice(assemblyGraph.nodes, assemblyGraph.edges, (node) => String(node.domain ?? "") === "behavior");
+  }
+  return filterGraphSlice(
+    assemblyGraph.nodes,
+    assemblyGraph.edges,
+    (node) => String(node.domain ?? "") === "knowledge" || String(node.kind ?? "") === "information",
+  );
+}
+
+export function exportScopeSuffix(scope: ExportScope): string {
+  return scope === "current" ? "" : `-${scope}`;
 }
 
 export function visibleGraphForMode(payload: any, mode: GraphMode): { nodes: GraphNode[]; edges: GraphEdge[] } {

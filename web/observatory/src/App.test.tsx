@@ -269,6 +269,9 @@ describe("EDEN Observatory App", () => {
     expect(screen.getByText("Large diagnostics bundle")).toBeTruthy();
     expect(screen.getByRole("button", { name: "GraphViz DOT" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Pajek NET" })).toBeTruthy();
+    expect((screen.getByLabelText("Export scope") as HTMLSelectElement).value).toBe("current");
+    expect(screen.getByText("Export slice")).toBeTruthy();
+    expect(screen.getByText("Current view · 4 nodes · 3 edges")).toBeTruthy();
     expect(screen.getByRole("radio", { name: "Assemblies" }).getAttribute("aria-checked")).toBe("true");
     expect(screen.getByRole("radio", { name: "INSPECT" }).getAttribute("aria-checked")).toBe("true");
     expect((screen.getByRole("button", { name: "Preview" }) as HTMLButtonElement).disabled).toBe(true);

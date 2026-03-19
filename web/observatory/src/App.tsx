@@ -14,10 +14,12 @@ import {
   defaultFilterState,
   downloadText,
   edgeKey,
+  exportScopeSuffix,
   edgeLabel,
   gdfForGraph,
   gexfForGraph,
   gmlForGraph,
+  graphForExportScope,
   graphVizDotForGraph,
   graphMLForGraph,
   hashText,
@@ -30,6 +32,7 @@ import {
   tulipTlpForGraph,
   type AppearanceState,
   type CoordinateMap,
+  type ExportScope,
   type FilterState,
   type GraphEdge,
   type GraphMode,
@@ -579,6 +582,7 @@ export default function App({ bootstrap: rawBootstrap }: { bootstrap: Bootstrap 
   const [payloadStatuses, setPayloadStatuses] = useState<Record<PayloadKey, PayloadStatus>>(EMPTY_STATUS);
   const [tanakhRunPending, setTanakhRunPending] = useState(false);
   const [lastExportMessage, setLastExportMessage] = useState<string>("");
+  const [exportScope, setExportScope] = useState<ExportScope>("current");
 
   const layoutWorkerRef = useRef<Worker | null>(null);
   const statsWorkerRef = useRef<Worker | null>(null);
@@ -615,6 +619,10 @@ export default function App({ bootstrap: rawBootstrap }: { bootstrap: Bootstrap 
   const filteredBaseline = useMemo(
     () => applyFilters(baseGraph.nodes, baseGraph.edges, filters, selectedNodeIds),
     [baseGraph.edges, baseGraph.nodes, filters, selectedNodeIds],
+  );
+  const exportGraph = useMemo(
+    () => graphForExportScope(data.graph, filteredBaseline, exportScope),
+    [data.graph, exportScope, filteredBaseline],
   );
   const modifiedGraph = useMemo(
     () => applyPreviewPatch(baseGraph.nodes, baseGraph.edges, (preview?.preview_graph_patch as any) ?? null),
@@ -1461,34 +1469,39 @@ export default function App({ bootstrap: rawBootstrap }: { bootstrap: Bootstrap 
 
   function handleExport(format: string) {
     if (!data.graph) return;
+    const suffix = exportScopeSuffix(exportScope);
     if (format === "nodes_csv") {
-      downloadText("eden-nodes.csv", csvForNodes(filteredBaseline.nodes), "text/csv");
+      downloadText(`eden-nodes${suffix}.csv`, csvForNodes(exportGraph.nodes), "text/csv");
     } else if (format === "edges_csv") {
-      downloadText("eden-edges.csv", csvForEdges(filteredBaseline.edges), "text/csv");
+      downloadText(`eden-edges${suffix}.csv`, csvForEdges(exportGraph.edges), "text/csv");
     } else if (format === "selection_json") {
       downloadText("eden-selection.json", jsonForSelection(filteredBaseline.nodes, filteredBaseline.edges, selectedNodeIds), "application/json");
     } else if (format === "gdf") {
-      downloadText("eden-graph.gdf", gdfForGraph(filteredBaseline.nodes, filteredBaseline.edges), "text/plain");
+      downloadText(`eden-graph${suffix}.gdf`, gdfForGraph(exportGraph.nodes, exportGraph.edges), "text/plain");
     } else if (format === "gml") {
-      downloadText("eden-graph.gml", gmlForGraph(filteredBaseline.nodes, filteredBaseline.edges), "text/plain");
+      downloadText(`eden-graph${suffix}.gml`, gmlForGraph(exportGraph.nodes, exportGraph.edges), "text/plain");
     } else if (format === "graphviz_dot") {
-      downloadText("eden-graph.dot", graphVizDotForGraph(filteredBaseline.nodes, filteredBaseline.edges), "text/vnd.graphviz");
+      downloadText(`eden-graph${suffix}.dot`, graphVizDotForGraph(exportGraph.nodes, exportGraph.edges), "text/vnd.graphviz");
     } else if (format === "graphml") {
-      downloadText("eden-graph.graphml", graphMLForGraph(filteredBaseline.nodes, filteredBaseline.edges), "application/xml");
+      downloadText(`eden-graph${suffix}.graphml`, graphMLForGraph(exportGraph.nodes, exportGraph.edges), "application/xml");
     } else if (format === "gexf") {
-      downloadText("eden-graph.gexf", gexfForGraph(filteredBaseline.nodes, filteredBaseline.edges), "application/xml");
+      downloadText(`eden-graph${suffix}.gexf`, gexfForGraph(exportGraph.nodes, exportGraph.edges), "application/xml");
     } else if (format === "pajek_net") {
-      downloadText("eden-graph.net", pajekNetForGraph(filteredBaseline.nodes, filteredBaseline.edges), "text/plain");
+      downloadText(`eden-graph${suffix}.net`, pajekNetForGraph(exportGraph.nodes, exportGraph.edges), "text/plain");
     } else if (format === "netdraw_vna") {
-      downloadText("eden-graph.vna", netdrawVnaForGraph(filteredBaseline.nodes, filteredBaseline.edges), "text/plain");
+      downloadText(`eden-graph${suffix}.vna`, netdrawVnaForGraph(exportGraph.nodes, exportGraph.edges), "text/plain");
     } else if (format === "ucinet_dl") {
-      downloadText("eden-graph.dl", ucinetDlForGraph(filteredBaseline.nodes, filteredBaseline.edges), "text/plain");
+      downloadText(`eden-graph${suffix}.dl`, ucinetDlForGraph(exportGraph.nodes, exportGraph.edges), "text/plain");
     } else if (format === "tulip_tlp") {
-      downloadText("eden-graph.tlp", tulipTlpForGraph(filteredBaseline.nodes, filteredBaseline.edges), "text/plain");
+      downloadText(`eden-graph${suffix}.tlp`, tulipTlpForGraph(exportGraph.nodes, exportGraph.edges), "text/plain");
     } else if (format === "tgf") {
-      downloadText("eden-graph.tgf", tgfForGraph(filteredBaseline.nodes, filteredBaseline.edges), "text/plain");
+      downloadText(`eden-graph${suffix}.tgf`, tgfForGraph(exportGraph.nodes, exportGraph.edges), "text/plain");
     }
-    setLastExportMessage(`Exported ${format}`);
+    setLastExportMessage(
+      format === "selection_json"
+        ? `Exported ${format}`
+        : `Exported ${format} (${humanExportScopeLabel(exportScope)})`,
+    );
   }
 
   function renderOverview() {
@@ -1988,6 +2001,15 @@ export default function App({ bootstrap: rawBootstrap }: { bootstrap: Bootstrap 
     return (
       <Card title="Data Lab" accent={lastExportMessage || "selection + export"}>
         <div className="toolbar toolbar-sticky">
+          <label className="toolbar-select">
+            <span>Export scope</span>
+            <select aria-label="Export scope" onChange={(event) => setExportScope(event.target.value as ExportScope)} value={exportScope}>
+              <option value="current">Current view</option>
+              <option value="full">Full ontology</option>
+              <option value="behavior">Behavior only</option>
+              <option value="information">Information only</option>
+            </select>
+          </label>
           {(data.graph.export_formats ?? DEFAULT_EXPORT_FORMATS).map((format: string) => (
             <button key={format} className="toolbar-button" onClick={() => handleExport(format)} type="button">
               {humanExportLabel(format)}
@@ -1997,6 +2019,10 @@ export default function App({ bootstrap: rawBootstrap }: { bootstrap: Bootstrap 
         <div className="metric-callout">
           <strong>Visible graph</strong>
           <span>{filteredBaseline.nodes.length} nodes · {filteredBaseline.edges.length} edges</span>
+        </div>
+        <div className="metric-callout">
+          <strong>Export slice</strong>
+          <span>{humanExportScopeLabel(exportScope)} · {exportGraph.nodes.length} nodes · {exportGraph.edges.length} edges</span>
         </div>
         {visibleGraphNodes.capped ? (
           <p className="placeholder-copy">Showing first {TEXT_ACCESS_LIMIT} of {visibleGraphNodes.total} graph entities. This browser list is capped and not exhaustive.</p>
@@ -3138,6 +3164,13 @@ function humanExportLabel(format: string): string {
   if (format === "edges_csv") return "Edges CSV";
   if (format === "selection_json") return "Selection JSON";
   return format.toUpperCase();
+}
+
+function humanExportScopeLabel(scope: ExportScope): string {
+  if (scope === "full") return "Full ontology";
+  if (scope === "behavior") return "Behavior only";
+  if (scope === "information") return "Information only";
+  return "Current view";
 }
 
 function dedupeSnapshots(items: LayoutSnapshot[]): LayoutSnapshot[] {

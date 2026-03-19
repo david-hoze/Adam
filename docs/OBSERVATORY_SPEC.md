@@ -118,13 +118,19 @@ Generated per experiment under `exports/<experiment_id>/`:
 - node appearance/filter metadata now also carries `entity_type`, `speech_act_mode`, and `storage_kind` so browser/export surfaces can distinguish projected ontology from compatibility-table storage
 - filter controls can constrain text, attribute/range slices, connected components, isolated-node visibility, and ego neighborhoods without mutating graph facts
 - the Data Lab provides node/edge tables, sorting, bulk selection, CSV/JSON export of the current selection, and precision-drawer handoff
+- the Data Lab export surface preserves the existing `current view` workflow and also exposes explicit ontology export scopes:
+  - `current view`
+  - `full ontology`
+  - `behavior only`
+  - `information only`
+- `full ontology` is derived from the authoritative `Assemblies` plane so memodes remain exportable in context with both constative information and performative behavior
 - the `Memode Audit` workbench provides:
   - per-memode admissibility status
   - member meme inspection
   - materialized support-edge inspection
   - member-local informational relation inspection
   - unmaterialized meme-to-meme relation inspection across the current graph payload
-- export interoperability includes Gephi-accepted graph documents for the current browser-visible graph slice: `gexf`, `graphml`, `gdf`, `gml`, `graphviz dot`, `pajek net`, `netdraw vna`, `ucinet dl`, `tulip tlp`, `tgf`, plus node/edge CSV tables for Gephi spreadsheet import
+- export interoperability includes Gephi-accepted graph documents for the selected export scope (`current view`, `full ontology`, `behavior only`, or `information only`): `gexf`, `graphml`, `gdf`, `gml`, `graphviz dot`, `pajek net`, `netdraw vna`, `ucinet dl`, `tulip tlp`, `tgf`, plus node/edge CSV tables for Gephi spreadsheet import
 
 ## Public browser payload contract
 
