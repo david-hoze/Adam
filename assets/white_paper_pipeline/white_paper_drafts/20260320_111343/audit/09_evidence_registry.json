@@ -1,0 +1,56 @@
+{
+  "observed_claims": [
+    {
+      "claim_id": "C04",
+      "claim": "adam_auto falls back to runtime_auto on MLX and logs the effective mode",
+      "evidence_type": "runtime_log + code + status_doc",
+      "locators": [
+        "docs/KNOWN_LIMITATIONS.md:L5-L6",
+        "eden/inference.py:L305-L314",
+        "logs/runtime.jsonl:L166-L167"
+      ],
+      "quality": "strong"
+    },
+    {
+      "claim_id": "C10",
+      "claim": "live observatory commit and revert persist measurement events",
+      "evidence_type": "test + export + runtime_log",
+      "locators": [
+        "tests/test_observatory_measurements.py:L53-L110",
+        "exports/b178bed2-731e-4f8b-b5f8-a93d1300b2f7/measurement_events.json",
+        "logs/runtime.jsonl:L109-L114"
+      ],
+      "quality": "strong"
+    },
+    {
+      "claim_id": "C12",
+      "claim": "hum is bounded and not prompt-injected",
+      "evidence_type": "test + runtime_log + transcript",
+      "locators": [
+        "tests/test_hum_runtime.py:L92-L121",
+        "logs/runtime.jsonl:L1233-L1235",
+        "exports/conversations/adam-graph-bb298723/operator-session-8a5213f7.md:L22-L32"
+      ],
+      "quality": "strong"
+    },
+    {
+      "claim_id": "C14",
+      "claim": "geometry metrics are labeled observed versus derived",
+      "evidence_type": "export",
+      "locators": [
+        "exports/bb298723-5fbf-4554-bf6b-ec5f4d336fbd/geometry_diagnostics.json"
+      ],
+      "quality": "strong"
+    },
+    {
+      "claim_id": "C15",
+      "claim": "export freshness can diverge across artifact families",
+      "evidence_type": "cross-export comparison",
+      "locators": [
+        "exports/bb298723-5fbf-4554-bf6b-ec5f4d336fbd/observatory_index.json",
+        "exports/bb298723-5fbf-4554-bf6b-ec5f4d336fbd/graph_knowledge_base.json"
+      ],
+      "quality": "moderate"
+    }
+  ]
+}

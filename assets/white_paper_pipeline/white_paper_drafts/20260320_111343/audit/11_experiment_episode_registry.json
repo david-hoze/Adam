@@ -1,0 +1,44 @@
+{
+  "episodes": [
+    {
+      "episode_id": "E1",
+      "status": "DONE",
+      "hypothesis": "The direct v1 loop persists turn state, membrane output, edit feedback, and the export family.",
+      "manipulation": "blank bootstrap -> chat -> edit feedback -> export",
+      "measured_observable": "turn growth, membrane sanitation, retrieval of feedback-derived text, export presence",
+      "outcome": "pass",
+      "confounds": "pytest harness rather than uncontrolled live operator session",
+      "locators": [
+        "tests/test_runtime_e2e.py:L11-L75"
+      ]
+    },
+    {
+      "episode_id": "E2",
+      "status": "DONE",
+      "hypothesis": "Observatory preview/commit/revert persists attributable mutation and rollback.",
+      "manipulation": "preview edge_add -> commit -> revert committed event",
+      "measured_observable": "edge exists after commit, disappears after revert, ledger entries persist",
+      "outcome": "pass",
+      "confounds": "server-side test harness rather than full browser rerun in this step",
+      "locators": [
+        "tests/test_observatory_measurements.py:L53-L110",
+        "exports/b178bed2-731e-4f8b-b5f8-a93d1300b2f7/measurement_events.json",
+        "logs/runtime.jsonl:L109-L114"
+      ]
+    },
+    {
+      "episode_id": "E3",
+      "status": "DONE",
+      "hypothesis": "Hum refresh remains bounded and does not become a hidden prompt channel.",
+      "manipulation": "chat -> edit feedback -> inspect hum payload -> inspect next-turn preview prompt",
+      "measured_observable": "feedback counts present in hum; hum file paths absent from prompt assembly",
+      "outcome": "pass",
+      "confounds": "bounded harness path; not a claim about all future continuity artifacts",
+      "locators": [
+        "tests/test_hum_runtime.py:L92-L121",
+        "logs/runtime.jsonl:L1233-L1235",
+        "exports/conversations/adam-graph-bb298723/operator-session-8a5213f7.md:L22-L32"
+      ]
+    }
+  ]
+}

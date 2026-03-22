@@ -7220,3 +7220,477 @@ Evidence plan:
 - Create the canonical pipeline directories if writeable, draft the intelligence brief plus support artifacts, and record deterministic write proof.
 Shortest proof path:
 - Verify governance and run-config/defaults, inspect the implementation surfaces named above, run targeted pytest families that exercise runtime/observatory/hum/Tanakh/MLX contracts, inspect one current observatory export + runtime log + current database schema, then write the brief and append POST-FLIGHT with exact artifact paths and commands.
+## [2026-03-20 10:18:57 EDT] POST-FLIGHT
+Files changed:
+- `/Users/brianray/Adam/codex_notes_garden.md`
+- `/Users/brianray/Adam/assets/white_paper_pipeline/intel_briefs/adam_intelligence_20260320_101111_core_audit.md`
+Specs changed:
+- none
+Natural-language contracts added/revised/preserved:
+- Preserved governance from `/Users/brianray/Adam/AGENTS.md`
+- Preserved Adam-first naming discipline in new prose while treating `EDEN` strings as historical/package anchors
+- Added a new intelligence-brief artifact under the canonical white-paper pipeline root; no normative repo spec files were revised
+Behavior implemented or modified:
+- no runtime behavior changed; this turn produced an audit artifact only
+Evidence produced (tests / traces / commands / exports):
+- `./.venv/bin/pytest -q` -> `119 passed, 1 warning in 96.14s`
+- `./.venv/bin/python scripts/check_observatory_build_meta.py` -> build/source hash match, `ok: true`
+- `npm --prefix web/observatory run test` -> `12 passed`
+- `sqlite3 data/eden.db` schema/count probes confirmed `measurement_events` table and current aggregate counts
+- `tail -n 40 logs/runtime.jsonl` showed `observatory_start`, `generation_start`, `generation_complete`, `hum_refreshed`, and export events
+- Observed export bundle: `/Users/brianray/Adam/exports/bb298723-5fbf-4554-bf6b-ec5f4d336fbd`
+- Write proof for brief artifact:
+  - `ls -l` size: `42772`
+  - `shasum -a 256`: `f2719776c900fdb5ae7337c7ddfbe0e79e3b6953d5a2d0b4b11855465d7917b0`
+Status register changes:
+- Implemented:
+  - Audit established repo-grounded proof for direct turn loop, bounded retrieval, regard/feedback durability, TUI-first runtime, observatory read/mutation surfaces, measurement ledger, hum, and Tanakh sidecar.
+- Instrumented:
+  - Browser mutation path is strongly evidenced by source/tests, but this turn did not run a manual live browser mutation session.
+  - MLX-local runtime path is strongly evidenced by code/tests/logs, but this turn did not run a fresh non-mock generation.
+- Conceptual:
+  - Synthetic clay patches in the brief remain proposed constraints only.
+- Unknown:
+  - Fresh current-turn MLX generation success on this exact machine.
+Truth-table / limitations updates:
+- none; no repo behavior changed
+Remaining uncertainties:
+- Fresh non-mock MLX chat on this machine was not re-executed in this turn.
+- Manual browser `Preview -> Commit -> Revert` against a live server was not executed in this turn.
+- `tests/test_tui_smoke.py` still emits an unawaited coroutine warning in the otherwise green suite.
+Next shortest proof path:
+- Run one bounded real-model MLX chat turn and preserve the matching runtime log slice plus export bundle.
+- Drive one live browser observatory mutation cycle under Playwright and archive the resulting measurement-event delta.
+- Fix or guard the TUI async warning so the suite becomes warning-clean.
+## [2026-03-20 10:41:53 EDT] PRE-FLIGHT
+Operator task:
+- Patch `/Users/brianray/Adam/scratch_space_writing_tasks/edits.md` in place so all three whitepaper-pipeline prompts treat `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/eden_whitepaper_v14.pdf` as the active baseline override for the current run unless explicitly superseded later.
+Task checksum:
+- `8c3932d56f659dbc2463712c003371000ba85d8f97258530d668ccd2c97533da`
+Repo situation:
+- Working tree remains dirty from prior repo work and prior audit artifacts; this turn should only touch `scratch_space_writing_tasks/edits.md` and append-only notes unless a blocker forces otherwise.
+- Governing file remains `/Users/brianray/Adam/AGENTS.md`; canonical notes surface remains `/Users/brianray/Adam/codex_notes_garden.md`.
+Relevant spec surfaces read:
+- `/Users/brianray/Adam/AGENTS.md`
+- `/Users/brianray/Adam/scratch_space_writing_tasks/edits.md` targeted sections for Step 1, Step 2, and Step 3 prompt contracts
+Natural-language contracts in force:
+- Patch prompts in place; do not rewrite them wholesale.
+- Preserve the exact baseline path `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/eden_whitepaper_v14.pdf` everywhere.
+- Keep upstream advisory artifacts distinct from the baseline manuscript under revision.
+Files/modules likely in scope:
+- `/Users/brianray/Adam/scratch_space_writing_tasks/edits.md`
+- `/Users/brianray/Adam/codex_notes_garden.md`
+Status register:
+- Implemented:
+  - Target sections in `edits.md` are located for all requested patch points.
+- Instrumented:
+  - Current prompt file structure is known via line-numbered inspection; final consistency still needs post-edit verification.
+- Conceptual:
+  - Baseline-override language is not yet inserted.
+- Unknown:
+  - Whether the designated baseline PDF currently exists at the pipeline path.
+Risks / invariants:
+- Do not rewrite the pinned baseline path to `seed_canon`.
+- Do not let automatic draft discovery still outrank the operator-pinned baseline after patching.
+- Do not collapse the intelligence brief or memo into the baseline-manuscript role.
+Evidence plan:
+- Apply targeted `apply_patch` edits at the requested sections only.
+- Run a consistency pass with `rg` and selective reads to verify each invariant across the three prompts.
+- Record any remaining ambiguity or collision explicitly in the handoff.
+Shortest proof path:
+- Patch the identified sections in `edits.md`, verify all requested insertions/replacements by line-numbered reread and targeted search, then append POST-FLIGHT with exact file path and verification outcome.
+## [2026-03-20 10:45:54 EDT] POST-FLIGHT
+Files changed:
+- `/Users/brianray/Adam/scratch_space_writing_tasks/edits.md`
+- `/Users/brianray/Adam/codex_notes_garden.md`
+Specs changed:
+- none
+Natural-language contracts added/revised/preserved:
+- Added explicit baseline-override blocks to Step 1, Step 2, and Step 3 prompt `RUN CONFIG / CONTROL-FLOW GUARD` sections.
+- Revised Step 3 baseline-resolution logic so the pinned pipeline-root `eden_whitepaper_v14.pdf` override outranks automatic discovery for the current run.
+- Preserved distinction between upstream advisory artifacts and the baseline manuscript under revision.
+Behavior implemented or modified:
+- no runtime behavior changed; this turn only patched prompt contracts in `/Users/brianray/Adam/scratch_space_writing_tasks/edits.md`
+Evidence produced (tests / traces / commands / exports):
+- Line-numbered reread and targeted `rg` verification over `edits.md` confirmed:
+  - three `### BASELINE OVERRIDE (NEW)` blocks
+  - Step 1 drift-surface addition for the active baseline draft
+  - Step 2 baseline-first primary input and upstream/baseline distinction
+  - Step 3 replacement `### BASELINE DRAFT RESOLUTION`
+  - Step 3 baseline input-surface insertion and baseline-resolution audit artifact requirement
+- Baseline path readability probe:
+  - `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/eden_whitepaper_v14.pdf` -> `READABLE`
+- File hash after patching:
+  - `/Users/brianray/Adam/scratch_space_writing_tasks/edits.md` -> `23965ec5280914f79de4115e334ae3a8530228b1062b6635e7488ce5f7aac0c0`
+Status register changes:
+- Implemented:
+  - All requested prompt edits landed in `edits.md`.
+  - The pinned pipeline-root v14 draft is now treated as the active current baseline across Step 1, Step 2, and Step 3 prompt logic.
+- Instrumented:
+  - Consistency pass verified the inserted sections and exact path preservation; no further behavioral proof was needed for this doc-only change.
+- Conceptual:
+  - none
+- Unknown:
+  - none material to this patch; the designated baseline file is readable.
+Truth-table / limitations updates:
+- none; implementation status surfaces were not changed
+Remaining uncertainties:
+- General historical `seed_canon` references remain elsewhere in the prompts as historical-context surfaces, but they no longer outrank or redefine the active baseline override for the current run.
+Next shortest proof path:
+- Use the patched prompts in the next Step 1/2/3 run and verify they record `BASELINE_OVERRIDE_ACTIVE=true` and baseline-resolution audit output as intended.
+## [2026-03-20 10:51:52 EDT] PRE-FLIGHT
+Operator task:
+- Produce an Adam intelligence brief as a forensic, repo-grounded audit artifact under `/Users/brianray/Adam/assets/white_paper_pipeline/intel_briefs/`, with governance resolution, baseline-drift audit against `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/eden_whitepaper_v14.pdf`, claim registers, probes, and write proof.
+Task checksum:
+- `a725663851b26f92c199135361bb58a52bf0212e2767cc43a939835a005bee7e`
+Repo situation:
+- Working tree is already dirty before this turn: `.DS_Store`, `codex_notes_garden.md`, `web/observatory/node_modules/.vite/.../results.json`, deleted `assets/seed_canon/eden_whitepaper_v14.pdf`, and untracked `assets/white_paper_pipeline/`.
+- Current repo also has modified docs/runtime/frontend hum-related surfaces relative to the older context bundle (`docs/HUM_SPEC.md`, `docs/IMPLEMENTATION_TRUTH_TABLE.md`, `docs/KNOWN_LIMITATIONS.md`, `docs/OBSERVATORY_SPEC.md`, `docs/TUI_SPEC.md`, `eden/app.py`, `eden/hum.py`, `eden/observatory/service.py`, `eden/tui/app.py`, `web/observatory/src/App.tsx`, `web/observatory/src/styles.css`, and built observatory assets). Treat earlier briefs/context bundles as archaeology only.
+Relevant spec surfaces read:
+- `/Users/brianray/Adam/AGENTS.md`
+- `/Users/brianray/Adam/README.md`
+- `/Users/brianray/Adam/docs/PROJECT_CHARTER.md`
+- `/Users/brianray/Adam/docs/CANONICAL_ONTOLOGY.md`
+- `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+- `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+- `/Users/brianray/Adam/docs/REGARD_MECHANISM.md`
+- `/Users/brianray/Adam/docs/TURN_LOOP_AND_MEMBRANE.md`
+- `/Users/brianray/Adam/docs/GRAPH_SCHEMA.md`
+- `/Users/brianray/Adam/docs/TUI_SPEC.md`
+- `/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`
+- `/Users/brianray/Adam/docs/OBSERVATORY_INTERACTION_SPEC.md`
+- `/Users/brianray/Adam/docs/OBSERVATORY_GEOMETRY_SPEC.md`
+- `/Users/brianray/Adam/docs/OBSERVATORY_E2E_AUDIT.md`
+- `/Users/brianray/Adam/docs/MEASUREMENT_EVENT_MODEL.md`
+- `/Users/brianray/Adam/docs/EXPERIMENT_PROTOCOLS.md`
+- `/Users/brianray/Adam/docs/SOURCE_MANIFEST.md`
+- `/Users/brianray/Adam/docs/MIGRATION_NOTES_V1_1.md`
+- `/Users/brianray/Adam/docs/PATCH_MANIFEST_V1_1.md`
+- `/Users/brianray/Adam/docs/PATCH_MANIFEST_V1_2.md`
+- `/Users/brianray/Adam/docs/INFERENCE_PROFILES.md`
+- `/Users/brianray/Adam/docs/DOCUMENT_INGEST.md`
+Natural-language contracts in force:
+- Governance resolves from `/Users/brianray/Adam/AGENTS.md`; notes surface is `/Users/brianray/Adam/codex_notes_garden.md`.
+- Use Adam-first naming in new prose while treating `EDEN` strings as shell/package/history anchors.
+- Fail closed if governance becomes unresolved; otherwise keep claims disciplined as `Implemented`, `Instrumented`, `Conceptual`, or `Unknown`.
+- Baseline override is active for `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/eden_whitepaper_v14.pdf`; use it only as a drift surface, not as implementation proof.
+Files/modules likely in scope:
+- `/Users/brianray/Adam/eden/runtime.py`
+- `/Users/brianray/Adam/eden/retrieval.py`
+- `/Users/brianray/Adam/eden/regard.py`
+- `/Users/brianray/Adam/eden/hum.py`
+- `/Users/brianray/Adam/eden/inference.py`
+- `/Users/brianray/Adam/eden/models/catalog.py`
+- `/Users/brianray/Adam/eden/models/mlx_backend.py`
+- `/Users/brianray/Adam/eden/storage/schema.py`
+- `/Users/brianray/Adam/eden/storage/graph_store.py`
+- `/Users/brianray/Adam/eden/observatory/server.py`
+- `/Users/brianray/Adam/eden/observatory/service.py`
+- `/Users/brianray/Adam/eden/observatory/exporters.py`
+- `/Users/brianray/Adam/eden/observatory/geometry.py`
+- `/Users/brianray/Adam/eden/tanakh/service.py`
+- `/Users/brianray/Adam/eden/tui/app.py`
+- `/Users/brianray/Adam/tests/`
+- `/Users/brianray/Adam/logs/runtime.jsonl`
+- `/Users/brianray/Adam/data/eden.db`
+- `/Users/brianray/Adam/exports/`
+- `/Users/brianray/Adam/assets/white_paper_pipeline/intel_briefs/`
+Status register:
+- Implemented:
+  - Governance resolved from `/Users/brianray/Adam/AGENTS.md`.
+  - Canonical pipeline directories exist.
+  - Baseline override PDF exists and is readable at `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/eden_whitepaper_v14.pdf`.
+  - Research-library resolution currently points to `/Users/brianray/Adam/assets/cannonical_secondary_sources/`.
+- Instrumented:
+  - Constitutional docs and archaeology manifests have been read; current code/test/runtime proof still needs direct verification for each basin.
+- Conceptual:
+  - Synthetic clay patches for the brief are not yet drafted and will remain proposed-only.
+- Unknown:
+  - Fresh current-turn non-mock MLX generation on this machine.
+  - Fresh current-turn live browser `Preview -> Commit -> Revert` against the observatory server.
+Risks / invariants:
+- Do not let the earlier 2026-03-20 brief substitute for current repo verification; current modified hum/frontend/doc surfaces may supersede it.
+- Do not treat the baseline draft, prior briefs, or prompt assumptions as implementation proof.
+- Keep browser exposure claims distinct from server-side capability and mark explicit browser contract gaps if current exposure is incomplete.
+- Preserve append-only note discipline and avoid touching unrelated dirty files.
+Evidence plan:
+- Inspect current runtime, retrieval, regard, observatory, storage, hum, Tanakh, and TUI modules directly.
+- Run current tests and supporting commands that prove runtime/observatory/frontend/database state.
+- Inspect current runtime logs, current export bundles, database schema/counts, and baseline draft drift excerpts.
+- Write the new brief and support artifacts under the canonical pipeline root, then capture deterministic write proof.
+Shortest proof path:
+- Read the current code surfaces named above, run `./.venv/bin/pytest -q`, run targeted observatory/frontend verification commands if needed, inspect `logs/runtime.jsonl`, `data/eden.db`, and one current export bundle, compare the baseline draft against current repo truth for overclaims, then write the brief and POST-FLIGHT note with exact artifact paths and hashes.
+
+## [2026-03-20 11:10:02 EDT] POST-FLIGHT
+Files changed:
+- `/Users/brianray/Adam/codex_notes_garden.md`
+- `/Users/brianray/Adam/assets/white_paper_pipeline/intel_briefs/adam_intelligence_20260320_110131_core_audit.md`
+- `/Users/brianray/Adam/assets/white_paper_pipeline/intel_briefs/_support/adam_mechanism_matrix_20260320_110131_core_audit.md`
+- `/Users/brianray/Adam/assets/white_paper_pipeline/intel_briefs/_support/implementation_work_order_20260320_110131_core_audit.md`
+- `/Users/brianray/Adam/assets/white_paper_pipeline/intel_briefs/_support/synthetic_clay_patchkit_20260320_110131_core_audit.md`
+Specs changed:
+- none
+Natural-language contracts added/revised/preserved:
+- Preserved repo governance from `/Users/brianray/Adam/AGENTS.md`.
+- Added a new intelligence-brief artifact family under the canonical white-paper pipeline root.
+- Preserved strict claim discipline: baseline draft treated as drift surface only, not implementation proof.
+Behavior implemented or modified:
+- No runtime code changed.
+- Produced a new audit artifact set covering governance resolution, patch gate, basin analysis A-K, drift check, execution log, mechanism matrix, work order, and synthetic clay patchkit.
+Evidence produced (tests / traces / commands / exports):
+- `./.venv/bin/pytest -q` -> `119 passed, 1 warning in 94.40s`
+- `npm --prefix web/observatory run test` -> `12 passed`
+- `./.venv/bin/python scripts/check_observatory_build_meta.py` -> `"ok": true`
+- SQLite counts probe on `/Users/brianray/Adam/data/eden.db` -> `measurement_events=2`, `turns=75`, `memes=82196`, `memodes=18383`
+- runtime-log probe on `/Users/brianray/Adam/logs/runtime.jsonl` -> recent `generation_start` / `generation_complete` rows with `"backend": "mlx"`
+- export inspection on `/Users/brianray/Adam/exports/b178bed2-731e-4f8b-b5f8-a93d1300b2f7/measurement_events.json` -> exported `edge_add` + `revert` ledger
+- baseline hash on `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/eden_whitepaper_v14.pdf` -> `0ac4ed914143db71d9035d92f9091327800e8380988fd9bc0fc3b445d1129107`
+- write proof:
+  - brief hash `7ad7060acdaadcf6791a37d04eeaf1059edbdc5401c228b1186fb0430e854c0f`
+  - mechanism matrix hash `cbcd318d24accff54aec91fb9180e3a3bc7e6e064729815f7679b5be1d647230`
+  - work order hash `4c13893a4f746835e5429a15a40af52c5c2ba6c2df13f4b04f5f352c730316b3`
+  - clay patchkit hash `45bcea32e1c704fecce6ee7908cad3c394fb834358d9b20299bc92a0ddecea78`
+Status register changes:
+- Implemented:
+  - Governance resolved and logged.
+  - New intelligence brief and support artifacts written to the canonical pipeline root.
+  - Current-turn execution proof collected for MLX runtime, observatory server/browser tests, and measurement ledger persistence.
+- Instrumented:
+  - Browser mutation authority is repo-evidenced and browser-exposed, but this turn still lacks a live browser-path mutation test through the React UI.
+- Conceptual:
+  - Synthetic clay patches remain proposed-only constraints.
+- Unknown:
+  - Fresh current-turn manual browser execution of live `Preview -> Commit -> Revert`.
+  - Fresh current-turn non-mock operator-initiated Adam chat on this machine outside prior runtime logs/tests.
+Truth-table / limitations updates:
+- none; this was an audit-artifact turn, not a spec/code change turn
+Remaining uncertainties:
+- `tests/test_tui_smoke.py::test_tui_conversation_atlas_saves_taxonomy_and_resumes_session` still emits a coroutine warning.
+- Export freshness can diverge across experiments; some export bundles show zero measurement events while the DB and another export bundle prove the ledger exists.
+Next shortest proof path:
+- Add one browser-path mutation test, one export-vs-DB measurement reconciliation test, and remove the TUI warning; rerun `./.venv/bin/pytest -q` and refresh the brief if those proofs land.
+
+## [2026-03-20 11:13:43 EDT] PRE-FLIGHT
+Operator task:
+- Produce Step 2 of the Adam whitepaper workflow: a codex pre-writing memo addressed to the later whitepaper-generation pass.
+Task checksum:
+- `15579f96f9b86b6f5e8ab2d1c7ac1383acf6b18728629ec85c2c2e43bd5efecf`
+Repo situation:
+- Repo root is `/Users/brianray/Adam`.
+- Governance is expected to resolve from `/Users/brianray/Adam/AGENTS.md`.
+- Canonical pipeline directories exist; `/Users/brianray/Adam/assets/white_paper_pipeline/writing_memos/` is currently empty.
+- Working tree remains dirty outside this task; do not touch unrelated changes.
+Relevant spec surfaces read:
+- `/Users/brianray/Adam/AGENTS.md`
+- `/Users/brianray/Adam/README.md`
+- `/Users/brianray/Adam/docs/PROJECT_CHARTER.md`
+- `/Users/brianray/Adam/docs/CANONICAL_ONTOLOGY.md`
+- `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+- `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+- `/Users/brianray/Adam/docs/REGARD_MECHANISM.md`
+- `/Users/brianray/Adam/docs/GRAPH_SCHEMA.md`
+- `/Users/brianray/Adam/docs/TURN_LOOP_AND_MEMBRANE.md`
+- `/Users/brianray/Adam/docs/TUI_SPEC.md`
+- `/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`
+- `/Users/brianray/Adam/docs/OBSERVATORY_INTERACTION_SPEC.md`
+- `/Users/brianray/Adam/docs/OBSERVATORY_GEOMETRY_SPEC.md`
+- `/Users/brianray/Adam/docs/OBSERVATORY_E2E_AUDIT.md`
+- `/Users/brianray/Adam/docs/MEASUREMENT_EVENT_MODEL.md`
+- `/Users/brianray/Adam/docs/EXPERIMENT_PROTOCOLS.md`
+- `/Users/brianray/Adam/docs/SOURCE_MANIFEST.md`
+- `/Users/brianray/Adam/docs/MIGRATION_NOTES_V1_1.md`
+- `/Users/brianray/Adam/docs/PATCH_MANIFEST_V1_1.md`
+- `/Users/brianray/Adam/docs/PATCH_MANIFEST_V1_2.md`
+Natural-language contracts in force:
+- Use Adam-first naming in new prose; treat `EDEN` strings as shell/package/history anchors unless a precise shell/runtime distinction is necessary.
+- The selected intelligence brief is advisory input, not implementation proof by itself.
+- The designated baseline draft is the active manuscript drift surface for this run, not implementation proof.
+- Strong claims in the memo must cash out into paths, tests, traces, exports, or explicit missing artifacts.
+Files/modules likely in scope:
+- `/Users/brianray/Adam/assets/white_paper_pipeline/intel_briefs/adam_intelligence_20260320_110131_core_audit.md`
+- `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/eden_whitepaper_v14.pdf`
+- `/Users/brianray/Adam/README.md`
+- `/Users/brianray/Adam/docs/`
+- `/Users/brianray/Adam/eden/runtime.py`
+- `/Users/brianray/Adam/eden/inference.py`
+- `/Users/brianray/Adam/web/observatory/src/App.tsx`
+- `/Users/brianray/Adam/tests/test_observatory_measurements.py`
+- `/Users/brianray/Adam/web/observatory/tests/e2e/observatory.spec.ts`
+- `/Users/brianray/Adam/assets/white_paper_pipeline/writing_memos/`
+Status register:
+- Implemented:
+  - Upstream intelligence brief exists in the canonical pipeline root.
+  - Baseline override PDF exists and is readable.
+  - Canonical writing-memo output directory exists.
+- Instrumented:
+  - Current observatory browser exposure is documented in docs and e2e audit surfaces; this turn may rely on current direct code/test anchors rather than a new rerun.
+- Conceptual:
+  - Advisory downgrade language and ranked whitepaper priorities are not yet written.
+- Unknown:
+  - Whether any additional memo-specific archaeology beyond the current intelligence brief materially changes the advisory priorities.
+Risks / invariants:
+- Do not let the current intelligence brief become a laundering surface for claims that no longer have current anchors.
+- Keep browser-exposed contract, server-side tested contract, and documented contract distinct.
+- Do not collapse the baseline draft and the intelligence brief into one role; the baseline is the manuscript-under-revision, the brief is the advisory audit input.
+- No comparator section unless current operator config explicitly enables it.
+Evidence plan:
+- Resolve governance and upstream artifact lineage explicitly.
+- Read the designated baseline draft, the selected intelligence brief, current repo truth surfaces, and narrow code/test anchors for observatory/browser/runtime constraints.
+- Write the memo under the canonical writing-memos path with the required section order.
+- Append POST note and capture deterministic write proof.
+Shortest proof path:
+- Use the latest canonical intelligence brief plus current docs/code/test anchors to stabilize constraints and downgrade advice, write the memo, then record hashes and note completion.
+
+## [2026-03-20 11:18:01 EDT] POST-FLIGHT
+Files changed:
+- `/Users/brianray/Adam/codex_notes_garden.md`
+- `/Users/brianray/Adam/assets/white_paper_pipeline/writing_memos/20260320_111343_codex_memo.md`
+Specs changed:
+- none
+Natural-language contracts added/revised/preserved:
+- Preserved governance from `/Users/brianray/Adam/AGENTS.md`.
+- Preserved Adam-first naming discipline in newly generated prose while treating `EDEN` strings as shell/history anchors.
+- Added a Step 2 advisory memo under the canonical white-paper pipeline root.
+Behavior implemented or modified:
+- No runtime or product code changed.
+- Produced a pre-writing memo that stabilizes constraints, drift risks, ranked whitepaper priorities, and claim anchors for the later whitepaper-generation pass.
+Evidence produced (tests / traces / commands / exports):
+- governance resolution via `/Users/brianray/Adam/AGENTS.md`
+- upstream intelligence brief resolution:
+  - `/Users/brianray/Adam/assets/white_paper_pipeline/intel_briefs/adam_intelligence_20260320_110131_core_audit.md`
+  - hash `7ad7060acdaadcf6791a37d04eeaf1059edbdc5401c228b1186fb0430e854c0f`
+- baseline override resolution:
+  - `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/eden_whitepaper_v14.pdf`
+  - hash `0ac4ed914143db71d9035d92f9091327800e8380988fd9bc0fc3b445d1129107`
+- current repo truth surfaces read:
+  - `/Users/brianray/Adam/README.md`
+  - `/Users/brianray/Adam/docs/PROJECT_CHARTER.md`
+  - `/Users/brianray/Adam/docs/CANONICAL_ONTOLOGY.md`
+  - `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+  - `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+  - `/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`
+  - `/Users/brianray/Adam/docs/OBSERVATORY_INTERACTION_SPEC.md`
+  - `/Users/brianray/Adam/docs/OBSERVATORY_GEOMETRY_SPEC.md`
+  - `/Users/brianray/Adam/docs/OBSERVATORY_E2E_AUDIT.md`
+  - `/Users/brianray/Adam/docs/MEASUREMENT_EVENT_MODEL.md`
+- narrow code/test anchors read:
+  - `/Users/brianray/Adam/eden/runtime.py`
+  - `/Users/brianray/Adam/eden/inference.py`
+  - `/Users/brianray/Adam/web/observatory/src/App.tsx`
+  - `/Users/brianray/Adam/web/observatory/src/App.test.tsx`
+  - `/Users/brianray/Adam/tests/test_observatory_measurements.py`
+  - `/Users/brianray/Adam/web/observatory/tests/e2e/observatory.spec.ts`
+- write proof:
+  - memo path `/Users/brianray/Adam/assets/white_paper_pipeline/writing_memos/20260320_111343_codex_memo.md`
+  - memo hash `49a187b55104f8730587c936a77539b1a64ff4ff3f195b3c223cb8550cd1bf81`
+Status register changes:
+- Implemented:
+  - Canonical Step 2 memo artifact written.
+  - Governance, baseline, and upstream-brief lineage recorded inside the memo.
+- Instrumented:
+  - Memo now points the later whitepaper pass to browser/server/static observatory distinctions without collapsing them.
+- Conceptual:
+  - Ranked whitepaper priorities and downgrade instructions remain advisory until the whitepaper pass applies them.
+- Unknown:
+  - Whether the later whitepaper pass will keep Tanakh in the main arc or move it to a bounded sidecar section.
+  - Whether a negative-scope appendix for no-training/no-embeddings claims will be added before publication.
+Truth-table / limitations updates:
+- none; this was a memo-artifact turn, not a spec/code change turn
+Remaining uncertainties:
+- Current public naming still carries substantial EDEN residue in README, browser shell labels, and the baseline manuscript.
+- The memo did not rerun test suites because Step 2 made no implementation changes and relied on the current intelligence brief plus current repo anchors.
+Next shortest proof path:
+- Use the memo in the whitepaper-generation pass to rewrite the control loop, ontology, and observatory sections against current anchors; if the paper wants stronger public claims on browser causality or negative scope, add the missing appendices/tests there.
+
+## [2026-03-20 11:54:12 EDT] POST-FLIGHT
+Files changed:
+- `/Users/brianray/Adam/codex_notes_garden.md`
+- `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/20260320_111343/latex/main.tex`
+- `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/20260320_111343/data/generate_figure_bundle.py`
+- `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/20260320_111343/figure_bundle/`
+- `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/20260320_111343/audit/`
+- `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/20260320_111343/pdf/adam_whitepaper_20260320_111343.pdf`
+- `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/LATEST_ADAM_WHITEPAPER.pdf`
+- `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/LATEST_ADAM_WHITEPAPER.json`
+Specs changed:
+- none; this was a whitepaper-generation and audit turn, not a runtime/spec mutation turn
+Natural-language contracts added/revised/preserved:
+- Preserved governance from `/Users/brianray/Adam/AGENTS.md`.
+- Preserved Adam-first naming in new manuscript prose while treating `EDEN` strings as implementation-history anchors.
+- Revised the baseline manuscript away from governor/planner overclaim and toward the direct Adam v1 loop, current ontology, bounded observatory contract, and explicit browser-gap language.
+Behavior implemented or modified:
+- No runtime or product behavior changed.
+- Produced a new Adam whitepaper run directory with LaTeX source, compiled PDF, figure bundle, data extracts, and audit artifacts.
+- Canonized the verified run PDF to `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/LATEST_ADAM_WHITEPAPER.pdf` with provenance manifest.
+Evidence produced (tests / traces / commands / exports):
+- governance resolved via `/Users/brianray/Adam/AGENTS.md`
+- upstream advisory artifacts resolved:
+  - `/Users/brianray/Adam/assets/white_paper_pipeline/intel_briefs/adam_intelligence_20260320_110131_core_audit.md`
+  - `/Users/brianray/Adam/assets/white_paper_pipeline/writing_memos/20260320_111343_codex_memo.md`
+- baseline resolved and opened:
+  - `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/eden_whitepaper_v14.pdf`
+  - extracted text `/Users/brianray/Adam/tmp/source_inventory/eden_whitepaper_v14.txt`
+- current repo truth + evidence surfaces opened:
+  - `/Users/brianray/Adam/README.md`
+  - `/Users/brianray/Adam/docs/PROJECT_CHARTER.md`
+  - `/Users/brianray/Adam/docs/CANONICAL_ONTOLOGY.md`
+  - `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`
+  - `/Users/brianray/Adam/docs/KNOWN_LIMITATIONS.md`
+  - `/Users/brianray/Adam/docs/REGARD_MECHANISM.md`
+  - `/Users/brianray/Adam/docs/TURN_LOOP_AND_MEMBRANE.md`
+  - `/Users/brianray/Adam/docs/GRAPH_SCHEMA.md`
+  - `/Users/brianray/Adam/docs/TUI_SPEC.md`
+  - `/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`
+  - `/Users/brianray/Adam/docs/OBSERVATORY_INTERACTION_SPEC.md`
+  - `/Users/brianray/Adam/docs/OBSERVATORY_GEOMETRY_SPEC.md`
+  - `/Users/brianray/Adam/docs/OBSERVATORY_E2E_AUDIT.md`
+  - `/Users/brianray/Adam/docs/MEASUREMENT_EVENT_MODEL.md`
+  - `/Users/brianray/Adam/docs/EXPERIMENT_PROTOCOLS.md`
+  - `/Users/brianray/Adam/docs/SOURCE_MANIFEST.md`
+  - `/Users/brianray/Adam/docs/PATCH_MANIFEST_V1_1.md`
+  - `/Users/brianray/Adam/docs/PATCH_MANIFEST_V1_2.md`
+  - `/Users/brianray/Adam/docs/MIGRATION_NOTES_V1_1.md`
+  - `/Users/brianray/Adam/eden/runtime.py`
+  - `/Users/brianray/Adam/eden/inference.py`
+  - `/Users/brianray/Adam/tests/test_runtime_e2e.py`
+  - `/Users/brianray/Adam/tests/test_hum_runtime.py`
+  - `/Users/brianray/Adam/tests/test_observatory_measurements.py`
+  - `/Users/brianray/Adam/web/observatory/src/App.tsx`
+  - `/Users/brianray/Adam/web/observatory/tests/e2e/observatory.spec.ts`
+  - `/Users/brianray/Adam/logs/runtime.jsonl`
+  - `/Users/brianray/Adam/exports/conversations/adam-graph-bb298723/operator-session-8a5213f7.md`
+  - selected `graph_knowledge_base.json`, `measurement_events.json`, `geometry_diagnostics.json`, `observatory_index.json` under `/Users/brianray/Adam/exports/`
+- targeted execution proof:
+  - `./.venv/bin/pytest -q tests/test_runtime_e2e.py` -> `14 passed`
+  - `./.venv/bin/pytest -q tests/test_observatory_measurements.py` -> `12 passed`
+  - `./.venv/bin/pytest -q tests/test_hum_runtime.py` -> `4 passed`
+  - `./.venv/bin/python scripts/check_observatory_build_meta.py` -> `{"ok": true, ...}`
+  - `python3 /Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/20260320_111343/data/generate_figure_bundle.py`
+  - `latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex`
+  - `pdftotext -f 1 -l 9 ... | wc -w` -> `7094`
+  - `pdftoppm -png -f 1 -singlefile .../adam_whitepaper_20260320_111343.pdf .../page1`
+  - `pdftoppm -png -f 11 -singlefile .../adam_whitepaper_20260320_111343.pdf .../page11`
+- write/build proof:
+  - run PDF size `1495669` bytes
+  - run PDF and canonical PDF match in size
+  - hashes and layout/build proof recorded under `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/20260320_111343/audit/15_build_layout_write_proof.md`
+Status register changes:
+- Implemented:
+  - Adam whitepaper LaTeX source, compiled PDF, figure bundle, audit bundle, and canonical latest-PDF copy.
+  - Claim map, vanished-claims ledger, evidence registry, episode registry, and prompt-assumption self-check for this run.
+- Instrumented:
+  - Browser/server drift, archaeology, and figure provenance are now explicit audit surfaces for the paper run.
+- Conceptual:
+  - Stronger browser-causality claims beyond current measurement/edit evidence remain future work.
+  - Any broader public comparison posture remains disabled absent operator enablement.
+- Unknown:
+  - Fresh end-to-end browser rerun of preview -> commit -> revert was not executed in this turn; current UI claims stay bounded to opened code/tests/docs.
+  - Export freshness across all experiment directories remains uneven; the paper records this as a scope/recency limit rather than a failure claim.
+Truth-table / limitations updates:
+- none; no code/spec feature status changed in repo truth surfaces
+Remaining uncertainties:
+- The repo still contains public-facing EDEN residue outside the new paper.
+- `observatory_index.json` summary fields do not perfectly align with every per-export measurement surface; this was handled as a freshness/aggregation caveat in the paper and audit.
+- LaTeX build succeeded with some overfull/underfull warnings; layout verification passed, but typography can still be tightened in a future manuscript-only pass.
+Next shortest proof path:
+- If a stronger public browser-mutability claim is wanted, rerun a fresh browser-path proof that exercises preview -> commit -> revert through the React surface and archive the resulting evidence under `exports/` for direct citation.

@@ -1,0 +1,14 @@
+table,count
+experiments,17
+sessions,29
+turns,75
+documents,13
+document_chunks,7075
+memes,82196
+memodes,18383
+edges,447516
+feedback_events,53
+measurement_events,2
+membrane_events,75
+trace_events,240
+export_artifacts,2718
