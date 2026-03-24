@@ -645,6 +645,14 @@ describe("EDEN Observatory App", () => {
     });
     expect(screen.getByTestId("graph-panel").textContent).toContain("Graph canvas:25:nodesSelected=25");
     expect(screen.getByTestId("graph-panel").textContent).toContain("focusNodes=25");
+
+    fireEvent.click(screen.getByRole("button", { name: "Restore Full View" }));
+
+    expect(screen.getAllByText(/Restored full filtered graph view/).length).toBeGreaterThan(0);
+    expect(screen.getByTestId("graph-panel").textContent).toContain("Graph canvas:330:nodesSelected=0");
+    expect(screen.getByTestId("graph-panel").textContent).toContain("focusNodes=0");
+    expect(screen.getAllByRole("button", { name: "Select Nodes to Run" })[0].hasAttribute("disabled")).toBe(true);
+    expect(screen.getAllByText("0%").length).toBeGreaterThan(0);
   });
 
   it("keeps visible reasoning and hum continuity in the demoted status row", async () => {

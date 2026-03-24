@@ -8863,3 +8863,57 @@ Remaining uncertainties:
 Did not rerun full repo `./.venv/bin/pytest -q` in this turn; proof is limited to the observatory frontend test/build surface. The live operator machine still needs one more agent/manual confirmation that counts and canvas now collapse to the bounded sample.
 Next shortest proof path:
 Refresh the live observatory and rerun the agent flow. If the helper still does not show a clearly smaller visible graph, capture the new visible node count and whether `Restore Full View` appears so the next patch can inspect any live-shell staleness or a remaining view-state mismatch.
+## [2026-03-24 15:18:08 EDT] PRE-FLIGHT
+Operator task:
+Clean up the remaining helper state leak so `Restore Full View` does not leave the helper-derived 25-node selection and stale `100%` progress active in the restored full-graph view.
+Task checksum:
+`f4e4b1b4db3c94d1`
+Repo situation:
+Worktree already contains the isolate-view helper patch and rebuilt observatory bundle. Browser-agent evidence now says the main helper/run/restore workflow works, but `Selection` remains `25 nodes` after restore and the progress meter stays at `100%`, which reads as stale local-run state rather than current full-view state.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/OBSERVATORY_SPEC.md`; `/Users/brianray/Adam/docs/OBSERVATORY_INTERACTION_SPEC.md`; `/Users/brianray/Adam/docs/IMPLEMENTATION_TRUTH_TABLE.md`; `/Users/brianray/Adam/AGENTS.md`.
+Natural-language contracts in force:
+`Restore Full View` should restore the full filtered graph truthfully without dragging helper-only view state forward. Browser-local helper selection/run state may remain local, but it should not misrepresent the restored full view.
+Files/modules likely in scope:
+`/Users/brianray/Adam/web/observatory/src/App.tsx`; `/Users/brianray/Adam/web/observatory/src/App.test.tsx`; `/Users/brianray/Adam/codex_notes_garden.md`.
+Status register:
+- Implemented:
+  - The helper isolates a 25-node neighborhood and `Restore Full View` returns the full graph.
+- Instrumented:
+  - Browser-agent evidence proves helper-derived selection/progress still leak across restore.
+- Conceptual:
+  - Explicit cleanup of helper-derived selection/run meter on restore.
+- Unknown:
+  - Whether any operator would want helper selection preserved intentionally after restore; current evidence argues that the stale state is misleading.
+Risks / invariants:
+Do not regress the now-working helper isolation flow. Keep the cleanup scoped to helper-derived restore behavior rather than clearing unrelated graph/workbench state opportunistically.
+Evidence plan:
+Patch restore/sample handlers to reset helper-derived selection/progress, extend the focused Vitest coverage, rerun the observatory frontend test/build surface, and report the result.
+Shortest proof path:
+Clear `selectedNodeIds` and reset the layout progress state when restoring the full view, update `App.test.tsx` to prove restore returns to the full mocked graph with no helper selection, then rerun `npm --prefix /Users/brianray/Adam/web/observatory test` and `npm --prefix /Users/brianray/Adam/web/observatory run build:app`.
+## [2026-03-24 15:19:32 EDT] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/web/observatory/src/App.tsx`; `/Users/brianray/Adam/web/observatory/src/App.test.tsx`; `/Users/brianray/Adam/codex_notes_garden.md`.
+Specs changed:
+None in this turn. The existing helper/restore contract remained correct; this patch cleaned up stale browser-local state so the restored full view matches that contract more honestly.
+Natural-language contracts added/revised/preserved:
+Preserved the helper-isolate-run-restore contract. Refined the implementation so `Restore Full View` clears helper-derived selection/run-meter state instead of carrying stale local-run affordances into the restored full graph.
+Behavior implemented or modified:
+`/Users/brianray/Adam/web/observatory/src/App.tsx` now resets helper-derived `selectedNodeIds`, clears any selected edge, and restores the layout run state back to a non-running `0%` baseline when the operator restores the full filtered graph. The helper-selection path also now resets stale prior run progress before starting a fresh isolated sample.
+Evidence produced (tests / traces / commands / exports):
+Ran `npm --prefix /Users/brianray/Adam/web/observatory test` and got `16 passed`. Ran `npm --prefix /Users/brianray/Adam/web/observatory run build:app` successfully; Vite rebuilt the checked-in observatory bundle and emitted only the existing chunk-size warning. Updated `App.test.tsx` so the helper workflow now proves `Restore Full View` returns the mocked graph to `330` visible nodes with `nodesSelected=0`, `focusNodes=0`, a disabled `Select Nodes to Run` control, and a reset `0%` progress readout.
+Status register changes:
+- Implemented:
+  - `Restore Full View` now clears helper-derived selection and stale local-run progress state.
+- Instrumented:
+  - Existing browser-agent evidence remains the direct proof for why the cleanup patch was needed.
+- Conceptual:
+  - No new conceptual surfaces were added in this turn.
+- Unknown:
+  - No headed-browser/manual proof was produced in this turn for the live workstation after the cleanup patch.
+Truth-table / limitations updates:
+No truth-table or limitation doc changes were required in this turn because the patch restored consistency with the already-declared helper/restore behavior.
+Remaining uncertainties:
+Did not rerun full repo `./.venv/bin/pytest -q` in this turn; proof is limited to the observatory frontend test/build surface. One final agent/manual confirmation on the live workstation would prove that the stale `25 nodes` selection and `100%` meter no longer persist after restore.
+Next shortest proof path:
+Refresh the live observatory and rerun the helper flow once more. Confirm that `Restore Full View` now returns to the full graph with no lingering helper selection and a reset `0%` progress meter.

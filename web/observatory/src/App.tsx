@@ -1920,17 +1920,21 @@ export default function App({ bootstrap: rawBootstrap }: { bootstrap: Bootstrap 
     setLayoutIsolatedNodeIds([]);
     setCoordinateMode(layoutDefaults.coordinate_mode ?? "force");
     setLayoutRunState((current) => ({
-      ...current,
+      ...DEFAULT_LAYOUT_STATE,
+      target: current.target ?? layoutTarget,
       lastMessage: "Reset to exported coordinate mode",
     }));
   }
 
   function handleRestoreFullGraphView() {
     setLayoutIsolatedNodeIds([]);
+    setSelectedNodeIds([]);
+    setSelectedEdgeId(null);
     setGraphFocusNodeIds([]);
     setGraphFocusToken((current) => current + 1);
     setLayoutRunState((current) => ({
-      ...current,
+      ...DEFAULT_LAYOUT_STATE,
+      target: current.target ?? layoutTarget,
       lastMessage: "Restored full filtered graph view",
     }));
   }
@@ -1945,7 +1949,8 @@ export default function App({ bootstrap: rawBootstrap }: { bootstrap: Bootstrap 
     setGraphFocusNodeIds(layoutVisibleSampleNodeIds);
     setGraphFocusToken((current) => current + 1);
     setLayoutRunState((current) => ({
-      ...current,
+      ...DEFAULT_LAYOUT_STATE,
+      target: current.target ?? layoutTarget,
       lastMessage: `Selected visible sample (${layoutVisibleSampleNodeIds.length.toLocaleString("en-US")} nodes) for browser-local layout; isolated and focused that subgraph`,
     }));
   }
