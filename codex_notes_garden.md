@@ -8046,3 +8046,59 @@ Remaining uncertainties:
 This is a readable extraction artifact, not a perfect structural reconstruction. The original two-column PDF layout still leaks into the text stream in places, especially around page transitions and inline footnote/citation areas.
 Next shortest proof path:
 If cleaner semantic Markdown is needed, convert `/Users/brianray/Adam/assets/white_paper_pipeline/white_paper_drafts/20260323_142555/latex/main.tex` through a source-to-Markdown path and keep the current PDF-extracted file as the auditable “from-PDF” companion.
+## [2026-03-23 22:27:23 EDT] PRE-FLIGHT
+Operator task:
+Remove all tracked contents under `/Users/brianray/Adam/exports/` from Git while keeping the top-level `exports/` directory present for collaborators, and clarify that Adam treats `exports/` as runtime-generated local output.
+Task checksum:
+`ed46352775e1cc704770c9a8ff00c83969f49a479bc20ea93c431f36693d4b1a`
+Repo situation:
+Working tree clean. `git ls-files 'exports/**'` reports 91 tracked export artifacts under `exports/` despite existing ignore rules. `.gitignore` already ignores much of `exports/`, so this is primarily an index-cleanup and collaborator-facing note change.
+Relevant spec surfaces read:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`; `/Users/brianray/Adam/docs/USER_JOURNEYS.md`; `/Users/brianray/Adam/README.md`.
+Natural-language contracts in force:
+Conversation logs and observability artifacts are runtime outputs under `exports/`, not source code. The runtime/export services create export directories on demand via `mkdir(parents=True, exist_ok=True)`.
+Files/modules likely in scope:
+`/Users/brianray/Adam/.gitignore`; `/Users/brianray/Adam/exports/.gitkeep`; `/Users/brianray/Adam/README.md`; `/Users/brianray/Adam/docs/TUI_SPEC.md`; `/Users/brianray/Adam/codex_notes_garden.md`.
+Status register:
+- Implemented:
+  - Runtime writes conversation logs to `exports/conversations/...md`.
+  - Observatory/export services create export directories on demand.
+- Instrumented:
+  - Export locations are documented in repo-facing docs.
+- Conceptual:
+  - Repo policy that `exports/` should stay entirely unversioned for collaborator handoff is not yet stated explicitly in tracked docs.
+- Unknown:
+  - Whether any collaborator workflow currently depends on committed `exports/` artifacts as fixtures.
+Risks / invariants:
+Do not delete local export files from disk; remove them from the Git index only. Preserve a tracked top-level `exports/` directory sentinel so fresh clones retain the expected path. Do not change runtime output paths.
+Evidence plan:
+Update ignore policy, add a sentinel, untrack `exports/**`, and verify with `git ls-files 'exports/**'`, `git status --short`, and `git check-ignore -v`.
+Shortest proof path:
+Patch `.gitignore` and docs, add `exports/.gitkeep`, run `git rm -r --cached --ignore-unmatch exports`, re-add the sentinel, then confirm only `.gitkeep` remains tracked under `exports/`.
+## [2026-03-23 22:29:54 EDT] POST-FLIGHT
+Files changed:
+`/Users/brianray/Adam/.gitignore`; `/Users/brianray/Adam/README.md`; `/Users/brianray/Adam/docs/TUI_SPEC.md`; `/Users/brianray/Adam/exports/.gitkeep`; `/Users/brianray/Adam/codex_notes_garden.md`.
+Specs changed:
+`/Users/brianray/Adam/docs/TUI_SPEC.md`.
+Natural-language contracts added/revised/preserved:
+Revised the repo-facing contract so `exports/` is treated as runtime-generated local output rather than tracked source. Preserved the runtime contract that conversation logs and observatory artifacts are still written under `exports/`.
+Behavior implemented or modified:
+No runtime behavior changed. Repo packaging changed so new files under `exports/` are ignored by Git, `exports/.gitkeep` preserves the top-level directory for collaborators, and the currently tracked export artifacts are staged for removal from version control while remaining on disk locally.
+Evidence produced (tests / traces / commands / exports):
+`git rm -r --cached --ignore-unmatch exports` staged removal of 91 tracked export artifacts. `git check-ignore -v exports/new-artifact.json exports/conversations/demo/session.md` shows `.gitignore:16:exports/*` now catches future export artifacts. `git check-ignore -v exports/.gitkeep` exits nonzero, proving the sentinel remains trackable. `test -f /Users/brianray/Adam/exports/conversations/seeded-eden-e13db9c5/building-0-1-200978c6.md` succeeded after the index cleanup, proving local export files were not deleted. `git diff --cached --stat` shows staged deletions for the export payloads plus the ignore/doc updates.
+Status register changes:
+- Implemented:
+  - Git ignore policy now covers all new `exports/` contents except the top-level sentinel.
+  - The repo now has a tracked `exports/.gitkeep` placeholder for collaborator clones.
+- Instrumented:
+  - README and TUI spec now state that `exports/` is local runtime output rather than tracked source.
+- Conceptual:
+  - Full remote-history purging of previously committed export artifacts was not performed.
+- Unknown:
+  - Whether the operator wants to rewrite Git history to erase prior export artifacts from old commits on GitHub rather than only removing them from the current branch tip.
+Truth-table / limitations updates:
+None. Capability status did not change.
+Remaining uncertainties:
+There is an unrelated modified `/Users/brianray/Adam/.DS_Store` in the working tree that I did not touch. Also, the staged `git rm --cached` cleanup removes export artifacts from the next commit onward, but does not erase already-pushed history.
+Next shortest proof path:
+Commit and push this staged cleanup if branch-tip removal is sufficient. If the operator needs the old export artifacts removed from GitHub history as well, perform an explicit history-rewrite pass with `git filter-repo` or equivalent in a separate, deliberate step.

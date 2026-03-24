@@ -128,10 +128,11 @@ Useful flags:
 21. Adam's visible reply is now a clean operator-facing answer. Model thinking stays in the separate thinking surface instead of appearing as `Answer`, `Basis`, or `Next Step` scaffolding inside the dialogue.
 22. Use `Tune Session` or `Start New Session` from the action strip when you want a bounded inference-profile change.
 23. Use `Export Artifacts` to write graph, basin, geometry, measurement, and index artifacts.
-24. Use `Open Browser Observatory` to ensure the local server is running and open the current experiment's latest existing artifact without forcing a fresh export first.
-23. In the browser observatory use `INSPECT`, `MEASURE`, `EDIT`, `ABLATE`, or `COMPARE`.
-24. Preview a change first, then commit it if the before/after metrics support the edit.
-25. Revert recent observatory-originated mutations from the measurement ledger when needed.
+24. The `exports/` tree is runtime-generated local output. Share the repo without committed export artifacts and let Adam recreate them locally as needed.
+25. Use `Open Browser Observatory` to ensure the local server is running and open the current experiment's latest existing artifact without forcing a fresh export first.
+26. In the browser observatory use `INSPECT`, `MEASURE`, `EDIT`, `ABLATE`, or `COMPARE`.
+27. Preview a change first, then commit it if the before/after metrics support the edit.
+28. Revert recent observatory-originated mutations from the measurement ledger when needed.
 
 ## Inference notes
 

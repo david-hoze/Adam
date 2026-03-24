@@ -172,7 +172,7 @@ Secondary surfaces:
 - once feedback is stored for the latest reply, the inline form collapses to a stored-feedback payload block showing verdict, timestamp, ids, explanation, and any corrected text until Adam answers again
 - inline review reuses the graph-backed feedback path and therefore updates regard, reward, risk, and edit channels
 - `Review` only focuses the inline form when Adam has already replied and that reply is still pending review; otherwise the composer keeps focus and the status line explains whether there is nothing new to review or the latest reply is already settled
-- conversation logs are written as markdown artifacts under `exports/conversations/` for the active session and surfaced on-screen plus via `Open Conversation Log`
+- conversation logs are written as markdown artifacts under `exports/conversations/` for the active session and surfaced on-screen plus via `Open Conversation Log`; these remain local runtime artifacts rather than tracked source files
 - the conversation atlas treats saved sessions as a relational transcript library: all logs remain under the single export root while folder/tag organization is stored as session metadata and projected in the atlas
 - conversation boundaries are explicit through the top action shelf status lines, transcript state, pending inline review followed by a stored-feedback line, and new-session flow: ask or ingest, review when Adam answers, and end by opening a new session
 - detailed budget changes remain visible in Deck, while the prime chat topbar carries a compact used/remaining context-budget estimate
