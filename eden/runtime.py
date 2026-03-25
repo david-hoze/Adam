@@ -3463,6 +3463,14 @@ class EdenRuntime:
         briefing: str = "",
         session_id: str | None = None,
     ) -> dict[str, Any]:
+        try:
+            self.store.get_experiment(experiment_id)
+        except KeyError:
+            raise ValueError(
+                f"Experiment '{experiment_id}' does not exist. "
+                "Omit the experiment_id to use the primary graph, "
+                "or pass a valid experiment id."
+            )
         resolved_path = Path(path).expanduser().resolve()
         briefing_text = briefing.strip()
         result = self.ingest_service.ingest_path(

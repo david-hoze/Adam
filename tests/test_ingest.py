@@ -146,6 +146,7 @@ def test_normalize_pdf_text_repairs_ligatures_artifacts_and_hyphenation() -> Non
     assert score > 0.45
 
 
+@pytest.mark.skipif(not PAGES_MEMOIR_PATH.exists(), reason="fixture PDF not present on this machine")
 def test_pages_pdf_fixture_extracts_readable_text() -> None:
     pages = extract_pdf(PAGES_MEMOIR_PATH)
 

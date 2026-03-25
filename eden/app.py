@@ -167,7 +167,11 @@ def cmd_demo(args) -> int:
 def cmd_ingest(args) -> int:
     runtime = build_runtime(args)
     experiment_id = args.experiment_id or runtime.primary_experiment()["id"]
-    result = runtime.ingest_document(experiment_id=experiment_id, path=args.path)
+    try:
+        result = runtime.ingest_document(experiment_id=experiment_id, path=args.path)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
     print(json.dumps(result, indent=2))
     return 0
 

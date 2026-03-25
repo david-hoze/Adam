@@ -21,3 +21,10 @@ assets/cannonical_secondary_sources/
 assets/cannonical_secondary_sources.zip
 web/observatory/node_modules/
 web/observatory/node_modules/.vite/
+
+# Idris2 build artifacts
+build/
+eden-idris/build/
+*.ttc
+*.ttm
+*.snap

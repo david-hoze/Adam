@@ -94,6 +94,21 @@ When feature status changes, update `docs/IMPLEMENTATION_TRUTH_TABLE.md` and `do
 
 Tests live in `tests/`. The `runtime` fixture creates a temporary `EdenRuntime` with mock backend and temp SQLite — no GPU or persistent state needed. The `sample_files` fixture provides test PDFs/TXTs/CSVs. All tests run with `asyncio_mode = "auto"`.
 
+## Idris2 Implementation
+
+The `eden-idris/` directory contains an Idris2 reimplementation of the core runtime with dependent-type verification. The user (natanh/david-hoze) is the developer of the custom Idris2 fork at `/home/natanh/Idris2/` (branch `progressive-stage1`). When encountering compiler bugs or unexpected behavior in Idris2, report them clearly so they can be fixed upstream — do not silently work around them.
+
+```bash
+# Type-check a module
+PATH="/ucrt64/bin:/usr/bin:$PATH" /home/natanh/Idris2/build/exec/idris2.exe --no-banner --check --source-dir src src/Eden/Types.idr
+
+# Compile with RefC backend
+CC=gcc PATH="/ucrt64/bin:/usr/bin:$PATH" /home/natanh/Idris2/build/exec/idris2.exe --no-banner --cg refc --source-dir src -o eden src/Main.idr
+
+# Run
+PATH="/ucrt64/bin:/usr/bin:$PATH" ./build/exec/eden.exe
+```
+
 ## Web Observatory
 
 The React/TypeScript frontend lives in `web/observatory/` (Vite + Graphology/Sigma). It has its own `package.json` and Playwright E2E tests. This is a separate build from the Python package.

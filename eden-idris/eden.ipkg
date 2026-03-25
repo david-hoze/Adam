@@ -1,0 +1,34 @@
+package eden
+
+version = "1.0.0"
+authors = "Adam"
+brief   = "Local-first graph-conditioned persona runtime"
+
+sourcedir = "src"
+
+main = Main
+executable = eden
+
+modules = Eden.Types
+        , Eden.Config
+        , Eden.Regard
+        , Eden.Retrieval
+        , Eden.Budget
+        , Eden.Inference
+        , Eden.Membrane
+        , Eden.Hum
+        , Eden.Storage
+        , Eden.Store.InMemory
+        , Eden.Runtime
+        , Eden.Ingest
+        , Eden.Models.Base
+        , Eden.Models.Mock
+        , Eden.Indexer
+        , Eden.Ingest.Pipeline
+        , Eden.Trace
+        , Eden.SemanticRelations
+        , Eden.OntologyProjection
+        , Eden.Monad
+        , Eden.Pipeline
+        , Eden.Proofs
+        , Eden.Loop

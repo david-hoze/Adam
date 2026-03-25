@@ -1,0 +1,123 @@
+||| Text indexer: extracts memes from conversation text.
+|||
+||| After each turn, the indexer scans both user input and Adam's response
+||| for concept references. New concepts become memes; existing concepts
+||| get their usage count bumped. Co-occurring concepts get edges.
+module Eden.Indexer
+
+import Data.IORef
+import Data.List
+import Data.String
+import Eden.Types
+import Eden.Config
+import Eden.Store.InMemory
+
+------------------------------------------------------------------------
+-- Simple keyword extraction
+------------------------------------------------------------------------
+
+||| Known concept patterns to detect in text.
+||| In production this would use embeddings; here we use keyword matching.
+export
+||| Each entry is (keyword_to_match, canonical_label, domain).
+||| Multiple keywords can map to the same canonical label.
+knownConcepts : List (String, String, Domain)
+knownConcepts =
+  [ ("curiosity", "Curiosity", Behavior), ("curious", "Curiosity", Behavior)
+  , ("honesty", "Honesty", Behavior), ("honest", "Honesty", Behavior)
+  , ("clarity", "Clarity", Behavior), ("clear", "Clarity", Behavior)
+  , ("empathy", "Empathy", Behavior), ("empathetic", "Empathy", Behavior)
+  , ("patience", "Patience", Behavior), ("patient", "Patience", Behavior)
+  , ("integrity", "Integrity", Behavior)
+  , ("reasoning", "Reasoning", Knowledge), ("reason", "Reasoning", Knowledge)
+  , ("logic", "Logic", Knowledge), ("logical", "Logic", Knowledge)
+  , ("physics", "Physics", Knowledge), ("physical", "Physics", Knowledge)
+  , ("mathematics", "Mathematics", Knowledge), ("math", "Mathematics", Knowledge)
+  , ("science", "Science", Knowledge), ("scientific", "Science", Knowledge)
+  , ("philosophy", "Philosophy", Knowledge), ("philosophical", "Philosophy", Knowledge)
+  , ("ethics", "Ethics", Knowledge), ("ethical", "Ethics", Knowledge)
+  , ("language", "Language", Knowledge), ("linguistic", "Language", Knowledge)
+  , ("creativity", "Creativity", Behavior), ("creative", "Creativity", Behavior)
+  , ("learning", "Learning", Behavior), ("learn", "Learning", Behavior)
+  , ("truth", "Truth", Knowledge), ("truthful", "Truth", Knowledge)
+  , ("understanding", "Understanding", Knowledge), ("understand", "Understanding", Knowledge)
+  , ("thinking", "Thinking", Knowledge), ("think", "Thinking", Knowledge)
+  , ("knowledge", "Knowledge", Knowledge)
+  , ("explore", "Exploration", Behavior), ("exploration", "Exploration", Behavior)
+  , ("question", "Questioning", Knowledge), ("asking", "Questioning", Behavior)
+  ]
+
+------------------------------------------------------------------------
+-- Concept extraction
+------------------------------------------------------------------------
+
+||| Record of a concept found in text.
+public export
+record ExtractedConcept where
+  constructor MkExtractedConcept
+  ecLabel  : String
+  ecDomain : Domain
+  ecSource : SourceKind
+
+||| Extract concepts from a text string by keyword matching.
+export
+extractConcepts : String -> SourceKind -> List ExtractedConcept
+extractConcepts text sk =
+  let lower = toLower text
+      found = mapMaybe (\entry =>
+        let (kw, lbl, dom) = entry
+        in if isInfixOf kw lower
+             then Just (MkExtractedConcept lbl dom sk)
+             else Nothing) knownConcepts
+      -- Deduplicate by canonical label (keep first occurrence)
+      dedup = nubBy (\a, b => a.ecLabel == b.ecLabel) found
+  in dedup
+
+------------------------------------------------------------------------
+-- Index result
+------------------------------------------------------------------------
+
+public export
+record IndexOutcome where
+  constructor MkIndexOutcome
+  ioNewMemes     : Nat
+  ioUpdatedMemes : Nat
+  ioNewEdges     : Nat
+  ioConceptNames : List String
+
+------------------------------------------------------------------------
+-- Text indexing pipeline
+------------------------------------------------------------------------
+
+||| Index a turn's text into the graph.
+||| Extracts concepts from user text and adam response,
+||| upserts memes, and creates co-occurrence edges.
+export
+indexTurn : StoreState -> ExperimentId
+         -> String -> String -> Timestamp
+         -> IO IndexOutcome
+indexTurn store eid userText adamText ts = do
+  let userConcepts = extractConcepts userText TurnUser
+      adamConcepts = extractConcepts adamText TurnAdam
+      allConcepts  = nubBy (\a, b => a.ecLabel == b.ecLabel) (userConcepts ++ adamConcepts)
+
+  -- Upsert all found concepts as memes
+  memes <- traverse (\c =>
+    upsertMeme store eid c.ecLabel c.ecLabel c.ecDomain c.ecSource Global ts) allConcepts
+
+  -- Create co-occurrence edges between all pairs
+  let pairs = allPairs memes
+  edges <- traverse (\pair => do
+    let (a, b) = pair
+    createEdge store eid MemeNode (show a.id) MemeNode (show b.id) CoOccursWith 0.5 ts) pairs
+
+  pure (MkIndexOutcome
+    (length allConcepts)
+    0  -- simplified: no separate tracking
+    (length edges)
+    (map ecLabel allConcepts))
+
+  where
+    allPairs : List a -> List (a, a)
+    allPairs [] = []
+    allPairs (x :: xs) = map (\y => (x, y)) xs ++ allPairs xs

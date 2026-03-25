@@ -5724,6 +5724,7 @@ class EdenTuiApp(App):
     BINDINGS = [
         Binding("tab", "focus_next", "", show=False),
         Binding("shift+tab", "focus_previous", "", show=False),
+        Binding("ctrl+q", "request_quit", "Quit", priority=True),
         ("f1", "show_help", "Help"),
         ("ctrl+s", "send_turn", "Send"),
         ("f2", "export_all", "Export"),
@@ -5736,6 +5737,7 @@ class EdenTuiApp(App):
         ("f9", "open_ingest", "Ingest"),
         ("f10", "show_archive", "Archive"),
         ("f11", "toggle_runtime_chyron", "Runtime Chyron"),
+        ("f12", "request_quit", "Quit"),
     ]
 
     def __init__(self, runtime: EdenRuntime) -> None:
@@ -5870,6 +5872,9 @@ class EdenTuiApp(App):
             self.screen.run_worker(self.screen.handle_archive(), exclusive=True, group="archive")
         elif isinstance(self.screen, StartupScreen):
             self.screen.handle_startup_archive()
+
+    def action_request_quit(self) -> None:
+        self.exit()
 
 
 def run_tui(runtime: EdenRuntime) -> None:
