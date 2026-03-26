@@ -32,3 +32,6 @@ modules = Eden.Types
         , Eden.Pipeline
         , Eden.Proofs
         , Eden.Loop
+        , Eden.Term
+        , Eden.TermIO
+        , Eden.TUI

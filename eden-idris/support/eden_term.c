@@ -1,0 +1,417 @@
+/*
+ * eden_term.c — Terminal I/O + cell-buffer compositor for EDEN TUI.
+ *
+ * Two layers:
+ *   1. Low-level: raw mode, key reading (platform-specific)
+ *   2. Screen buffer: 2D cell grid with diff-based rendering (shared)
+ *
+ * Platform:
+ *   __MSYS__ / __CYGWIN__  -> POSIX termios
+ *   _WIN32 (MinGW/MSVC)    -> Reader thread + ring buffer
+ *   else                   -> POSIX termios (macOS, Linux)
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+
+/* ================================================================== */
+/* Layer 1: Platform-specific terminal I/O                            */
+/* ================================================================== */
+
+#if defined(__MSYS__) || defined(__CYGWIN__) || (!defined(_WIN32))
+
+#include <sys/ioctl.h>
+#include <termios.h>
+#include <unistd.h>
+
+static struct termios orig_termios;
+static int raw_active = 0;
+
+int eden_term_init(void) {
+    if (raw_active) return 0;
+    if (tcgetattr(STDIN_FILENO, &orig_termios) == -1) return -1;
+    struct termios raw = orig_termios;
+    raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+    raw.c_oflag &= ~(OPOST);
+    raw.c_cflag |= CS8;
+    raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+    raw.c_cc[VMIN] = 0;
+    raw.c_cc[VTIME] = 0;
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) return -1;
+    raw_active = 1;
+    return 0;
+}
+
+void eden_term_cleanup(void) {
+    if (raw_active) {
+        tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
+        raw_active = 0;
+    }
+}
+
+int eden_term_width(void) {
+    struct winsize ws;
+    return (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1) ? ws.ws_col : 80;
+}
+
+int eden_term_height(void) {
+    struct winsize ws;
+    return (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1) ? ws.ws_row : 24;
+}
+
+static int read_byte(int timeout_ms) {
+    struct termios t;
+    if (tcgetattr(STDIN_FILENO, &t) == 0) {
+        t.c_cc[VMIN] = 0;
+        t.c_cc[VTIME] = (timeout_ms > 0) ? ((timeout_ms + 99) / 100) : 0;
+        tcsetattr(STDIN_FILENO, TCSANOW, &t);
+    }
+    unsigned char c;
+    return (read(STDIN_FILENO, &c, 1) == 1) ? (int)c : -1;
+}
+
+#else  /* _WIN32 */
+
+#include <windows.h>
+#include <io.h>
+#include <fcntl.h>
+
+#define RING_SIZE 256
+
+static unsigned char  ring_buf[RING_SIZE];
+static volatile LONG  ring_head = 0, ring_tail = 0;
+static HANDLE         has_data;
+static HANDLE         reader_thread;
+static volatile int   reader_running = 0;
+static int            raw_active = 0;
+static int            is_console = 0;
+static HANDLE         hOut = INVALID_HANDLE_VALUE;
+static DWORD          orig_out_mode = 0;
+
+static int ring_empty(void) { return ring_head == ring_tail; }
+
+static void ring_push(unsigned char c) {
+    LONG h = ring_head;
+    LONG next = (h + 1) % RING_SIZE;
+    if (next == ring_tail) return;
+    ring_buf[h] = c;
+    InterlockedExchange(&ring_head, next);
+    SetEvent(has_data);
+}
+
+static int ring_pop(void) {
+    if (ring_empty()) return -1;
+    LONG t = ring_tail;
+    int c = (int)ring_buf[t];
+    InterlockedExchange(&ring_tail, (t + 1) % RING_SIZE);
+    if (ring_empty()) ResetEvent(has_data);
+    return c;
+}
+
+static DWORD WINAPI reader_fn(LPVOID arg) {
+    (void)arg;
+    while (reader_running) {
+        unsigned char c;
+        int n = _read(0, &c, 1);
+        if (n == 1) ring_push(c);
+        else if (n <= 0) Sleep(1);
+    }
+    return 0;
+}
+
+static volatile int got_signal = 0;
+static void signal_handler(int sig) { (void)sig; got_signal = 1; }
+
+int eden_term_init(void) {
+    if (raw_active) return 0;
+    signal(SIGINT, signal_handler);
+    signal(SIGBREAK, signal_handler);
+    _setmode(0, _O_BINARY);
+    _setmode(1, _O_BINARY);
+    hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD m;
+    is_console = GetConsoleMode(hOut, &m);
+    if (is_console) {
+        orig_out_mode = m;
+        SetConsoleMode(hOut, m | 0x0004);
+        HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+        DWORD im;
+        if (GetConsoleMode(hIn, &im))
+            SetConsoleMode(hIn, (im & ~(ENABLE_LINE_INPUT|ENABLE_ECHO_INPUT|ENABLE_PROCESSED_INPUT)) | 0x0200);
+    }
+    has_data = CreateEvent(NULL, TRUE, FALSE, NULL);
+    reader_running = 1;
+    reader_thread = CreateThread(NULL, 0, reader_fn, NULL, 0, NULL);
+    raw_active = 1;
+    return 0;
+}
+
+void eden_term_cleanup(void) {
+    if (!raw_active) return;
+    reader_running = 0;
+    if (reader_thread) { TerminateThread(reader_thread, 0); CloseHandle(reader_thread); reader_thread = NULL; }
+    if (has_data) { CloseHandle(has_data); has_data = NULL; }
+    if (is_console && hOut != INVALID_HANDLE_VALUE) SetConsoleMode(hOut, orig_out_mode);
+    signal(SIGINT, SIG_DFL);
+    raw_active = 0;
+}
+
+int eden_term_width(void) {
+    if (is_console) {
+        CONSOLE_SCREEN_BUFFER_INFO i;
+        if (GetConsoleScreenBufferInfo(hOut, &i))
+            return i.srWindow.Right - i.srWindow.Left + 1;
+    }
+    char *e = getenv("COLUMNS");
+    return e ? atoi(e) : 120;
+}
+
+int eden_term_height(void) {
+    if (is_console) {
+        CONSOLE_SCREEN_BUFFER_INFO i;
+        if (GetConsoleScreenBufferInfo(hOut, &i))
+            return i.srWindow.Bottom - i.srWindow.Top + 1;
+    }
+    char *e = getenv("LINES");
+    return e ? atoi(e) : 30;
+}
+
+static int read_byte(int timeout_ms) {
+    if (got_signal) { got_signal = 0; return 3; }
+    int c = ring_pop();
+    if (c >= 0) return c;
+    DWORD wait = (timeout_ms > 0) ? (DWORD)timeout_ms : 0;
+    if (WaitForSingleObject(has_data, wait) != WAIT_OBJECT_0) return -1;
+    return ring_pop();
+}
+
+#endif /* _WIN32 */
+
+/* ================================================================== */
+/* Shared: ANSI key parser                                            */
+/* ================================================================== */
+
+int eden_term_read_key(int timeout_ms) {
+    int c = read_byte(timeout_ms);
+    if (c < 0) return -1;
+    if (c >= 1 && c <= 26 && c != 9 && c != 10 && c != 13) return 3000 + c;
+    if (c != 27) return c;
+    int b2 = read_byte(100);
+    if (b2 < 0) return 27;
+    if (b2 == '[') {
+        int b3 = read_byte(100);
+        if (b3 < 0) return 27;
+        if (b3 == 'A') return 1001; if (b3 == 'B') return 1002;
+        if (b3 == 'C') return 1003; if (b3 == 'D') return 1004;
+        if (b3 == 'H') return 1005; if (b3 == 'F') return 1006;
+        if (b3 == 'Z') return 5001;
+        if (b3 >= '0' && b3 <= '9') {
+            int b4 = read_byte(100);
+            if (b4 == '~') {
+                if (b3=='3') return 1009; if (b3=='5') return 1007; if (b3=='6') return 1008;
+            } else if (b4 >= '0' && b4 <= '9') {
+                int b5 = read_byte(100);
+                if (b5 == '~') {
+                    int code = (b3-'0')*10 + (b4-'0');
+                    switch(code) {
+                        case 11: return 2001; case 12: return 2002;
+                        case 13: return 2003; case 14: return 2004;
+                        case 15: return 2005; case 17: return 2006;
+                        case 18: return 2007; case 19: return 2008;
+                        case 20: return 2009; case 21: return 2010;
+                        case 23: return 2011; case 24: return 2012;
+                    }
+                }
+            }
+        }
+    } else if (b2 == 'O') {
+        int b3 = read_byte(100);
+        if (b3=='P') return 2001; if (b3=='Q') return 2002;
+        if (b3=='R') return 2003; if (b3=='S') return 2004;
+    }
+    return 27;
+}
+
+/* Raw fd write — bypasses stdio buffering */
+#ifdef _WIN32
+#define RAW_WRITE(buf, len) _write(1, (buf), (len))
+#else
+#define RAW_WRITE(buf, len) write(STDOUT_FILENO, (buf), (len))
+#endif
+
+void eden_term_write(char *s) {
+    if (s) {
+        int len = (int)strlen(s);
+        if (len > 0) RAW_WRITE(s, len);
+    }
+}
+void eden_term_flush(void) {
+    /* No-op: raw write goes directly to fd */
+}
+
+/* ================================================================== */
+/* Layer 2: Cell-buffer screen compositor                             */
+/*                                                                    */
+/* Maintains two grids (front/back). Idris writes to the back buffer  */
+/* via eden_screen_set(). eden_screen_present() diffs back vs front,  */
+/* emits only changed cells, then swaps.                              */
+/* ================================================================== */
+
+typedef struct {
+    char     ch;
+    unsigned char fr, fg, fb;  /* foreground RGB */
+    unsigned char br, bg, bb;  /* background RGB */
+    unsigned char bold;
+} Cell;
+
+static Cell *buf_front = NULL;  /* what's on the terminal now */
+static Cell *buf_back  = NULL;  /* what we want on the terminal */
+static int   scr_w = 0, scr_h = 0;
+static int   screen_inited = 0;
+
+static Cell blank_cell(void) {
+    Cell c;
+    c.ch = ' ';
+    c.fr = 255; c.fg = 217; c.fb = 138;  /* amber fg */
+    c.br = 18;  c.bg = 8;   c.bb = 10;   /* dark bg */
+    c.bold = 0;
+    return c;
+}
+
+static int cell_eq(const Cell *a, const Cell *b) {
+    return a->ch == b->ch
+        && a->fr == b->fr && a->fg == b->fg && a->fb == b->fb
+        && a->br == b->br && a->bg == b->bg && a->bb == b->bb
+        && a->bold == b->bold;
+}
+
+/* Initialize or resize the screen buffer.
+ * No-op if size hasn't changed (preserves front buffer for diffing). */
+void eden_screen_init(int w, int h) {
+    if (screen_inited && w == scr_w && h == scr_h) return;
+
+    if (buf_front) free(buf_front);
+    if (buf_back)  free(buf_back);
+    scr_w = w;
+    scr_h = h;
+    int n = w * h;
+    buf_front = (Cell *)malloc(n * sizeof(Cell));
+    buf_back  = (Cell *)malloc(n * sizeof(Cell));
+    Cell bl = blank_cell();
+    for (int i = 0; i < n; i++) {
+        buf_front[i] = bl;
+        buf_back[i]  = bl;
+    }
+    /* Force full repaint on first present by making front differ */
+    for (int i = 0; i < n; i++) buf_front[i].ch = 0;
+    screen_inited = 1;
+}
+
+/* Set a cell in the back buffer. Row/col are 0-based. */
+void eden_screen_set(int row, int col, int ch,
+                     int fr, int fg, int fb,
+                     int br, int bg, int bb,
+                     int bold) {
+    if (!screen_inited) return;
+    if (row < 0 || row >= scr_h || col < 0 || col >= scr_w) return;
+    Cell *c = &buf_back[row * scr_w + col];
+    c->ch = (char)ch;
+    c->fr = (unsigned char)fr; c->fg = (unsigned char)fg; c->fb = (unsigned char)fb;
+    c->br = (unsigned char)br; c->bg = (unsigned char)bg; c->bb = (unsigned char)bb;
+    c->bold = (unsigned char)bold;
+}
+
+/* Clear back buffer to blanks. */
+void eden_screen_clear(void) {
+    if (!screen_inited) return;
+    Cell bl = blank_cell();
+    int n = scr_w * scr_h;
+    for (int i = 0; i < n; i++) buf_back[i] = bl;
+}
+
+/* Diff back vs front, emit ANSI for changed cells, swap buffers.
+ * Output is built into a single buffer and written in one fwrite(). */
+void eden_screen_present(void) {
+    if (!screen_inited) return;
+    int n = scr_w * scr_h;
+
+    /* Worst case: each cell could need ~40 bytes of ANSI.
+     * Plus sync markers and cursor hide/show. */
+    int cap = n * 50 + 256;
+    char *out = (char *)malloc(cap);
+    int pos = 0;
+
+    #define EMIT(...) pos += snprintf(out + pos, cap - pos, __VA_ARGS__)
+
+    /* Begin synchronized update + hide cursor */
+    EMIT("\x1b[?2026h\x1b[?25l");
+
+    int last_row = -1, last_col = -1;
+    int last_fr = -1, last_fg2 = -1, last_fb = -1;
+    int last_br = -1, last_bg2 = -1, last_bb = -1;
+    int last_bold = -1;
+
+    for (int i = 0; i < n; i++) {
+        if (cell_eq(&buf_back[i], &buf_front[i])) continue;
+
+        int r = i / scr_w;
+        int c = i % scr_w;
+        Cell *cell = &buf_back[i];
+
+        /* Move cursor if not contiguous */
+        if (r != last_row || c != last_col) {
+            EMIT("\x1b[%d;%dH", r + 1, c + 1);
+        }
+
+        /* Emit style changes only when needed */
+        int need_bold = (cell->bold != last_bold);
+        int need_fg = (cell->fr != last_fr || cell->fg != last_fg2 || cell->fb != last_fb);
+        int need_bg = (cell->br != last_br || cell->bg != last_bg2 || cell->bb != last_bb);
+
+        if (need_bold && !cell->bold) {
+            /* Reset bold — need full SGR reset then re-apply colors */
+            EMIT("\x1b[0m");
+            need_fg = 1;
+            need_bg = 1;
+            last_bold = 0;
+        }
+        if (need_bold && cell->bold) {
+            EMIT("\x1b[1m");
+            last_bold = 1;
+        }
+        if (need_fg) {
+            EMIT("\x1b[38;2;%d;%d;%dm", cell->fr, cell->fg, cell->fb);
+            last_fr = cell->fr; last_fg2 = cell->fg; last_fb = cell->fb;
+        }
+        if (need_bg) {
+            EMIT("\x1b[48;2;%d;%d;%dm", cell->br, cell->bg, cell->bb);
+            last_br = cell->br; last_bg2 = cell->bg; last_bb = cell->bb;
+        }
+
+        /* Emit character */
+        if (pos < cap - 1) out[pos++] = cell->ch;
+
+        last_row = r;
+        last_col = c + 1;  /* cursor advances after write */
+    }
+
+    /* End synchronized update */
+    EMIT("\x1b[0m\x1b[?2026l");
+
+    #undef EMIT
+
+    /* Skip if nothing changed */
+    if (pos <= 30) {  /* only sync markers, no actual cell data */
+        free(out);
+        return;
+    }
+
+    /* Single atomic write to fd — bypasses stdio buffering entirely */
+    RAW_WRITE(out, pos);
+    free(out);
+
+    /* Swap: copy back -> front */
+    memcpy(buf_front, buf_back, n * sizeof(Cell));
+}

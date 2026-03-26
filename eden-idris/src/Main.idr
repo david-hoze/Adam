@@ -30,6 +30,7 @@ import Eden.Monad
 import Eden.Pipeline
 import Eden.Trace
 import Eden.SemanticRelations
+import Eden.TUI
 
 -- Helper for display
 showDouble : Double -> String
@@ -268,4 +269,5 @@ main = do
   case drop 1 args of  -- drop program name
     ["--repl"]  => runREPL
     ["--demo"]  => runStoreDemo
+    ["--tui"]   => runTUI
     _           => runInvariantDemo
