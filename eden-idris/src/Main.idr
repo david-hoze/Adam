@@ -317,7 +317,7 @@ main = do
   let cliArgs = drop 1 args  -- drop program name
   let (be, mp, _) = parseArgs cliArgs
   case cliArgs of
-    ("--repl"  :: _) => runREPL
+    ("--repl"  :: _) => runREPLWith be mp
     ("--demo"  :: _) => runStoreDemo be mp
     ("--tui"   :: _) => runTUIWith be mp
     ("--ingest" :: d :: _) => runIngest d

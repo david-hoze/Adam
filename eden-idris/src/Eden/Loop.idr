@@ -151,13 +151,13 @@ handleHelp = do
   putStrLn "    /quit    - end session"
   putStrLn "  Feedback: accept(a) reject(r) edit(e) skip(s)"
 
-handleChat : EdenEnv -> IORef Nat -> String -> IO ()
-handleChat env turnIdx msg = do
+handleChat : Backend -> Maybe String -> EdenEnv -> IORef Nat -> String -> IO ()
+handleChat be mp env turnIdx msg = do
   idx <- readIORef turnIdx
   writeIORef turnIdx (idx + 1)
 
   -- Execute turn via monadic pipeline
-  tr <- runEden env (mExecuteTurn idx msg)
+  tr <- runEden env (mExecuteTurnWith be mp idx msg)
   putStrLn $ "\n[adam] " ++ tr.mrResponse
   case tr.mrConcepts of
     [] => pure ()
@@ -184,47 +184,47 @@ handleChat env turnIdx msg = do
 ------------------------------------------------------------------------
 
 mutual
-  replLoop : EdenEnv -> IORef Nat -> IO ()
-  replLoop env turnIdx = do
+  replLoop : Backend -> Maybe String -> EdenEnv -> IORef Nat -> IO ()
+  replLoop be mp env turnIdx = do
     putStr "\n[you] > "
     input <- getLine
-    dispatch env turnIdx (parseCmd input)
+    dispatch be mp env turnIdx (parseCmd input)
 
-  dispatch : EdenEnv -> IORef Nat -> ReplCmd -> IO ()
-  dispatch env turnIdx CmdQuit = do
+  dispatch : Backend -> Maybe String -> EdenEnv -> IORef Nat -> ReplCmd -> IO ()
+  dispatch be mp env turnIdx CmdQuit = do
     putStrLn "\n--- Session complete ---"
     handleStats env
     putStrLn "Goodbye."
-  dispatch env turnIdx CmdStats = do
+  dispatch be mp env turnIdx CmdStats = do
     handleStats env
-    replLoop env turnIdx
-  dispatch env turnIdx CmdMemes = do
+    replLoop be mp env turnIdx
+  dispatch be mp env turnIdx CmdMemes = do
     handleMemes env
-    replLoop env turnIdx
-  dispatch env turnIdx CmdRegard = do
+    replLoop be mp env turnIdx
+  dispatch be mp env turnIdx CmdRegard = do
     handleRegard env
-    replLoop env turnIdx
-  dispatch env turnIdx CmdHum = do
+    replLoop be mp env turnIdx
+  dispatch be mp env turnIdx CmdHum = do
     handleHum env
-    replLoop env turnIdx
-  dispatch env turnIdx CmdHelp = do
+    replLoop be mp env turnIdx
+  dispatch be mp env turnIdx CmdHelp = do
     handleHelp
-    replLoop env turnIdx
-  dispatch env turnIdx (CmdChat msg) = do
-    handleChat env turnIdx msg
-    replLoop env turnIdx
+    replLoop be mp env turnIdx
+  dispatch be mp env turnIdx (CmdChat msg) = do
+    handleChat be mp env turnIdx msg
+    replLoop be mp env turnIdx
 
-||| Run the interactive REPL.
+||| Run the interactive REPL with a specific backend.
 export
-runREPL : IO ()
-runREPL = do
-  putStrLn "=== EDEN/Adam Interactive REPL ==="
+runREPLWith : Backend -> Maybe String -> IO ()
+runREPLWith be mp = do
+  putStrLn ("=== EDEN/Adam Interactive REPL [" ++ show be ++ "] ===")
   putStrLn "    Type a message, then provide feedback."
   putStrLn "    Commands: /quit /stats /memes /regard /hum /help"
   putStrLn ""
 
   store <- newStore
-  let ts = MkTimestamp "2026-03-25T12:00:00Z"
+  let ts = MkTimestamp "2026-03-27T00:00:00Z"
 
   exp <- createExperiment store "repl" "repl" Blank ts
   let agentId = MkId {a=AgentTag} "adam-01"
@@ -234,7 +234,11 @@ runREPL = do
   _ <- upsertMeme store exp.id "Honesty" "Commitment to truthful communication" Behavior SeedSource Global ts
   _ <- upsertMeme store exp.id "Clarity" "Preference for clear explanations" Behavior SeedSource Global ts
 
-  -- Create EdenEnv — all parameters threaded implicitly from here
   env <- newEdenEnv store exp.id sess.id ts
   turnIdx <- newIORef (the Nat 0)
-  replLoop env turnIdx
+  replLoop be mp env turnIdx
+
+||| Run the interactive REPL (mock backend).
+export
+runREPL : IO ()
+runREPL = runREPLWith Mock Nothing
