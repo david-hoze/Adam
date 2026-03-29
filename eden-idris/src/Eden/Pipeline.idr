@@ -32,15 +32,6 @@ import Eden.Monad
 import Eden.TermIO
 
 ------------------------------------------------------------------------
--- Agent principles (loaded from seed_constitution.md at startup)
-------------------------------------------------------------------------
-
-||| Global principles string, set at startup from agent profile files.
-export
-gPrinciples : IORef String
-gPrinciples = unsafePerformIO (newIORef "You are a curious, honest thinker.")
-
-------------------------------------------------------------------------
 -- Monadic turn result
 ------------------------------------------------------------------------
 
@@ -72,8 +63,8 @@ export
 mAssemble : List CandidateScore -> String -> EdenM AssemblyResult
 mAssemble activeSet userText = do
   history <- eGetRecentTurns 3
-  principles <- liftIO (readIORef gPrinciples)
-  pure (assemblePrompt "Adam" principles
+  princ <- asks principles
+  pure (assemblePrompt "Adam" princ
           activeSet history "" userText)
 
 ||| Run a subprocess backend (claude or mlx) and return a ModelResult.

@@ -171,8 +171,8 @@ showMemeRegard m =
       rb = regardBreakdown defaultRegardWeights ns gm
   in putStrLn $ "  " ++ m.label ++ " [" ++ show m.domain ++ "]: regard=" ++ showDouble rb.totalRegard
 
-runStoreDemo : Backend -> Maybe String -> IO ()
-runStoreDemo be mp = do
+runStoreDemo : Backend -> Maybe String -> String -> IO ()
+runStoreDemo be mp principles = do
   putStrLn "=== EDEN Store + Pipeline Demo ==="
   putStrLn ""
 
@@ -213,7 +213,7 @@ runStoreDemo be mp = do
   traverse_ (\md => putStrLn $ "    - " ++ md.label) memodes
 
   -- Create EdenEnv — all pipeline calls use the monad from here
-  env <- newEdenEnv store exp.id sess.id ts
+  env <- newEdenEnv store exp.id sess.id ts principles
 
   -- Turn 0 via monadic pipeline
   tr0 <- runEden env (mExecuteTurnWith be mp 0 "What drives your thinking?")
@@ -290,16 +290,16 @@ runStoreDemo be mp = do
 -- Agent profile loading
 ------------------------------------------------------------------------
 
-||| Load agent principles from seed_constitution.md and profile.json.
+||| Load agent principles from seed_constitution.md.
 ||| Falls back to default if files are not found.
-loadAgentProfile : IO ()
+loadAgentProfile : IO String
 loadAgentProfile = do
-  -- Read seed constitution
   Right constitution <- readFile "eden/agents/adam/seed_constitution.md"
     | Left _ => do Right c2 <- readFile "../eden/agents/adam/seed_constitution.md"
-                     | Left _ => putStrLn "  (using default principles)"
-                   writeIORef gPrinciples c2
-  writeIORef gPrinciples constitution
+                     | Left _ => do putStrLn "  (using default principles)"
+                                    pure "You are a curious, honest thinker."
+                   pure c2
+  pure constitution
 
 ------------------------------------------------------------------------
 -- Document ingestion
@@ -377,11 +377,11 @@ main = do
   args <- getArgs
   let cliArgs = drop 1 args  -- drop program name
   let (be, mp, _) = parseArgs cliArgs
-  loadAgentProfile
+  principles <- loadAgentProfile
   case cliArgs of
-    ("--repl"   :: _) => runREPLWith be mp
-    ("--demo"   :: _) => runStoreDemo be mp
-    ("--tui"    :: _) => runTUIWith be mp
+    ("--repl"   :: _) => runREPLWith be mp principles
+    ("--demo"   :: _) => runStoreDemo be mp principles
+    ("--tui"    :: _) => runTUIWith be mp principles
     ("--ingest" :: d :: _) => runIngest d
     ("--export" :: _) => do
       -- Export the graph from existing DB, or generate a demo
@@ -407,7 +407,7 @@ main = do
           _ <- upsertMeme store exp.id "Curiosity" "Drive to explore" Behavior SeedSource Global ts
           _ <- upsertMeme store exp.id "Honesty" "Truthful communication" Behavior SeedSource Global ts
           _ <- upsertMeme store exp.id "Clarity" "Clear explanations" Behavior SeedSource Global ts
-          env <- newEdenEnv store exp.id sess.id ts
+          env <- newEdenEnv store exp.id sess.id ts principles
           _ <- runEden env (mExecuteTurnWith be mp 0 "Export test")
           _ <- materializeMemodes store exp.id ts
           pure exp.id

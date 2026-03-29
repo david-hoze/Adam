@@ -60,20 +60,14 @@ colActBd : RGB
 colActBd = MkRGB 142 243 255
 
 ------------------------------------------------------------------------
--- Globals (avoids UIState field additions that crash codegen)
-------------------------------------------------------------------------
-gBackend : IORef Backend
-gBackend = unsafePerformIO (newIORef Mock)
-gModelPath : IORef (Maybe String)
-gModelPath = unsafePerformIO (newIORef Nothing)
-
-------------------------------------------------------------------------
 -- UI State
 ------------------------------------------------------------------------
 public export
 record UIState where
   constructor MkUIState
   uiEnv        : EdenEnv
+  uiBackend    : Backend
+  uiModelPath  : Maybe String
   uiTurnIdx    : IORef Nat
   uiComposer   : IORef String
   uiDialogue   : IORef (List (String, String))
@@ -215,7 +209,7 @@ drawPanel r c w h title bc lns = do
 
 drawStatusPanels : UIState -> Int -> Int -> Int -> IO ()
 drawStatusPanels ui r c tw = do
-  be <- readIORef gBackend
+  let be = ui.uiBackend
   idx <- readIORef ui.uiTurnIdx
   counts <- runEden ui.uiEnv eGraphCounts
   active <- readIORef ui.uiLastActive
@@ -238,7 +232,7 @@ drawStatusPanels ui r c tw = do
 ------------------------------------------------------------------------
 drawRuntimeLine : UIState -> Int -> Int -> IO ()
 drawRuntimeLine ui row w = do
-  be <- readIORef gBackend
+  let be = ui.uiBackend
   idx <- readIORef ui.uiTurnIdx
   clearRow row 0 w colPanel
   putText row 1 colIce colPanel False (w-1)
@@ -463,8 +457,8 @@ handleKey ui KeyEnter = do
     writeIORef ui.uiTurnIdx (idx + 1)
     writeIORef ui.uiFeedback (Just "generating...")
     renderFrame ui
-    be <- readIORef gBackend
-    mp <- readIORef gModelPath
+    let be = ui.uiBackend
+    let mp = ui.uiModelPath
     tr <- runEden ui.uiEnv (mExecuteTurnWith be mp idx text)
     entries <- readIORef ui.uiDialogue
     writeIORef ui.uiDialogue ((text, tr.mrResponse) :: entries)
@@ -526,10 +520,8 @@ tuiLoop ui = do
 -- Entry point
 ------------------------------------------------------------------------
 export
-runTUIWith : Backend -> Maybe String -> IO ()
-runTUIWith be mp = do
-  writeIORef gBackend be
-  writeIORef gModelPath mp
+runTUIWith : Backend -> Maybe String -> String -> IO ()
+runTUIWith be mp principles = do
   store <- newStore
   ts <- currentTimestamp
 
@@ -555,7 +547,7 @@ runTUIWith be mp = do
   let agentId = MkId {a=AgentTag} "adam-01"
   sess <- createSession store eid agentId "TUI session" ts
   turns <- readIORef store.turns
-  env <- newEdenEnv store eid sess.id ts
+  env <- newEdenEnv store eid sess.id ts principles
   turnIdx <- newIORef (the Nat 0)
   composer <- newIORef ""
   dialogue <- newIORef (the (List (String, String)) [])
@@ -569,7 +561,7 @@ runTUIWith be mp = do
   quit <- newIORef False
   uiW <- newIORef (the Int 120)
   uiH <- newIORef (the Int 30)
-  let ui = MkUIState env turnIdx composer dialogue feedback
+  let ui = MkUIState env be mp turnIdx composer dialogue feedback
                      lastActive lastHum lastBudget lastProj
                      focusPanel scrollOff quit uiW uiH
   ok <- enterTUI
@@ -585,4 +577,4 @@ runTUIWith be mp = do
 
 export
 runTUI : IO ()
-runTUI = runTUIWith Mock Nothing
+runTUI = runTUIWith Mock Nothing "You are a curious, honest thinker."

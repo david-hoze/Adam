@@ -227,8 +227,8 @@ mutual
 
 ||| Run the interactive REPL with a specific backend.
 export
-runREPLWith : Backend -> Maybe String -> IO ()
-runREPLWith be mp = do
+runREPLWith : Backend -> Maybe String -> String -> IO ()
+runREPLWith be mp principles = do
   putStrLn ("=== EDEN/Adam Interactive REPL [" ++ show be ++ "] ===")
   putStrLn "    Type a message, then provide feedback."
   putStrLn "    Commands: /quit /stats /memes /regard /hum /help"
@@ -264,11 +264,11 @@ runREPLWith be mp = do
   let agentId = MkId {a=AgentTag} "adam-01"
   sess <- createSession store eid agentId "REPL session" ts
 
-  env <- newEdenEnv store eid sess.id ts
+  env <- newEdenEnv store eid sess.id ts principles
   turnIdx <- newIORef (the Nat turnStart)
   replLoop be mp env turnIdx
 
 ||| Run the interactive REPL (mock backend).
 export
 runREPL : IO ()
-runREPL = runREPLWith Mock Nothing
+runREPL = runREPLWith Mock Nothing "You are a curious, honest thinker."

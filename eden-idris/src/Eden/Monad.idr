@@ -23,11 +23,12 @@ import Eden.Trace
 public export
 record EdenEnv where
   constructor MkEdenEnv
-  store : StoreState
-  eid   : ExperimentId
-  sid   : SessionId
-  ts    : Timestamp
-  trace : TraceLog
+  store      : StoreState
+  eid        : ExperimentId
+  sid        : SessionId
+  ts         : Timestamp
+  trace      : TraceLog
+  principles : String
 
 ------------------------------------------------------------------------
 -- The EdenM monad (ReaderT EdenEnv IO)
@@ -289,7 +290,7 @@ eTraceFeedback tid msg = do
 
 ||| Create a fresh EdenEnv from a store and session setup.
 export
-newEdenEnv : StoreState -> ExperimentId -> SessionId -> Timestamp -> IO EdenEnv
-newEdenEnv st eid sid ts = do
+newEdenEnv : StoreState -> ExperimentId -> SessionId -> Timestamp -> String -> IO EdenEnv
+newEdenEnv st eid sid ts princ = do
   tlog <- newTraceLog
-  pure (MkEdenEnv st eid sid ts tlog)
+  pure (MkEdenEnv st eid sid ts tlog princ)
