@@ -258,25 +258,51 @@ drawDialogue ui r c w h = do
         then putText (cs+1) (c+2) colMuted colBg False (w-4)
                "Press F9 first if you want to ingest a document with a framing note."
         else pure ()
-    _  => drawEntries cs 0 (take (cast (natDiv (cast ch) 2)) (reverse entries)) cs ch (c+1) (w-2)
+    _  => drawEntries cs 0 (reverse entries) cs ch (c+1) (w-2)
   where
+    -- Break a string into lines of at most maxW characters
+    wrapLines : Nat -> String -> List String
+    wrapLines maxW s =
+      if length s <= maxW then [s]
+      else substr 0 maxW s :: wrapLines maxW (substr maxW (length s) s)
+
+    -- Render wrapped lines starting at row, return next row
+    putWrapped : Int -> Int -> Int -> Int -> RGB -> List String -> IO Int
+    putWrapped row limit c' cw fg [] = pure row
+    putWrapped row limit c' cw fg (l :: ls) =
+      if row >= limit then pure row
+      else do clearRow row c' cw colBg
+              putText row (c'+1) fg colBg False (cw-1) l
+              putWrapped (row+1) limit c' cw fg ls
+
     drawEntries : Int -> Nat -> List (String, String) -> Int -> Int -> Int -> Int -> IO ()
     drawEntries row idx [] s ch c' cw = pure ()
     drawEntries row idx ((u, a) :: rest) s ch c' cw =
-      if row >= s + ch then pure ()
-      else do
-        clearRow row c' cw colBg
-        let tag = "[you T" ++ show idx ++ "] "
-        putText row (c'+1) colAmber colBg True (cw-1) tag
-        putText row (c' + 1 + cast (length tag)) colText colBg False (cw - 1 - cast (length tag)) u
-        if row+1 < s + ch
-          then do
-            clearRow (row+1) c' cw colBg
-            let at = "[adam T" ++ show idx ++ "] "
-            putText (row+1) (c'+1) colRose colBg False (cw-1) at
-            putText (row+1) (c' + 1 + cast (length at)) colText colBg False (cw - 1 - cast (length at)) a
-            drawEntries (row+2) (idx+1) rest s ch c' cw
-          else pure ()
+      if row + 1 >= s + ch
+        then pure ()
+        else do
+          -- User line (single line with tag)
+          clearRow row c' cw colBg
+          let tag = "[you T" ++ show idx ++ "] "
+          let tl = cast (length tag)
+          putText row (c'+1) colAmber colBg True (cw-1) tag
+          putText row (c' + 1 + tl) colText colBg False (cw - 1 - tl) u
+          -- Adam response: first line has tag, continuation lines indented
+          let ar = row + 1
+          let at = "[adam T" ++ show idx ++ "] "
+          let al = cast (length at)
+          let tw = max 1 (cw - 1 - al)
+          let pad = pack (replicate (length at) ' ')
+          let lines = wrapLines (cast tw) a
+          clearRow ar c' cw colBg
+          putText ar (c'+1) colRose colBg False (cw-1) at
+          case lines of
+            [] => drawEntries (ar + 1) (idx+1) rest s ch c' cw
+            (first :: more) => do
+              putText ar (c' + 1 + al) colText colBg False tw first
+              endRow <- putWrapped (ar+1) (s+ch) c' cw colText
+                          (map (\l => pad ++ l) more)
+              drawEntries endRow (idx+1) rest s ch c' cw
 
 ------------------------------------------------------------------------
 -- Memgraph (simplified scatter)
