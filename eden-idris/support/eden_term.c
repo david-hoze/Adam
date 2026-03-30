@@ -20,6 +20,23 @@
 #include <sys/wait.h>   /* WIFEXITED, WEXITSTATUS — needed on macOS */
 #endif
 
+/* Forward declarations — defined in platform sections below. */
+void eden_term_rearm(void);
+#ifdef _WIN32
+#include <windows.h>
+#include <io.h>
+#include <fcntl.h>
+/* Variables — declared here so eden_run_cmd can reference them.
+ * Defined/initialized in the Win32 terminal section below. */
+static int raw_active = 0;
+static volatile int reader_running = 0;
+static HANDLE reader_thread = NULL;
+/* Ring buffer forward declarations */
+static int ring_empty(void);
+static int ring_pop(void);
+static DWORD WINAPI reader_fn(LPVOID arg);
+#endif
+
 /* ================================================================== */
 /* Subprocess execution                                                */
 /* ================================================================== */
@@ -30,12 +47,38 @@
  * followed by a newline, then the command output.
  * Format: "<exit_code>\n<output>"
  * Caller must free the returned string.
+ *
+ * On Win32 (TUI mode), pauses the reader thread before popen and restarts
+ * it after pclose.  This prevents the reader thread from competing with
+ * the child process for stdin and avoids console mode corruption.
  */
 char *eden_run_cmd(const char *cmd) {
+#ifdef _WIN32
+    /* Pause reader thread if active (TUI mode) to prevent fd 0 race */
+    int had_reader = 0;
+    if (raw_active && reader_running && reader_thread) {
+        had_reader = 1;
+        reader_running = 0;
+        CancelSynchronousIo(reader_thread);
+        if (WaitForSingleObject(reader_thread, 3000) == WAIT_TIMEOUT)
+            TerminateThread(reader_thread, 0);
+        CloseHandle(reader_thread);
+        reader_thread = NULL;
+    }
+#endif
+
     FILE *fp = popen(cmd, "r");
     if (!fp) {
         char *err = malloc(32);
         if (err) strcpy(err, "-1\n(popen failed)");
+#ifdef _WIN32
+        if (had_reader) {
+            eden_term_rearm();
+            while (!ring_empty()) ring_pop();
+            reader_running = 1;
+            reader_thread = CreateThread(NULL, 0, reader_fn, NULL, 0, NULL);
+        }
+#endif
         return err ? err : "";
     }
 
@@ -59,10 +102,19 @@ char *eden_run_cmd(const char *cmd) {
     body[len] = '\0';
 
     int status = pclose(fp);
+
 #ifdef _WIN32
     int code = status;
+    /* Restart reader thread and rearm terminal */
+    if (had_reader) {
+        eden_term_rearm();
+        while (!ring_empty()) ring_pop();
+        reader_running = 1;
+        reader_thread = CreateThread(NULL, 0, reader_fn, NULL, 0, NULL);
+    }
 #else
     int code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    eden_term_rearm();
 #endif
 
     /* Build result: "<code>\n<body>" */
@@ -111,6 +163,20 @@ void eden_term_cleanup(void) {
     }
 }
 
+/* Re-apply raw mode after a subprocess may have reset termios. */
+void eden_term_rearm(void) {
+    if (!raw_active) return;
+    struct termios raw;
+    tcgetattr(STDIN_FILENO, &raw);
+    raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+    raw.c_oflag &= ~(OPOST);
+    raw.c_cflag |= CS8;
+    raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+    raw.c_cc[VMIN] = 0;
+    raw.c_cc[VTIME] = 0;
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+}
+
 int eden_term_width(void) {
     struct winsize ws;
     return (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1) ? ws.ws_col : 80;
@@ -134,18 +200,14 @@ static int read_byte(int timeout_ms) {
 
 #else  /* _WIN32 */
 
-#include <windows.h>
-#include <io.h>
-#include <fcntl.h>
+/* windows.h, io.h, fcntl.h already included via forward declarations above.
+ * raw_active, reader_running, reader_thread also declared above. */
 
 #define RING_SIZE 256
 
 static unsigned char  ring_buf[RING_SIZE];
 static volatile LONG  ring_head = 0, ring_tail = 0;
 static HANDLE         has_data;
-static HANDLE         reader_thread;
-static volatile int   reader_running = 0;
-static int            raw_active = 0;
 static int            is_console = 0;
 static HANDLE         hOut = INVALID_HANDLE_VALUE;
 static DWORD          orig_out_mode = 0;
@@ -228,6 +290,32 @@ void eden_term_cleanup(void) {
     if (orig_input_cp) SetConsoleCP(orig_input_cp);
     signal(SIGINT, SIG_DFL);
     raw_active = 0;
+}
+
+/* Re-apply raw console mode after a subprocess may have reset it.
+ * Also cancels any pending blocking _read in the reader thread so it
+ * picks up the restored console mode immediately. */
+void eden_term_rearm(void) {
+    if (!raw_active) return;
+    SetConsoleOutputCP(65001);
+    SetConsoleCP(65001);
+    _setmode(0, _O_BINARY);
+    _setmode(1, _O_BINARY);
+    if (is_console) {
+        HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+        DWORD im;
+        if (GetConsoleMode(hIn, &im))
+            SetConsoleMode(hIn, (im & ~(ENABLE_LINE_INPUT|ENABLE_ECHO_INPUT|ENABLE_PROCESSED_INPUT)) | 0x0200);
+        DWORD m;
+        if (GetConsoleMode(hOut, &m))
+            SetConsoleMode(hOut, m | 0x0004);
+    }
+    /* Cancel any pending _read in the reader thread so it restarts
+     * with the restored console mode. */
+    if (reader_thread)
+        CancelSynchronousIo(reader_thread);
+    /* Drain stale bytes from the ring buffer */
+    while (!ring_empty()) ring_pop();
 }
 
 int eden_term_width(void) {

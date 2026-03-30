@@ -50,6 +50,9 @@ prim__screenNebula : Int -> Int -> Int -> Int -> Int -> Int -> Int -> PrimIO ()
 %foreign "C:eden_screen_present,eden_term"
 prim__screenPresent : PrimIO ()
 
+%foreign "C:eden_term_rearm,eden_term"
+prim__termRearm : PrimIO ()
+
 ------------------------------------------------------------------------
 -- Terminal size
 ------------------------------------------------------------------------
@@ -84,6 +87,11 @@ initRawMode = do
 export
 cleanupTerminal : IO ()
 cleanupTerminal = primIO prim__termCleanup
+
+||| Re-apply raw mode after a subprocess may have reset terminal state.
+export
+rearmTerminal : IO ()
+rearmTerminal = primIO prim__termRearm
 
 ------------------------------------------------------------------------
 -- Key input

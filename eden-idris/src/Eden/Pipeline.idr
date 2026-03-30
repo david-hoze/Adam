@@ -30,6 +30,7 @@ import Eden.OntologyProjection
 import Eden.Trace
 import Eden.Monad
 import Eden.TermIO
+import System.File
 
 ------------------------------------------------------------------------
 -- Monadic turn result
@@ -67,11 +68,38 @@ mAssemble activeSet userText = do
   pure (assemblePrompt "Adam" princ
           activeSet history "" userText)
 
-||| Run a subprocess backend (claude or mlx) and return a ModelResult.
-cmdGenerate : String -> String -> EdenM ModelResult
-cmdGenerate name cmd = do
-  (output, exitCode) <- liftIO (runCommand cmd)
-  let answer = trim output
+||| Strip ANSI escape sequences and control characters from subprocess output.
+||| Newlines become spaces; ESC[... sequences are removed entirely.
+sanitizeOutput : String -> String
+sanitizeOutput s = pack (norm (stripEsc (unpack s)))
+  where
+    stripEsc : List Char -> List Char
+    stripEsc [] = []
+    stripEsc (c :: '[' :: rest) =
+      if c == chr 27
+        then let skip : List Char -> List Char
+                 skip [] = []
+                 skip (x :: xs) = if isAlpha x then stripEsc xs else skip xs
+             in skip rest
+        else c :: '[' :: stripEsc rest
+    stripEsc (c :: rest) =
+      if c == chr 27 then stripEsc (drop 1 rest)
+      else c :: stripEsc rest
+    norm : List Char -> List Char
+    norm [] = []
+    norm ('\n' :: cs) = ' ' :: norm cs
+    norm ('\r' :: cs) = norm cs
+    norm (c :: cs) = if ord c < 32 then norm cs else c :: norm cs
+
+||| Write prompt to file, pipe to CLI tool via popen, rearm terminal after.
+cmdGenerateViaFile : String -> String -> String -> EdenM ModelResult
+cmdGenerateViaFile name prompt cmd = do
+  _ <- liftIO (writeFile "data/eden_prompt.tmp" prompt)
+  -- popen uses MSYS2 shell (has cat); eden_run_cmd calls eden_term_rearm after pclose
+  (output, exitCode) <- liftIO (runCommand ("cat data/eden_prompt.tmp | " ++ cmd))
+  -- Extra rearm in case the in-C rearm wasn't enough
+  liftIO rearmTerminal
+  let answer = sanitizeOutput (trim output)
   let toks = length (words answer)
   pure (MkModelResult name (if exitCode /= 0 then "(" ++ name ++ " error)" else answer) toks answer "" answer)
 
@@ -84,8 +112,13 @@ mGenerateWith backend modelPath assembly = do
                  assembly.arProfile.rpTemp 0.9 1.05
   case backend of
     Mock => pure (mockGenerate params)
-    Claude => cmdGenerate "claude" ("claude -p " ++ show (params.gpSystemPrompt ++ "\n\n" ++ params.gpConvPrompt) ++ " --model " ++ fromMaybe "sonnet" modelPath)
-    MLX => cmdGenerate "mlx" ("python3 -c \"from mlx_lm import load,generate;m,t=load('" ++ fromMaybe "mlx-community/Llama-3.2-3B-Instruct-4bit" modelPath ++ "');print(generate(m,t,prompt=" ++ show params.gpConvPrompt ++ ",max_tokens=" ++ show params.gpMaxTokens ++ "))\"")
+    Claude => cmdGenerateViaFile "claude"
+                (params.gpSystemPrompt ++ "\n\n" ++ params.gpConvPrompt)
+                ("claude --model " ++ fromMaybe "sonnet" modelPath)
+    MLX => do
+      let model = fromMaybe "mlx-community/Llama-3.2-3B-Instruct-4bit" modelPath
+      cmdGenerateViaFile "mlx" params.gpConvPrompt
+        ("python3 -c \"from mlx_lm import load,generate;m,t=load('" ++ model ++ "');import sys;p=sys.stdin.read();print(generate(m,t,prompt=p,max_tokens=" ++ show params.gpMaxTokens ++ "))\"")
 
 ||| Step 4: Apply the membrane.
 export

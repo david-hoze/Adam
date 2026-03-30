@@ -4,6 +4,7 @@
 /* Low-level terminal I/O */
 int eden_term_init(void);
 void eden_term_cleanup(void);
+void eden_term_rearm(void);
 int eden_term_width(void);
 int eden_term_height(void);
 int eden_term_read_key(int timeout_ms);
