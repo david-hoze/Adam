@@ -3,6 +3,7 @@
 **Date:** 2026-04-06
 **Branch:** david
 **Compiler:** Custom Idris2 fork (progressive-stage1), RefC backend
+**Binary:** 1.7MB native executable (37 modules)
 
 This document tracks the Idris2 port of the EDEN/Adam runtime against the Python reference implementation.
 
@@ -14,115 +15,124 @@ These subsystems are fully operational in the Idris2 build.
 
 | Subsystem | Module(s) | Notes |
 |---|---|---|
-| Core types & ontology | `Eden.Types` | Meme, Memode, CandidateScore, TurnRecord, FeedbackEntry, phantom-tagged Id, all domain types |
+| Core types & ontology | `Eden.Types` | Meme, Memode, Chunk, Document, MeasurementEvent, CandidateScore, TurnRecord, FeedbackEntry, phantom-tagged Id, all domain types |
 | Turn loop pipeline | `Eden.Pipeline` | retrieve -> assemble -> generate -> membrane -> index. Full v1 invariant. |
-| Retrieval & scoring | `Eden.Retrieval` | Jaccard word-overlap similarity, activation, regard, session bias |
+| Retrieval & scoring | `Eden.Retrieval` | TF-IDF similarity, character bigrams, Jaccard fallback, stopword filtering, suffix stemming, activation, regard, session bias |
 | Regard mechanism | `Eden.Regard` | 7-component weighted breakdown, EMA decay, feedback integration |
 | Membrane | `Eden.Membrane` | Authority stripping, prefix normalization, newline cleanup |
 | Feedback processing | `Eden.Runtime` | accept/reject/edit with graph-wide propagation (0.85x attenuation per rank) |
 | Inference profiles | `Eden.Inference` | Manual, RuntimeAuto, AdamAuto modes. AdamAuto -> RuntimeAuto proven. |
 | Token budgeting | `Eden.Budget` | Pressure estimation, budget allocation |
 | Hum artifact | `Eden.Hum` | Bounded continuity artifact with token table, surface lines, status tracking |
-| In-memory graph store | `Eden.Store.InMemory` | Memes, edges, memodes, turns, feedback, sessions, experiments |
-| SQLite persistence | `Eden.SQLite` | Full C FFI to sqlite3. Load/save for all graph entities. |
+| In-memory graph store | `Eden.Store.InMemory` | Memes, edges, memodes, turns, feedback, sessions, experiments, chunks, documents, FTS inverted index, measurement events |
+| SQLite persistence | `Eden.SQLite` | Full C FFI to sqlite3. Load/save for all graph entities. Schema migration framework. |
 | Machine-checked proofs | `Eden.Proofs` | 55 theorems across 18 sections verifying runtime invariants |
 | Agent profile loading | `Main` | `seed_constitution.md` read at startup, injected into system prompt |
-| Observatory JSON export | `Eden.Export` | `--export` CLI. Graph state as JSON matching observatory contract. |
+| Observatory JSON export | `Eden.Export` | `--export` CLI. Enhanced graph JSON with metadata, provenance, sessions, membrane events, regard history. Plus session log (markdown), regard timeline (CSV), meme index (text). |
+| Observatory HTTP server | `Eden.Observatory` | Read-only HTTP server with 11 REST endpoints. `--observatory [port]` CLI flag. |
 | Hum file persistence | `Eden.Export` | Written to `data/hum/<session-id>.md` after every hum build |
 | System clock timestamps | `Eden.Runtime` | `currentTimestamp` via `System.time` + Hinnant civil-from-days |
 | Turn trace enrichment | `Eden.Pipeline` | 6 events per turn: candidates, profile/budget, backend/tokens, membrane, indexing, completion |
 | ANSI terminal rendering | `Eden.Term` | Pure escape sequences, EDEN Amber Dark palette |
-| C FFI terminal I/O | `Eden.TermIO` | Win32 console API + POSIX termios, cell-buffer compositor |
-| TUI | `Eden.TUI` | Two-column layout: dialogue tape, aperture panel, hum panel, composer, memgraph bus, feedback phase |
+| C FFI terminal I/O | `Eden.TermIO` | Win32 console API + POSIX termios, cell-buffer compositor, paste detection |
+| TUI | `Eden.TUI` | Two-column layout with dialogue tape, aperture panel, hum panel, composer, memgraph bus, feedback phase, help/config/atlas modals, 10+ slash commands, session wiring, GraphAudit at startup |
 | REPL | `Eden.Loop` | Interactive loop with optional backend selection |
 | Claude CLI backend | `Eden.Models.Base` | Writes prompt to temp file, pipes through `claude --model sonnet` |
+| MLX adapter | `Eden.Models.MLX` | Subprocess-based MLX adapter with graceful fallback to mock |
 | Mock backend | `Eden.Models.Mock` | Deterministic test responses |
+| Browser automation | `Eden.Browser` | Platform-aware URL opener (start/open/xdg-open). `--open` flag for export and observatory. |
+| Graph audit pipelines | `Eden.GraphAudit` | Graph normalization, behavior taxonomy, coherence reweave, document contextualization |
+| Tanakh/Hebrew | `Eden.Tanakh` | 4 gematria schemes, notarikon, temurah, equivalence search, word/letter breakdowns, scene compiler skeleton |
+| Session management | `Eden.Session` | Session profiles, archiving, markdown export, state snapshots, wired into TUI |
+| Document extraction | `Eden.Ingest.Extractors` | PDF, CSV, plaintext/markdown extraction with quality scoring |
+| Concept extraction | `Eden.Indexer` | Model-based (Claude) + keyword fallback. English and Hebrew. |
 
 ## Recently Completed (2026-04-06)
 
-### Reader Thread Fix (`eden_term.c`)
-Replaced `_read` (CRT) with `PeekNamedPipe`+`ReadFile` (Win32 API) in the reader thread. The CRT version held internal locks that caused deadlocks on the second subprocess call. The pipe path now polls non-blockingly (exits within 2ms); the console path uses `ReadFile` cancellable via `CancelSynchronousIo`.
+### Storage Enhancements (`Eden.Store.InMemory`, `Eden.SQLite`)
+- **Chunk management** — `Chunk` record with CRUD, document association, position tracking
+- **Document SHA deduplication** — Hash-based duplicate detection on ingest
+- **FTS inverted index** — Pure Idris tokenizer, inverted index, `ftsSearchMemes` with term-based search, auto-rebuild on meme creation
+- **Measurement event tracking** — Full `MeasurementEvent` lifecycle with reversion (reversion creates a new event, never silently mutates history)
+- **Schema migration framework** — Version table, `runMigrations` on database open, migrations v2 (chunks table) and v3 (measurement_events table)
+- **9 new EdenM wrappers** in `Eden.Monad` for chunks, FTS, documents, measurement events
 
-### Feedback Phase Fix (`TUI.idr`)
-After the feedback verdict (accept/reject/skip), `uiFeedback` is now cleared after a 1.5s display pause. Previously it stayed set, blocking the composer from accepting new input.
+### TUI Enhancements (`Eden.TUI`, `Eden.TermIO`, `eden_term.c`)
+- **Help modal** (`?`/`F1`/`/help`) — Full keybinding reference with box-drawn overlay
+- **Config modal** (`Ctrl+S`/`/config`) — 10 settings: backend, inference mode, token budget, retrieval depth, etc. Navigate with arrows, Enter to cycle values
+- **Atlas/archive modal** (`/atlas`/`/archive`) — Scrollable session list from database with ID, title, turn count, date
+- **Paste handling** — C FFI `eden_term_drain_paste` detects rapid input bursts, converts newlines to spaces
+- **Session wiring** — Loads `SessionProfile` at startup, displays in status panels
+- **GraphAudit wiring** — Runs `runSessionStartAudit` (normalization + taxonomy + reweave) at TUI startup
+- **10+ slash commands** — /quit, /help, /config, /atlas, /archive, /stats, /memes, /regard, /hum, /export
 
-### Model-Based Concept Extraction (`Indexer.idr`, `Pipeline.idr`, `Main.idr`)
-Concept extraction can now use Claude instead of the hardcoded keyword list. The `extractConceptsViaModel` function writes text to a temp file, calls `claude --model sonnet`, and parses `label|domain` output. Falls back to keyword matching on failure. Works for English and Hebrew text. Activated when `--backend claude` is set. Wired into both turn indexing and document ingestion.
+### Observatory HTTP Server (`Eden.Observatory`, `eden_http.c`)
+- **Minimal C HTTP server** — Platform sockets (Winsock2 on Windows/MSYS2, POSIX on Linux/macOS), single-threaded, CORS headers
+- **11 REST endpoints** — `/api/graph`, `/api/memes`, `/api/memes/:id`, `/api/edges`, `/api/memodes`, `/api/regard`, `/api/feedback`, `/api/sessions`, `/api/turns`, `/api/health`, plus styled HTML index page
+- **CLI integration** — `--observatory [port]` flag (default 8420)
 
-### Graph Audit Pipelines (`Eden.GraphAudit`)
-Four model-in-the-loop pipelines ported from Python `eden/runtime.py`:
+### Export Enhancements (`Eden.Export`)
+- **Richer graph JSON** — Metadata header (schema version, counts), provenance (experiment, agent, sessions), session summaries, membrane events, measurement events, regard history with full breakdown
+- **Session log export** — Markdown conversation log with turns, feedback, and summary statistics
+- **Regard timeline** — CSV export of regard scores per meme (all 7 components + activation + total)
+- **Meme index** — Plain text index with label, domain, role, usage/feedback counts, aggregate statistics
+- **`exportAll`** — Runs all export formats and returns output paths
+- **Chunk/document/measurement event deserializers** for SQLite loading
 
-- **Graph Normalization** — Groups similar memes, asks Claude to MERGE/KEEP, creates DERIVED_FROM edges for merged items.
-- **Behavior Taxonomy** — Collects behavior-domain memes, Claude groups them into memodes, materializes with MemberOf edges.
-- **Coherence Reweave** — Finds structurally weak memes (< 2 edges), Claude suggests new edges with relation types and weights.
-- **Document Contextualization** — After ingestion, cross-references new content with existing graph via Claude.
+### Tanakh Enhancements (`Eden.Tanakh`)
+- **4 gematria schemes** — Standard (mispar hechrachi), Gadol (final forms at full value), Katan (single digit), Ordinal (positional)
+- **`GematriaScheme` enum** with `gematriaWith` generic function
+- **Equivalence search** — `areGematriaEqual`, `findEquivalent` across any scheme
+- **Word/letter breakdowns** — `wordGematria` (per-word values), `letterBreakdown` (per-letter name and value)
+- **Extended analysis** — `HebrewAnalysisExt` record with all-scheme values, `analyzeHebrewExt`
+- **Scene compiler skeleton** — `Vec3`, `AnalyzedPassage`, `SceneElement`, `Scene` records, `compileScene`, `sceneToJSON`
 
-Convenience wrappers: `runSessionStartAudit`, `runPostIngestAudit`.
+### Retrieval Enhancements (`Eden.Retrieval`)
+- **TF-IDF similarity** — Term frequency, inverse document frequency, cosine similarity over TF-IDF vectors
+- **Character bigrams** — `bigramSimilarity` using Jaccard over character pairs (script-agnostic, works for Hebrew)
+- **`SimilarityMethod` enum** — `Jaccard | TFIDF | Bigram` with configurable dispatch
+- **Stopword filtering** — 70-word English stopword list
+- **Suffix stemming** — 20-suffix stemmer (-tion, -sion, -ment, -ness, -able, -ible, -ing, -ous, -ive, -ful, -ity, -ly, -ed, -er, -al, etc.)
+- **Default changed to TF-IDF** — `assembleActiveSet` uses TF-IDF by default, Jaccard available as fallback
 
-### Tanakh/Hebrew Service (`Eden.Tanakh`)
-Pure Idris2 module implementing Hebrew text processing:
+### MLX Adapter (`Eden.Models.MLX`)
+- **`MLXConfig` record** — modelPath, maxTokens, temperature, topP, repetitionPenalty
+- **Subprocess invocation** — Calls `mlx_lm.generate` via Python subprocess
+- **Graceful fallback** — Falls back to mock backend if MLX is unavailable
+- **`--backend mlx` CLI option**
 
-- **Gematria** — Standard mispar hechrachi. Explicit 22-letter lookup table with final-form normalization.
-- **Notarikon** — Roshei teivot (first letters) and sofei teivot (last letters).
-- **Temurah** — At-Bash cipher with 11-pair substitution table.
-- **Text utilities** — `isHebrew`, `isNikkud`, `isFinalForm`, `stripNikkud`, `normalizeFinal`, `hebrewLetterName`.
-- **Combined analysis** — `analyzeHebrew` runs all operations; `showAnalysis` formats results.
-
-All functions are pure and total.
-
-### Document Extraction (`Eden.Ingest.Extractors`)
-Multi-format document extraction:
-
-- **PDF** — Calls `pdftotext` via `runCommand`, with `-layout` fallback.
-- **CSV** — Parses rows with quoted field support, formats as readable text.
-- **Plaintext/Markdown** — Direct file read.
-- **Format detection** — From file extension.
-- **PDF quality scoring** — Penalties for garbled text, sparse/fragmented output. Matches Python scoring logic.
-- **`ingestFile`** — Unified entry point wired into `Ingest/Pipeline.idr`.
-
-### Session/Archive Management (`Eden.Session`)
-Session profile management, conversation archiving, markdown log export, session state snapshots.
+### Browser Automation (`Eden.Browser`)
+- **`openBrowser`** — Platform fallback: `start` (Windows) -> `open` (macOS) -> `xdg-open` (Linux) -> prints URL
+- **`--open` flag** — Opens export JSON or observatory URL in system browser
 
 ---
 
-## Not Yet Implemented
+## Remaining Gaps
 
-### Observatory Web Server & API
-**Python:** 6,700+ lines across 6 modules. Flask/WebSocket server with 20+ REST endpoints, SSE invalidation, graph/basin/geometry payloads. React/TypeScript frontend with Graphology/Sigma.
-**Status:** The Idris build has `--export` for static JSON. No server, no live endpoints, no browser interaction.
-**Priority:** Medium. The static export covers observability for single-operator use. Live server matters when the observatory needs to preview/commit/revert mutations.
+### Observatory (read-only only)
+**Python:** 6,700+ LOC. Full Flask/WebSocket server with SSE invalidation, graph/basin/geometry payloads, mutation endpoints (preview/commit/revert). React/TypeScript frontend.
+**Idris:** 288 LOC. Read-only HTTP server with 11 GET endpoints. No mutation, no WebSocket, no SSE, no frontend.
+**Remaining:** Mutation endpoints, preview/commit/revert flow, SSE invalidation, basin/geometry payloads, frontend integration.
 
-### Full TUI Feature Set
-**Python:** 5,881 lines (Textual framework). Modal dialogs (help, session config, feedback, conversation atlas), review text editing, paste handling, mouse support, themes, conversation archive browser, accessibility modes.
-**Idris:** 620 lines. Basic two-panel layout with keyboard-driven composer.
-**Status:** Functional for dialogue and feedback. Missing modals, session tuning, archive browsing, and advanced input handling.
-**Priority:** High. Session configuration and conversation atlas are the most impactful gaps.
-
-### MLX Local Model Backend
-**Python:** 216 lines. Full MLX adapter with streaming, token counting, sampler configuration, repetition penalty.
-**Idris:** Claude CLI wrapper only. No local model support.
-**Status:** The Idris build relies on `claude --model sonnet` via subprocess.
-**Priority:** Low for now. Claude CLI works. MLX matters when local-only operation is required.
-
-### Schema Migrations
-**Python:** 254 lines. Versioned additive migrations, column additions, data deduplication, backfill operations.
-**Idris:** Has SQLite FFI but no migration framework. Schema changes require manual database recreation.
-**Priority:** Medium. Becomes critical as the schema evolves.
-
-### Full Storage CRUD
-**Python:** 79 methods covering all entity types with metadata, FTS indexing, SHA deduplication, measurement event tracking.
-**Idris:** Core CRUD for memes, edges, memodes, turns, feedback, sessions, experiments. Missing: chunk management, FTS indexing, document SHA dedup, measurement events.
-**Priority:** Medium. Current coverage handles the v1 loop.
+### TUI (modals done, advanced features remaining)
+**Python:** 5,881 LOC. Full Textual framework with review text editing, mouse support, themes, accessibility modes.
+**Idris:** ~1,500 LOC. Help/config/atlas modals, paste handling, session wiring, 10+ commands.
+**Remaining:** Review text editing modal, mouse support, themes, accessibility modes.
 
 ### Embedding-Based Retrieval
-**Python:** Supports embedding backends for semantic similarity.
-**Idris:** Jaccard word-overlap only (lexical, not semantic).
-**Priority:** Medium. Jaccard works for English but degrades on Hebrew and cross-lingual queries.
+**Python:** Supports embedding backends for true semantic similarity.
+**Idris:** TF-IDF + bigrams (lexical, not semantic). Significant improvement over Jaccard but still not embedding-based.
+**Remaining:** Integration with an embedding model (local or via API) for vector similarity.
 
-### Browser Automation
-**Python:** 50 lines. Opens observatory URL via system browser.
-**Idris:** Not implemented.
-**Priority:** Low. `--export` writes JSON; operator can open files manually.
+### Storage (most features done)
+**Python:** 79 methods with full metadata support.
+**Idris:** Core CRUD + chunks + FTS + SHA dedup + measurement events.
+**Remaining:** Some metadata fields, advanced query patterns.
+
+### Tanakh Scene Compiler
+**Python:** Full Merkavah 3D visualization with passage positioning, camera paths, lighting.
+**Idris:** Skeleton with data types and linear layout.
+**Remaining:** 3D positioning algorithms, camera paths, full scene graph.
 
 ---
 
@@ -131,20 +141,21 @@ Session profile management, conversation archiving, markdown log export, session
 | Subsystem | Python | Idris | Coverage |
 |---|---|---|---|
 | Core turn loop | 3,724 LOC | 357 LOC | **90%** (functional parity, less code due to types) |
-| Retrieval + Regard | ~600 LOC | ~300 LOC | **95%** |
+| Retrieval + Regard | ~600 LOC | ~600 LOC | **95%** (TF-IDF, bigrams, stemming, stopwords) |
 | Membrane + Feedback | ~400 LOC | ~200 LOC | **95%** |
 | Proofs | 0 | 800 LOC | **Idris-only** (55 machine-checked theorems) |
 | Inference profiles | ~340 LOC | ~200 LOC | **90%** |
-| Storage | 1,590 LOC | 320 LOC | **40%** |
-| Models | 480 LOC | 130 LOC | **30%** (Claude CLI only, no MLX) |
-| TUI | 5,881 LOC | 620 LOC | **25%** (functional, missing modals/config) |
-| Ingest | 731 LOC | ~400 LOC | **65%** (with new extractors) |
+| Storage | 1,590 LOC | ~535 LOC | **75%** (chunks, FTS, SHA dedup, measurement events, migrations) |
+| Models | 480 LOC | ~275 LOC | **45%** (Claude CLI + MLX adapter + mock) |
+| TUI | 5,881 LOC | ~1,500 LOC | **55%** (modals, commands, paste, session wiring) |
+| Ingest | 731 LOC | ~400 LOC | **65%** (multi-format extractors) |
 | Graph Audit | ~750 LOC | 534 LOC | **80%** |
-| Tanakh | 1,590 LOC | ~250 LOC | **30%** (core hermeneutics, no scene compiler) |
-| Session Management | ~500 LOC | ~200 LOC | **40%** |
-| Observatory | 6,700+ LOC | 0 | **0%** |
-| Export | ~3,700 LOC | ~300 LOC | **15%** (JSON export only) |
-| Concept Extraction | keyword-based | keyword + model | **110%** (model-based exceeds Python's keyword-only indexer) |
+| Tanakh | 1,590 LOC | ~730 LOC | **55%** (4 gematria schemes, equivalence search, scene skeleton) |
+| Session Management | ~500 LOC | ~200 LOC | **50%** (wired into TUI) |
+| Observatory | 6,700+ LOC | ~540 LOC | **20%** (read-only HTTP server, 11 endpoints) |
+| Export | ~3,700 LOC | ~680 LOC | **45%** (4 formats, richer JSON, provenance) |
+| Concept Extraction | keyword-based | keyword + model | **110%** (model-based exceeds Python) |
+| Browser | ~50 LOC | ~45 LOC | **90%** |
 
 ## Idris-Only Advantages
 
@@ -154,16 +165,20 @@ These exist in the Idris build but not in Python:
 - **Dependent types** enforcing ontology rules (e.g., memode materialization requires 2+ members, proven at the type level)
 - **Phantom-tagged IDs** preventing accidental mixing of MemeId, SessionId, ExperimentId, etc.
 - **Total core functions** — the type checker guarantees termination for pure pipeline logic
-- **Native binary** — single 1.3MB executable, no Python/venv dependency at runtime
+- **Native binary** — single 1.7MB executable, no Python/venv dependency at runtime
+- **Model-based concept extraction** — Claude-powered extraction exceeds Python's keyword-only indexer
 
 ---
 
 ## Build & Run
 
 ```bash
-cd eden-idris && ./build.sh        # Type-check + RefC codegen + GCC link
+cd eden-idris && ./build.sh        # Type-check + RefC codegen + GCC link (37 modules)
 ./build/exec/eden.exe --tui        # Primary interface
 ./build/exec/eden.exe --repl --backend claude   # REPL with Claude
-./build/exec/eden.exe --export     # Observatory JSON
+./build/exec/eden.exe --export     # Observatory JSON + session log + regard CSV + meme index
+./build/exec/eden.exe --export --open           # Export and open in browser
+./build/exec/eden.exe --observatory             # HTTP server on port 8420
+./build/exec/eden.exe --observatory 9000        # Custom port
 ./build/exec/eden.exe --ingest ~/docs --backend claude  # Model-based ingest
 ```
