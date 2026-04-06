@@ -28,3 +28,22 @@ eden-idris/build/
 *.ttc
 *.ttm
 *.snap
+
+# Idris2 runtime data
+eden-idris/data/*.db
+eden-idris/data/*.tmp
+eden-idris/data/export/
+eden-idris/data/hum/
+eden-idris/data/graph.eden
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# Windows
+Thumbs.db
+
+# Claude Code worktrees
+.claude/worktrees/

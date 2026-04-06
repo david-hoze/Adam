@@ -49,7 +49,7 @@ After the feedback verdict (accept/reject/skip), `uiFeedback` is now cleared aft
 ### Model-Based Concept Extraction (`Indexer.idr`, `Pipeline.idr`, `Main.idr`)
 Concept extraction can now use Claude instead of the hardcoded keyword list. The `extractConceptsViaModel` function writes text to a temp file, calls `claude --model sonnet`, and parses `label|domain` output. Falls back to keyword matching on failure. Works for English and Hebrew text. Activated when `--backend claude` is set. Wired into both turn indexing and document ingestion.
 
-### Graph Audit Pipelines (`Eden.GraphAudit` — in worktree, pending merge)
+### Graph Audit Pipelines (`Eden.GraphAudit`)
 Four model-in-the-loop pipelines ported from Python `eden/runtime.py`:
 
 - **Graph Normalization** — Groups similar memes, asks Claude to MERGE/KEEP, creates DERIVED_FROM edges for merged items.
@@ -59,7 +59,7 @@ Four model-in-the-loop pipelines ported from Python `eden/runtime.py`:
 
 Convenience wrappers: `runSessionStartAudit`, `runPostIngestAudit`.
 
-### Tanakh/Hebrew Service (`Eden.Tanakh` — in worktree, pending merge)
+### Tanakh/Hebrew Service (`Eden.Tanakh`)
 Pure Idris2 module implementing Hebrew text processing:
 
 - **Gematria** — Standard mispar hechrachi. Explicit 22-letter lookup table with final-form normalization.
@@ -70,7 +70,7 @@ Pure Idris2 module implementing Hebrew text processing:
 
 All functions are pure and total.
 
-### Document Extraction (`Eden.Ingest.Extractors` — in worktree, pending merge)
+### Document Extraction (`Eden.Ingest.Extractors`)
 Multi-format document extraction:
 
 - **PDF** — Calls `pdftotext` via `runCommand`, with `-layout` fallback.
@@ -80,7 +80,7 @@ Multi-format document extraction:
 - **PDF quality scoring** — Penalties for garbled text, sparse/fragmented output. Matches Python scoring logic.
 - **`ingestFile`** — Unified entry point wired into `Ingest/Pipeline.idr`.
 
-### Session/Archive Management (`Eden.Session` — in worktree, in progress)
+### Session/Archive Management (`Eden.Session`)
 Session profile management, conversation archiving, markdown log export, session state snapshots.
 
 ---
@@ -139,9 +139,9 @@ Session profile management, conversation archiving, markdown log export, session
 | Models | 480 LOC | 130 LOC | **30%** (Claude CLI only, no MLX) |
 | TUI | 5,881 LOC | 620 LOC | **25%** (functional, missing modals/config) |
 | Ingest | 731 LOC | ~400 LOC | **65%** (with new extractors) |
-| Graph Audit | ~750 LOC | 534 LOC | **80%** (pending merge) |
+| Graph Audit | ~750 LOC | 534 LOC | **80%** |
 | Tanakh | 1,590 LOC | ~250 LOC | **30%** (core hermeneutics, no scene compiler) |
-| Session Management | ~500 LOC | ~200 LOC | **40%** (in progress) |
+| Session Management | ~500 LOC | ~200 LOC | **40%** |
 | Observatory | 6,700+ LOC | 0 | **0%** |
 | Export | ~3,700 LOC | ~300 LOC | **15%** (JSON export only) |
 | Concept Extraction | keyword-based | keyword + model | **110%** (model-based exceeds Python's keyword-only indexer) |
