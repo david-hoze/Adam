@@ -18,6 +18,8 @@ import Eden.Export
 import Eden.Monad
 import Eden.OntologyProjection
 import Eden.Models.MLX
+import Eden.Tanakh
+import Eden.Trace
 
 ------------------------------------------------------------------------
 -- C FFI declarations
@@ -107,6 +109,9 @@ memeJson m = jObj
   , ("evidenceN",     jNum m.evidenceN)
   , ("usageCount",    jNat m.usageCount)
   , ("feedbackCount", jNat m.feedbackCount)
+  , ("entity_type",     jStr "meme")
+  , ("speech_act_mode", jStr (show m.domain))
+  , ("storage_kind",    jStr "persisted")
   ]
 
 edgeJson : Edge -> String
@@ -357,6 +362,8 @@ basinJson b = jObj
   , ("center_y",  jNum b.basinCenterY)
   , ("weight",    jNum b.basinWeight)
   , ("size",      jNat b.basinSize)
+  , ("projection_method",  jStr "domain_partition")
+  , ("projection_version", jStr "1.0")
   ]
 
 ------------------------------------------------------------------------
@@ -448,6 +455,14 @@ geometryJson g = jObj
   , ("connected_components", jNat g.gdConnectedComponents)
   , ("diameter_estimate",    jNat g.gdDiameterEstimate)
   , ("clustering_coefficient", jNum g.gdClusteringCoeff)
+  , ("evidence_labels", jObj
+      [ ("node_count",             jStr "OBSERVED")
+      , ("edge_count",             jStr "OBSERVED")
+      , ("density",                jStr "DERIVED")
+      , ("average_degree",         jStr "DERIVED")
+      , ("connected_components",   jStr "DERIVED")
+      , ("clustering_coefficient", jStr "DERIVED")
+      ])
   ]
 
 ------------------------------------------------------------------------
@@ -507,10 +522,18 @@ indexHtml = unlines
   , "  <li><a href=\"/api/basins\">/api/basins</a></li>"
   , "  <li><a href=\"/api/geometry\">/api/geometry</a></li>"
   , "  <li><a href=\"/api/measurements\">/api/measurements</a></li>"
+  , "  <li><a href=\"/api/models\">/api/models</a></li>"
+  , "  <li><a href=\"/api/runtime/status\">/api/runtime/status</a></li>"
+  , "  <li><a href=\"/api/runtime/model\">/api/runtime/model</a></li>"
+  , "  <li><a href=\"/api/tanakh\">/api/tanakh</a></li>"
   , "  <li><a href=\"/api/events\">/api/events</a> (SSE)</li>"
+  , "  <li>/api/sessions/:id/turns</li>"
+  , "  <li>/api/sessions/:id/active-set</li>"
+  , "  <li>/api/sessions/:id/trace</li>"
   , "  <li><span class=\"post\">POST /api/edges/:id/update</span></li>"
   , "  <li><span class=\"post\">POST /api/edges/:id/remove</span></li>"
   , "  <li><span class=\"post\">POST /api/memodes/assert</span></li>"
+  , "  <li><span class=\"post\">POST /api/tanakh-run</span></li>"
   , "  <li><span class=\"post\">POST /api/preview</span></li>"
   , "  <li><span class=\"post\">POST /api/commit</span></li>"
   , "  <li><span class=\"post\">POST /api/revert/:eventId</span></li>"
@@ -582,6 +605,47 @@ serveGetRoute st eid fd "/api/models" = do
   let modelsJson = jArr (map (\m => jStr m) known)
   let body = jObj [("config", infoJson), ("known_models", modelsJson)]
   primIO (prim__httpSendResponse fd "application/json" body)
+serveGetRoute st eid fd "/api/runtime/status" = do
+  allMemes <- readIORef st.memes
+  allEdges <- readIORef st.edges
+  allTurns <- readIORef st.turns
+  allSess <- readIORef st.sessions
+  let memes = filter (\m => m.experimentId == eid) allMemes
+  let edges = filter (\e => e.experimentId == eid) allEdges
+  let turns = filter (\t => t.experimentId == eid) allTurns
+  let sessions = filter (\s => s.experimentId == eid) allSess
+  let body = jObj
+        [ ("status",        jStr "running")
+        , ("runtime",       jStr "idris2-refc")
+        , ("experiment_id", jStr (show eid))
+        , ("session_count", jNat (length sessions))
+        , ("meme_count",    jNat (length memes))
+        , ("edge_count",    jNat (length edges))
+        , ("turn_count",    jNat (length turns))
+        ]
+  primIO (prim__httpSendResponse fd "application/json" body)
+serveGetRoute st eid fd "/api/runtime/model" = do
+  let cfg = defaultMLXConfig
+  let body = jObj (map (\kv => (fst kv, snd kv)) (mlxBackendInfo cfg))
+  primIO (prim__httpSendResponse fd "application/json" body)
+serveGetRoute st eid fd "/api/tanakh" = do
+  allMemes <- readIORef st.memes
+  let memes = filter (\m => m.experimentId == eid) allMemes
+  let hebrewMemes = filter (\m => any isHebrew (unpack m.text)) memes
+  let bundles = map (\m =>
+        let a = analyzeHebrew m.text
+        in jObj [ ("meme_id",     jStr (show m.id))
+               , ("label",       jStr m.label)
+               , ("text",        jStr (substr 0 200 m.text))
+               , ("gematria",    show a.gematriaValue)
+               , ("letter_count", jNat a.letterCount)
+               , ("roshei",      jStr a.rosheiResult)
+               , ("sofei",       jStr a.sofeiResult)
+               , ("atbash",      jStr a.atBashResult)
+               ]) hebrewMemes
+  primIO (prim__httpSendResponse fd "application/json"
+    (jObj [ ("hebrew_meme_count", jNat (length hebrewMemes))
+          , ("passages", jArr bundles) ]))
 serveGetRoute st eid fd "/api/events" = do
   _ <- primIO (prim__httpSendSseHeaders fd)
   pure ()
@@ -592,7 +656,47 @@ serveGetRoute st eid fd path =
             case filter (\m => show m.id == memeIdStr) allMemes of
               (m :: _) => primIO (prim__httpSendResponse fd "application/json" (memeJson m))
               []        => send404 fd path
+  else if isPrefixOf "/api/sessions/" path
+    then serveSessionRoute st fd path
     else send404 fd path
+  where
+    serveSessionRoute : StoreState -> Int -> String -> IO ()
+    serveSessionRoute st fd path = do
+      let rest = substr 14 (length path) path
+      let sessIdStr = pack (takeWhile (\c => c /= '/') (unpack rest))
+      let subPath = substr (length sessIdStr) (length rest) rest
+      case subPath of
+        "/turns" => do
+          allTurns <- readIORef st.turns
+          let turns = filter (\t => show t.sessionId == sessIdStr) allTurns
+          let sorted = sortBy (\a, b => compare a.turnIndex b.turnIndex) turns
+          primIO (prim__httpSendResponse fd "application/json" (jArr (map turnJson sorted)))
+        "/active-set" => do
+          allAsets <- readIORef st.activeSetSnaps
+          let asets = filter (\a => show a.sessionId == sessIdStr) allAsets
+          let asJson = map (\a => jObj
+                [ ("id",       jStr a.id)
+                , ("turn_id",  jStr (show a.turnId))
+                , ("node_id",  jStr a.nodeId)
+                , ("label",    jStr a.label)
+                , ("domain",   jStr (show a.domain))
+                , ("selection_score", jNum a.selectionScore)
+                , ("semantic_sim",    jNum a.semanticSim)
+                , ("activation",      jNum a.activationVal)
+                , ("regard",          jNum a.regardVal)
+                ]) asets
+          primIO (prim__httpSendResponse fd "application/json" (jArr asJson))
+        "/trace" => do
+          allTrace <- readIORef st.traceEvts
+          let traceJson = map (\tup => case tup of
+                (evt, lvl, msg, ts) => jObj
+                  [ ("event",     jStr (show evt))
+                  , ("level",     jStr (show lvl))
+                  , ("message",   jStr (substr 0 500 msg))
+                  , ("timestamp", jStr (show ts))
+                  ]) (take 200 allTrace)
+          primIO (prim__httpSendResponse fd "application/json" (jArr traceJson))
+        _ => send404 fd path
 
 ------------------------------------------------------------------------
 -- POST mutation handlers
@@ -722,6 +826,16 @@ handlePostPreview st eid pvRef fd body = do
   let pv = MkPreviewState action beforeState proposedState operator evidence
              src target (parseEdgeType relation) weight rationale edgeId memberIds
   writeIORef pvRef (Just pv)
+  let graphPatch = case action of
+        EdgeAdd    => jObj [ ("type", jStr "edge_add"),    ("source", jStr src),
+                            ("target", jStr target),      ("relation", jStr relation),
+                            ("weight", jNum weight) ]
+        EdgeRemove => jObj [ ("type", jStr "edge_remove"), ("edge_id", jStr edgeId) ]
+        EdgeUpdate => jObj [ ("type", jStr "edge_update"), ("edge_id", jStr edgeId),
+                            ("relation", jStr relation),  ("weight", jNum weight) ]
+        MemodeAssert => jObj [ ("type", jStr "memode_assert"),
+                              ("member_ids", jArr (map jStr memberIds)) ]
+        _ => jObj [("type", jStr "unknown")]
   let resp = jObj
         [ ("status",         jStr "previewed")
         , ("action",         jStr actionStr)
@@ -733,6 +847,7 @@ handlePostPreview st eid pvRef fd body = do
              , ("before_density",  jNum beforeGeom.gdDensity)
              , ("proposed_density", jNum proposedGeom.gdDensity)
              ])
+        , ("preview_graph_patch", graphPatch)
         ]
   primIO (prim__httpSendResponse fd "application/json" resp)
 
@@ -801,6 +916,25 @@ handlePostRevert st eid fd eventIdStr body = do
 servePostRoute : StoreState -> ExperimentId -> IORef (Maybe PreviewState) -> Int -> String -> String -> IO ()
 servePostRoute st eid pvRef fd "/api/edges" body = handlePostEdges st eid fd body
 servePostRoute st eid pvRef fd "/api/memodes/assert" body = handlePostMemodeAssert st eid fd body
+servePostRoute st eid pvRef fd "/api/tanakh-run" body = do
+  let text = extractJsonString "text" body
+  if text == ""
+    then send400 fd "text field required"
+    else do let a = analyzeHebrew text
+            let cr = crossReference text
+            let resp = jObj
+                  [ ("input_text",    jStr text)
+                  , ("stripped_text", jStr a.strippedText)
+                  , ("letter_count", jNat a.letterCount)
+                  , ("gematria_standard", show a.gematriaValue)
+                  , ("gematria_gadol",    show cr.crGadol)
+                  , ("gematria_katan",    show cr.crKatan)
+                  , ("gematria_ordinal",  show cr.crOrdinal)
+                  , ("roshei_teivot",     jStr a.rosheiResult)
+                  , ("sofei_teivot",      jStr a.sofeiResult)
+                  , ("atbash",            jStr a.atBashResult)
+                  ]
+            primIO (prim__httpSendResponse fd "application/json" resp)
 servePostRoute st eid pvRef fd "/api/preview" body = handlePostPreview st eid pvRef fd body
 servePostRoute st eid pvRef fd "/api/commit" body = handlePostCommit st eid pvRef fd body
 servePostRoute st eid pvRef fd path body =

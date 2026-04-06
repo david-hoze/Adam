@@ -151,6 +151,11 @@ record UIState where
   uiLowMotion   : IORef Bool
   uiScreenReader : IORef Bool
   uiLastResponse : IORef String
+  uiTapeScroll   : IORef Int
+  uiActionFocus  : IORef Bool
+  uiActionSel    : IORef Nat
+  uiChyronVisible : IORef Bool
+  uiApertureDrawer : IORef Bool
 
 ------------------------------------------------------------------------
 -- Rendering primitives
@@ -255,31 +260,36 @@ actionLine row col maxW num sel label = do
   clearRow row col maxW bg
   putText row col fg bg sel maxW ("[ " ++ n ++ " " ++ label ++ " ]")
 
-drawActions : Int -> Int -> Int -> IO ()
-drawActions r c w = do
+drawActions : UIState -> Int -> Int -> Int -> IO ()
+drawActions ui r c w = do
+  sel <- readIORef ui.uiActionSel
+  focused <- readIORef ui.uiActionFocus
   let h = 10
   clearRect r h c w colActBg
   drawBox r c w h colActBd
   boxTitle r c " Actions " colNeon
   let hw = (w - 4) `div` 2
   let rc = c + 2 + hw + 1
-  actionLine (r+1) (c+2) hw  1 True  "Review Last Reply"
-  actionLine (r+2) (c+2) hw  2 False "Open Conversation Log"
-  actionLine (r+3) (c+2) hw  3 False "Open Conversation Atlas"
-  actionLine (r+4) (c+2) hw  4 False "Tune Session"
-  actionLine (r+5) (c+2) hw  5 False "Start New Session"
-  actionLine (r+6) (c+2) hw  6 False "Continue Latest"
-  actionLine (r+7) (c+2) hw  7 False "Prepare Local Model"
-  actionLine (r+1) rc hw  8 False "Open Browser Observatory"
-  actionLine (r+2) rc hw  9 False "Export Artifacts"
-  actionLine (r+3) rc hw 10 False "Open Utilities Deck"
-  actionLine (r+4) rc hw 11 False "Help"
-  actionLine (r+5) rc hw 12 False "Ingest PDF / Doc"
-  actionLine (r+6) rc hw 13 False "Toggle Aperture Drawer"
-  actionLine (r+7) rc hw 14 False "Toggle Runtime Chyron"
+  let s : Nat = if focused then sel else Z
+  actionLine (r+1) (c+2) hw  1 (s == 1)  "Review Last Reply"
+  actionLine (r+2) (c+2) hw  2 (s == 2)  "Open Conversation Log"
+  actionLine (r+3) (c+2) hw  3 (s == 3)  "Open Conversation Atlas"
+  actionLine (r+4) (c+2) hw  4 (s == 4)  "Tune Session"
+  actionLine (r+5) (c+2) hw  5 (s == 5)  "Start New Session"
+  actionLine (r+6) (c+2) hw  6 (s == 6)  "Continue Latest"
+  actionLine (r+7) (c+2) hw  7 (s == 7)  "Prepare Local Model"
+  actionLine (r+1) rc hw  8 (s == 8)  "Open Browser Observatory"
+  actionLine (r+2) rc hw  9 (s == 9)  "Export Artifacts"
+  actionLine (r+3) rc hw 10 (s == 10) "Open Utilities Deck"
+  actionLine (r+4) rc hw 11 (s == 11) "Help"
+  actionLine (r+5) rc hw 12 (s == 12) "Ingest PDF / Doc"
+  actionLine (r+6) rc hw 13 (s == 13) "Toggle Aperture Drawer"
+  actionLine (r+7) rc hw 14 (s == 14) "Toggle Runtime Chyron"
   -- Status hint line
   clearRow (r+8) (c+1) (w-2) colActBg
-  putText (r+8) (c+2) colMuted colActBg False (w-4) "digits jump | left/right move | Enter runs"
+  let hint = if focused then "FOCUSED | digits jump | left/right | Enter runs | Esc exits"
+             else "Tab to focus | digits jump | left/right move | Enter runs"
+  putText (r+8) (c+2) colMuted colActBg False (w-4) hint
 
 ------------------------------------------------------------------------
 -- Status panels (right of actions)
@@ -339,6 +349,7 @@ drawDialogue : UIState -> Int -> Int -> Int -> Int -> IO ()
 drawDialogue ui r c w h = do
   clearRect r h c w colBg
   entries <- readIORef ui.uiDialogue
+  scrollOff <- readIORef ui.uiTapeScroll
   let ch = h - 3
   let cs = r + 2
   case entries of
@@ -349,7 +360,7 @@ drawDialogue ui r c w h = do
         then putText (cs+1) (c+2) colMuted colBg False (w-4)
                "Press F9 first if you want to ingest a document with a framing note."
         else pure ()
-    _  => drawEntries cs 0 (reverse entries) cs ch (c+1) (w-2)
+    _  => drawEntries cs 0 (drop (cast {to=Nat} scrollOff) (reverse entries)) cs ch (c+1) (w-2)
   -- Draw box borders AFTER content so they're never overwritten
   drawBox r c w h colRose
   boxTitle r c " Dialogue Tape " colRose
@@ -758,7 +769,7 @@ renderFrame ui = do
 
   let deckH = fRow - bStart  -- total left column height
 
-  drawActions 0 0 actW
+  drawActions ui 0 0 actW
   drawStatusPanels ui 0 stC stW
   drawRuntimeLine ui rlRow w
   -- Outer amber border (chat_deck) wrapping dialogue + composer
@@ -801,12 +812,65 @@ parseVerdict 'e' = Just Edit
 parseVerdict 's' = Just Skip
 parseVerdict _   = Nothing
 
+handleFKey : UIState -> Nat -> IO ()
+handleFKey ui 1 = writeIORef ui.uiMode HelpModal
+handleFKey ui 2 = do
+  path <- writeGraphExport ui.uiEnv.store ui.uiEnv.eid
+  writeIORef ui.uiFeedback (Just ("exported: " ++ path))
+handleFKey ui 3 = writeIORef ui.uiFeedback (Just "observatory: use --export to generate data")
+handleFKey ui 4 = do
+  lm <- readIORef ui.uiLowMotion
+  writeIORef ui.uiLowMotion (not lm)
+  writeIORef ui.uiFeedback (Just ("low motion: " ++ show (not lm)))
+handleFKey ui 5 = do
+  writeIORef ui.uiDialogue []
+  writeIORef ui.uiTurnIdx 0
+  writeIORef ui.uiTapeScroll 0
+  writeIORef ui.uiFeedback (Just "dialogue cleared")
+handleFKey ui 6 = writeIORef ui.uiMode (ConfigModal 0)
+handleFKey ui 7 = do
+  lastResp <- readIORef ui.uiLastResponse
+  let buf = if lastResp == "" then [""] else lines lastResp
+  writeIORef ui.uiMode (EditModal buf 0 0)
+handleFKey ui 8 = do
+  ad <- readIORef ui.uiApertureDrawer
+  writeIORef ui.uiApertureDrawer (not ad)
+  writeIORef ui.uiFeedback (Just ("aperture drawer: " ++ show (not ad)))
+handleFKey ui 9 = writeIORef ui.uiFeedback (Just "ingest: use --ingest <path> from CLI")
+handleFKey ui 10 = writeIORef ui.uiMode (AtlasModal 0 0)
+handleFKey ui 11 = do
+  cv <- readIORef ui.uiChyronVisible
+  writeIORef ui.uiChyronVisible (not cv)
+  writeIORef ui.uiFeedback (Just ("chyron: " ++ show (not cv)))
+handleFKey _ _ = pure ()
+
 handleNormalKey : UIState -> KeyEvent -> IO ()
 handleNormalKey ui KeyF12 = writeIORef ui.uiQuit True
+handleNormalKey ui KeyF1 = handleFKey ui 1
+handleNormalKey ui KeyF2 = handleFKey ui 2
+handleNormalKey ui KeyF3 = handleFKey ui 3
+handleNormalKey ui KeyF4 = handleFKey ui 4
+handleNormalKey ui KeyF5 = handleFKey ui 5
+handleNormalKey ui KeyF6 = handleFKey ui 6
+handleNormalKey ui KeyF7 = handleFKey ui 7
+handleNormalKey ui KeyF8 = handleFKey ui 8
+handleNormalKey ui KeyF9 = handleFKey ui 9
+handleNormalKey ui KeyF10 = handleFKey ui 10
+handleNormalKey ui KeyF11 = handleFKey ui 11
 handleNormalKey ui (KeyCtrl 'q') = writeIORef ui.uiQuit True
 handleNormalKey ui (KeyCtrl 'c') = writeIORef ui.uiQuit True
-handleNormalKey ui (KeyCtrl 's') = writeIORef ui.uiMode (ConfigModal 0)
-handleNormalKey ui KeyEscape = writeIORef ui.uiQuit True
+handleNormalKey ui (KeyCtrl 's') = do
+  text <- readIORef ui.uiComposer
+  when (text /= "") $ ignore (handleNormalKey ui KeyEnter)
+  when (text == "") $ writeIORef ui.uiFeedback (Just "nothing to send")
+handleNormalKey ui KeyEscape = do
+  af <- readIORef ui.uiActionFocus
+  md <- readIORef ui.uiMode
+  when af $ do writeIORef ui.uiActionFocus False
+               writeIORef ui.uiFeedback Nothing
+  case md of
+    Normal => pure ()
+    _      => writeIORef ui.uiMode Normal
 handleNormalKey ui KeyEnter = do
   text <- readIORef ui.uiComposer
   if text == ""
@@ -936,22 +1000,73 @@ handleNormalKey ui KeyBackspace = do
     StrCons _ _ =>
       let l = length text
       in writeIORef ui.uiComposer (substr 0 (cast (minus l 1)) text)
-handleNormalKey ui (KeyChar c) = do
-  text <- readIORef ui.uiComposer
-  -- Check for help shortcut: ? or h when composer is empty
-  if text == "" && (c == '?' || c == 'h')
-    then writeIORef ui.uiMode HelpModal
-    else do
-      let newText = text ++ singleton c
-      writeIORef ui.uiComposer newText
-      -- Paste detection: drain any rapid input burst
-      pasted <- drainPaste 10
-      if pasted == ""
-        then pure ()
+handleNormalKey ui (KeyChar c) = handleChar ui c
+  where
+    actionDigit : UIState -> Char -> IO ()
+    actionDigit ui '0' = writeIORef ui.uiActionSel 10
+    actionDigit ui '1' = writeIORef ui.uiActionSel 1
+    actionDigit ui '2' = writeIORef ui.uiActionSel 2
+    actionDigit ui '3' = writeIORef ui.uiActionSel 3
+    actionDigit ui '4' = writeIORef ui.uiActionSel 4
+    actionDigit ui '5' = writeIORef ui.uiActionSel 5
+    actionDigit ui '6' = writeIORef ui.uiActionSel 6
+    actionDigit ui '7' = writeIORef ui.uiActionSel 7
+    actionDigit ui '8' = writeIORef ui.uiActionSel 8
+    actionDigit ui '9' = writeIORef ui.uiActionSel 9
+    actionDigit _  _   = pure ()
+
+    composerChar : UIState -> Char -> IO ()
+    composerChar ui c = do
+      text <- readIORef ui.uiComposer
+      if text == "" && (c == '?' || c == 'h')
+        then writeIORef ui.uiMode HelpModal
         else do
-          cur <- readIORef ui.uiComposer
-          writeIORef ui.uiComposer (cur ++ pasted)
-handleNormalKey ui KeyF1 = writeIORef ui.uiMode HelpModal
+          writeIORef ui.uiComposer (text ++ singleton c)
+          pasted <- drainPaste 10
+          when (pasted /= "") $ do
+            cur <- readIORef ui.uiComposer
+            writeIORef ui.uiComposer (cur ++ pasted)
+
+    handleChar : UIState -> Char -> IO ()
+    handleChar ui c = do
+      af <- readIORef ui.uiActionFocus
+      if af then actionDigit ui c else composerChar ui c
+-- Dialogue tape scrolling
+handleNormalKey ui KeyUp = do
+  text <- readIORef ui.uiComposer
+  af <- readIORef ui.uiActionFocus
+  when (not af && text == "") $
+    modifyIORef ui.uiTapeScroll (\s => s + 1)
+handleNormalKey ui KeyDown = do
+  text <- readIORef ui.uiComposer
+  af <- readIORef ui.uiActionFocus
+  when (not af && text == "") $
+    modifyIORef ui.uiTapeScroll (\s => max 0 (s - 1))
+handleNormalKey ui KeyPageUp = modifyIORef ui.uiTapeScroll (\s => s + 10)
+handleNormalKey ui KeyPageDown = modifyIORef ui.uiTapeScroll (\s => max 0 (s - 10))
+handleNormalKey ui KeyHome = do
+  entries <- readIORef ui.uiDialogue
+  writeIORef ui.uiTapeScroll (cast (length entries))
+handleNormalKey ui KeyEnd = writeIORef ui.uiTapeScroll 0
+-- Action strip: Tab toggles focus, Left/Right move selection
+handleNormalKey ui KeyTab = do
+  af <- readIORef ui.uiActionFocus
+  writeIORef ui.uiActionFocus (not af)
+  when (not af) $ do
+    writeIORef ui.uiActionSel 1
+    writeIORef ui.uiFeedback (Just "action strip focused")
+  when af $
+    writeIORef ui.uiFeedback Nothing
+handleNormalKey ui KeyLeft = do
+  af <- readIORef ui.uiActionFocus
+  when af $ do
+    sel <- readIORef ui.uiActionSel
+    writeIORef ui.uiActionSel (if sel > 1 then minus sel 1 else 14)
+handleNormalKey ui KeyRight = do
+  af <- readIORef ui.uiActionFocus
+  when af $ do
+    sel <- readIORef ui.uiActionSel
+    writeIORef ui.uiActionSel (if sel < 14 then sel + 1 else 1)
 handleNormalKey _ _ = pure ()
 
 ------------------------------------------------------------------------
@@ -1299,12 +1414,19 @@ runTUIWith be mp principles = do
   lowMotion <- newIORef sessProf.spLowMotion
   screenReader <- newIORef False
   lastResponse <- newIORef ""
+  tapeScroll <- newIORef (the Int 0)
+  actionFocus <- newIORef False
+  actionSel <- newIORef (the Nat 1)
+  chyronVisible <- newIORef False
+  apertureDrawer <- newIORef False
 
   let ui = MkUIState env beRef mp turnIdx composer dialogue feedback
                      lastActive lastHum lastBudget lastProj
                      focusPanel scrollOff quit uiW uiH uiModeRef
                      sessMeta sessProfRef
                      themeName lowMotion screenReader lastResponse
+                     tapeScroll actionFocus actionSel
+                     chyronVisible apertureDrawer
 
   -- Run graph audit at session start (normalization + taxonomy)
   _ <- runEden env runSessionStartAudit
