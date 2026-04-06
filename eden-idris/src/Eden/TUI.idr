@@ -35,9 +35,17 @@ import Eden.SQLite
 import Eden.Session
 import Eden.GraphAudit
 
+%default partial
+
 ------------------------------------------------------------------------
--- Palette
+-- Palette (theme-derived)
 ------------------------------------------------------------------------
+
+||| Convert a Theme RGB triple to an TermIO.RGB value.
+thRGB : (Nat, Nat, Nat) -> RGB
+thRGB (r, g, b) = MkRGB (cast r) (cast g) (cast b)
+
+-- Default palette values (used as fallback and for theme-independent colors)
 colAmber : RGB
 colAmber = MkRGB 255 217 138
 colText : RGB
@@ -68,6 +76,42 @@ colModalBd : RGB
 colModalBd = MkRGB 255 217 138
 
 ------------------------------------------------------------------------
+-- Theme-aware palette helpers
+------------------------------------------------------------------------
+
+||| Get primary color from theme.
+thPrimCol : Theme -> RGB
+thPrimCol th = thRGB th.thPrimary
+
+||| Get foreground color from theme.
+thFgCol : Theme -> RGB
+thFgCol th = thRGB th.thForeground
+
+||| Get background color from theme.
+thBgCol : Theme -> RGB
+thBgCol th = thRGB th.thBackground
+
+||| Get dimmed color from theme.
+thDimCol : Theme -> RGB
+thDimCol th = thRGB th.thDimmed
+
+||| Get accent color from theme.
+thAccCol : Theme -> RGB
+thAccCol th = thRGB th.thAccent
+
+||| Get secondary color from theme.
+thSecCol : Theme -> RGB
+thSecCol th = thRGB th.thSecondary
+
+||| Get error color from theme.
+thErrCol : Theme -> RGB
+thErrCol th = thRGB th.thError
+
+||| Get success color from theme.
+thOkCol : Theme -> RGB
+thOkCol th = thRGB th.thSuccess
+
+------------------------------------------------------------------------
 -- UI Mode
 ------------------------------------------------------------------------
 public export
@@ -76,6 +120,7 @@ data UIMode
   | HelpModal
   | ConfigModal Nat
   | AtlasModal Nat Nat
+  | EditModal (List String) Nat Nat  -- editBuffer, cursorRow, cursorCol
 
 ------------------------------------------------------------------------
 -- UI State
@@ -83,25 +128,29 @@ data UIMode
 public export
 record UIState where
   constructor MkUIState
-  uiEnv        : EdenEnv
-  uiBackend    : IORef Backend
-  uiModelPath  : Maybe String
-  uiTurnIdx    : IORef Nat
-  uiComposer   : IORef String
-  uiDialogue   : IORef (List (String, String))
-  uiFeedback   : IORef (Maybe String)
-  uiLastActive : IORef (List CandidateScore)
-  uiLastHum    : IORef (Maybe HumPayload)
-  uiLastBudget : IORef (Maybe BudgetEstimate)
-  uiLastProj   : IORef (List MemeProjection)
-  uiFocusPanel : IORef Nat
-  uiScrollOff  : IORef Nat
-  uiQuit       : IORef Bool
-  uiWidth      : IORef Int
-  uiHeight     : IORef Int
-  uiMode       : IORef UIMode
-  uiSessMeta   : SessionMetaStore
-  uiSessProf   : IORef SessionProfile
+  uiEnv         : EdenEnv
+  uiBackend     : IORef Backend
+  uiModelPath   : Maybe String
+  uiTurnIdx     : IORef Nat
+  uiComposer    : IORef String
+  uiDialogue    : IORef (List (String, String))
+  uiFeedback    : IORef (Maybe String)
+  uiLastActive  : IORef (List CandidateScore)
+  uiLastHum     : IORef (Maybe HumPayload)
+  uiLastBudget  : IORef (Maybe BudgetEstimate)
+  uiLastProj    : IORef (List MemeProjection)
+  uiFocusPanel  : IORef Nat
+  uiScrollOff   : IORef Nat
+  uiQuit        : IORef Bool
+  uiWidth       : IORef Int
+  uiHeight      : IORef Int
+  uiMode        : IORef UIMode
+  uiSessMeta    : SessionMetaStore
+  uiSessProf    : IORef SessionProfile
+  uiThemeName   : IORef String
+  uiLowMotion   : IORef Bool
+  uiScreenReader : IORef Bool
+  uiLastResponse : IORef String
 
 ------------------------------------------------------------------------
 -- Rendering primitives
@@ -306,11 +355,24 @@ drawDialogue ui r c w h = do
   boxTitle r c " Dialogue Tape " colRose
   sectionTitle (r+1) (c+1) (w-2) "Adam Dialogue" colAmber
   where
-    -- Break a string into lines of at most maxW characters
+    -- Find last space position in a list of characters
+    findLastSpace : Nat -> Nat -> List Char -> Nat
+    findLastSpace best pos [] = best
+    findLastSpace best pos (' ' :: cs) = findLastSpace (pos + 1) (pos + 1) cs
+    findLastSpace best pos (_ :: cs)   = findLastSpace best (pos + 1) cs
+
+    -- Break a string into lines of at most maxW characters, preferring word boundaries
     wrapLines : Nat -> String -> List String
     wrapLines maxW s =
       if length s <= maxW then [s]
-      else substr 0 maxW s :: wrapLines maxW (substr maxW (length s) s)
+      else let chunk = substr 0 maxW s
+               rest  = substr maxW (length s) s
+               -- Find last space in chunk for word-boundary break
+               idx   = findLastSpace 0 0 (unpack chunk)
+           in if idx > 0
+                then substr 0 (cast idx) s
+                       :: wrapLines maxW (ltrim (substr (cast idx) (length s) s))
+                else chunk :: wrapLines maxW rest
 
     -- Render wrapped lines starting at row, return next row
     putWrapped : Int -> Int -> Int -> Int -> RGB -> List String -> IO Int
@@ -510,8 +572,14 @@ drawHelpModal scrW scrH = do
   putText (r0+21) cc colIce colModalBg False cw "  /export    Export graph JSON"
   putText (r0+22) cc colIce colModalBg False cw "  /atlas     Browse conversation archive"
   putText (r0+23) cc colIce colModalBg False cw "  /archive   Browse conversation archive"
+  if r0+24 < mr+mh-1
+    then putText (r0+24) cc colIce colModalBg False cw "  /theme     Cycle color theme"
+    else pure ()
   if r0+25 < mr+mh-1
-    then putText (r0+25) cc colMuted colModalBg False cw "Press any key to dismiss"
+    then putText (r0+25) cc colIce colModalBg False cw "  /a11y      Toggle accessibility mode"
+    else pure ()
+  if r0+27 < mr+mh-1
+    then putText (r0+27) cc colMuted colModalBg False cw "Press any key to dismiss"
     else pure ()
 
 ------------------------------------------------------------------------
@@ -612,6 +680,52 @@ drawAtlasModal ui cursor soff scrW scrH = do
   putText hintRow cc colMuted colModalBg False cw "Up/Down=navigate  Esc=dismiss"
 
 ------------------------------------------------------------------------
+-- Edit modal overlay (review/edit Adam's last response)
+------------------------------------------------------------------------
+
+drawEditModal : List String -> Nat -> Nat -> Int -> Int -> IO ()
+drawEditModal editBuf curRow curCol scrW scrH = do
+  let mw = min 78 (scrW - 4)
+  let mh = min 26 (scrH - 4)
+  let mr = max 1 ((scrH - mh) `div` 2)
+  let mc = max 1 ((scrW - mw) `div` 2)
+  drawBoxBg mr mc mw mh colModalBd colModalBg
+  boxTitleBg mr mc " Edit Response " colNeon colModalBg
+  let cw = mw - 4
+  let cc = mc + 2
+  let r0 = mr + 1
+  -- Hint line at top
+  putText r0 cc colMuted colModalBg False cw "Edit Adam's response. Ctrl+Enter or Enter on empty line to submit. Esc=cancel"
+  -- Draw edit buffer lines
+  let editH = mh - 4  -- rows available for text
+  drawEditLines (r0 + 1) cc cw editH 0 curRow curCol editBuf
+  -- Status line at bottom
+  let statusRow = mr + mh - 2
+  putText statusRow cc colIce colModalBg False cw
+    ("line " ++ show (curRow + 1) ++ "/" ++ show (length editBuf) ++ "  col " ++ show (curCol + 1))
+  where
+    drawEditLines : Int -> Int -> Int -> Int -> Nat -> Nat -> Nat -> List String -> IO ()
+    drawEditLines row cc' cw' h lineIdx cRow cCol [] = pure ()
+    drawEditLines row cc' cw' h lineIdx cRow cCol (l :: ls) =
+      if h <= 0 then pure ()
+      else do
+        clearRow row cc' cw' colModalBg
+        putText row cc' colText colModalBg False cw' l
+        -- Draw cursor on current line
+        if lineIdx == cRow
+          then do
+            let cursorCol = cc' + cast cCol
+            if cursorCol < cc' + cw'
+              then do
+                let ch = case unpack (substr cCol 1 l) of
+                           (x :: _) => x
+                           [] => ' '
+                screenSet row cursorCol ch colModalBg colText False  -- inverted colors for cursor
+              else pure ()
+          else pure ()
+        drawEditLines (row + 1) cc' cw' (h - 1) (lineIdx + 1) cRow cCol ls
+
+------------------------------------------------------------------------
 -- Full frame render
 ------------------------------------------------------------------------
 renderFrame : UIState -> IO ()
@@ -665,6 +779,7 @@ renderFrame ui = do
     HelpModal => drawHelpModal w h
     ConfigModal cur => drawConfigModal ui cur w h
     AtlasModal cur soff => drawAtlasModal ui cur soff w h
+    EditModal buf cr cc => drawEditModal buf cr cc w h
 
   screenPresent
 
@@ -744,6 +859,29 @@ handleNormalKey ui KeyEnter = do
         writeIORef ui.uiComposer ""
         path <- writeGraphExport ui.uiEnv.store ui.uiEnv.eid
         writeIORef ui.uiFeedback (Just ("exported: " ++ path))
+      Just "/theme" => do
+        writeIORef ui.uiComposer ""
+        curName <- readIORef ui.uiThemeName
+        let newName = nextThemeName curName
+        writeIORef ui.uiThemeName newName
+        writeIORef ui.uiFeedback (Just ("theme: " ++ newName))
+      Just "/a11y" => do
+        writeIORef ui.uiComposer ""
+        lm <- readIORef ui.uiLowMotion
+        sr <- readIORef ui.uiScreenReader
+        -- Toggle both flags
+        writeIORef ui.uiLowMotion (not lm)
+        writeIORef ui.uiScreenReader (not sr)
+        writeIORef ui.uiFeedback (Just
+          ("accessibility: lowMotion=" ++ show (not lm) ++ " screenReader=" ++ show (not sr)))
+      Just "/accessibility" => do
+        writeIORef ui.uiComposer ""
+        lm <- readIORef ui.uiLowMotion
+        sr <- readIORef ui.uiScreenReader
+        writeIORef ui.uiLowMotion (not lm)
+        writeIORef ui.uiScreenReader (not sr)
+        writeIORef ui.uiFeedback (Just
+          ("accessibility: lowMotion=" ++ show (not lm) ++ " screenReader=" ++ show (not sr)))
       _ => do
         -- Normal message: execute turn
         idx <- readIORef ui.uiTurnIdx
@@ -756,6 +894,7 @@ handleNormalKey ui KeyEnter = do
         tr <- runEden ui.uiEnv (mExecuteTurnWith be mp idx text)
         entries <- readIORef ui.uiDialogue
         writeIORef ui.uiDialogue ((text, tr.mrResponse) :: entries)
+        writeIORef ui.uiLastResponse tr.mrResponse
         activeSet <- runEden ui.uiEnv (mRetrieve text)
         writeIORef ui.uiLastActive activeSet
         projs <- runEden ui.uiEnv mProject
@@ -765,6 +904,14 @@ handleNormalKey ui KeyEnter = do
         fbKey <- readKey 10000
         case fbKey of
           KeyChar c => case parseVerdict c of
+            Just Edit => do
+              -- Open the edit modal with Adam's last response
+              lastResp <- readIORef ui.uiLastResponse
+              let editLines = lines lastResp
+                  buf = case editLines of
+                    [] => [""]
+                    _  => editLines
+              writeIORef ui.uiMode (EditModal buf 0 0)
             Just v => do
               let turnId = MkId {a=TurnTag} ("turn-" ++ show (idx + 3))
               runEden ui.uiEnv (mProcessFeedback turnId v "")
@@ -776,8 +923,12 @@ handleNormalKey ui KeyEnter = do
           _ => writeIORef ui.uiFeedback (Just "skipped")
         renderFrame ui
         -- Brief pause so user sees feedback result, then clear it
-        _ <- readKey 1500
-        writeIORef ui.uiFeedback Nothing
+        -- Respect lowMotion setting: skip the pause if enabled
+        lowMot <- readIORef ui.uiLowMotion
+        if lowMot
+          then writeIORef ui.uiFeedback Nothing
+          else do _ <- readKey 1500
+                  writeIORef ui.uiFeedback Nothing
 handleNormalKey ui KeyBackspace = do
   text <- readIORef ui.uiComposer
   case strM text of
@@ -855,7 +1006,9 @@ handleConfigKey ui cursor KeyEnter = do
     7 => do
       let nh = if prof.spHistTurns >= 20 then 1 else prof.spHistTurns + 1
       writeIORef ui.uiSessProf ({ spHistTurns := nh } prof)
-    8 => writeIORef ui.uiSessProf ({ spLowMotion := not prof.spLowMotion } prof)
+    8 => do
+      writeIORef ui.uiSessProf ({ spLowMotion := not prof.spLowMotion } prof)
+      writeIORef ui.uiLowMotion (not prof.spLowMotion)
     9 => writeIORef ui.uiSessProf ({ spDebug := not prof.spDebug } prof)
     _ => pure ()
 handleConfigKey ui _ _ = pure ()
@@ -898,9 +1051,166 @@ handleAtlasKey ui cursor soff KeyEnter = do
 handleAtlasKey ui _ _ _ = pure ()
 
 ------------------------------------------------------------------------
+-- Input handling: Edit modal
+------------------------------------------------------------------------
+
+||| Get the line at a given index, or empty string if out of bounds.
+getLine : Nat -> List String -> String
+getLine _ [] = ""
+getLine Z (x :: _) = x
+getLine (S k) (_ :: xs) = getLine k xs
+
+||| Set the line at a given index, returning the updated list.
+setLine : Nat -> String -> List String -> List String
+setLine _ _ [] = []
+setLine Z v (_ :: xs) = v :: xs
+setLine (S k) v (x :: xs) = x :: setLine k v xs
+
+||| Insert a new line after the given index, splitting the current line at the cursor.
+splitLineAt : Nat -> Nat -> List String -> List String
+splitLineAt _ _ [] = ["", ""]
+splitLineAt Z col (l :: rest) =
+  let left = substr 0 col l
+      right = substr col (length l) l
+  in left :: right :: rest
+splitLineAt (S k) col (x :: rest) = x :: splitLineAt k col rest
+
+||| Delete a line and merge it with the previous one.
+mergeLineUp : Nat -> List String -> (List String, Nat)
+mergeLineUp Z buf = (buf, 0)
+mergeLineUp (S k) buf =
+  let prev = getLine k buf
+      cur = getLine (S k) buf
+      merged = prev ++ cur
+      before = take (S k) buf
+      after = drop (S (S k)) buf
+      newBuf = take k buf ++ [merged] ++ after
+  in (newBuf, length prev)
+
+handleEditKey : UIState -> List String -> Nat -> Nat -> KeyEvent -> IO ()
+handleEditKey ui buf cr cc KeyEscape = writeIORef ui.uiMode Normal
+handleEditKey ui buf cr cc (KeyCtrl 'q') = writeIORef ui.uiQuit True
+-- Ctrl+Enter: submit the edit
+handleEditKey ui buf cr cc KeyShiftEnter = do
+  let edited = unlines buf
+  -- Record as Edit feedback
+  idx <- readIORef ui.uiTurnIdx
+  let turnId = MkId {a=TurnTag} ("turn-" ++ show (idx + 2))
+  runEden ui.uiEnv (mProcessFeedback turnId Edit edited)
+  writeIORef ui.uiFeedback (Just "edit recorded")
+  writeIORef ui.uiMode Normal
+handleEditKey ui buf cr cc KeyEnter = do
+  -- If current line is empty, submit the edit
+  let curLine = getLine cr buf
+  if curLine == ""
+    then do
+      let edited = unlines buf
+      idx <- readIORef ui.uiTurnIdx
+      let turnId = MkId {a=TurnTag} ("turn-" ++ show (idx + 2))
+      runEden ui.uiEnv (mProcessFeedback turnId Edit edited)
+      writeIORef ui.uiFeedback (Just "edit recorded")
+      writeIORef ui.uiMode Normal
+    else do
+      -- Split current line at cursor position, insert new line
+      let newBuf = splitLineAt cr cc buf
+      writeIORef ui.uiMode (EditModal newBuf (cr + 1) 0)
+-- Navigation
+handleEditKey ui buf cr cc KeyUp =
+  if cr > 0
+    then let nr = minus cr 1
+             lineLen = length (getLine nr buf)
+             nc = min cc lineLen
+         in writeIORef ui.uiMode (EditModal buf nr nc)
+    else pure ()
+handleEditKey ui buf cr cc KeyDown =
+  if cr + 1 < length buf
+    then let nr = cr + 1
+             lineLen = length (getLine nr buf)
+             nc = min cc lineLen
+         in writeIORef ui.uiMode (EditModal buf nr nc)
+    else pure ()
+handleEditKey ui buf cr cc KeyLeft =
+  if cc > 0
+    then writeIORef ui.uiMode (EditModal buf cr (minus cc 1))
+    else if cr > 0
+      then let nr = minus cr 1
+               nc = length (getLine nr buf)
+           in writeIORef ui.uiMode (EditModal buf nr nc)
+      else pure ()
+handleEditKey ui buf cr cc KeyRight =
+  let lineLen = length (getLine cr buf)
+  in if cc < lineLen
+       then writeIORef ui.uiMode (EditModal buf cr (cc + 1))
+       else if cr + 1 < length buf
+         then writeIORef ui.uiMode (EditModal buf (cr + 1) 0)
+         else pure ()
+handleEditKey ui buf cr cc KeyHome = writeIORef ui.uiMode (EditModal buf cr 0)
+handleEditKey ui buf cr cc KeyEnd =
+  let lineLen = length (getLine cr buf)
+  in writeIORef ui.uiMode (EditModal buf cr lineLen)
+-- Backspace: delete char before cursor or merge lines
+handleEditKey ui buf cr cc KeyBackspace =
+  if cc > 0
+    then let curLine = getLine cr buf
+             newLine = substr 0 (minus cc 1) curLine ++ substr cc (length curLine) curLine
+             newBuf = setLine cr newLine buf
+         in writeIORef ui.uiMode (EditModal newBuf cr (minus cc 1))
+    else if cr > 0
+      then let (newBuf, newCol) = mergeLineUp cr buf
+           in writeIORef ui.uiMode (EditModal newBuf (minus cr 1) newCol)
+      else pure ()
+-- Delete: delete char at cursor or merge with next line
+handleEditKey ui buf cr cc KeyDelete =
+  let curLine = getLine cr buf
+  in if cc < length curLine
+       then let newLine = substr 0 cc curLine ++ substr (cc + 1) (length curLine) curLine
+                newBuf = setLine cr newLine buf
+            in writeIORef ui.uiMode (EditModal newBuf cr cc)
+       else if cr + 1 < length buf
+         then let nextLine = getLine (cr + 1) buf
+                  merged = curLine ++ nextLine
+                  newBuf = setLine cr merged (take (cr + 1) buf ++ drop (cr + 2) buf)
+              in writeIORef ui.uiMode (EditModal newBuf cr cc)
+         else pure ()
+-- Printable character: insert at cursor
+handleEditKey ui buf cr cc (KeyChar ch) = do
+  let curLine = getLine cr buf
+      newLine = substr 0 cc curLine ++ singleton ch ++ substr cc (length curLine) curLine
+      newBuf = setLine cr newLine buf
+  writeIORef ui.uiMode (EditModal newBuf cr (cc + 1))
+handleEditKey _ _ _ _ _ = pure ()
+
+------------------------------------------------------------------------
+-- Input handling: Mouse events
+------------------------------------------------------------------------
+
+handleMouseEvent : UIState -> IO ()
+handleMouseEvent ui = do
+  evt <- readMouseEvent
+  case evt of
+    MouseScroll True _ _ => do
+      -- Scroll up: increase scroll offset
+      off <- readIORef ui.uiScrollOff
+      writeIORef ui.uiScrollOff (off + 1)
+    MouseScroll False _ _ => do
+      -- Scroll down: decrease scroll offset
+      off <- readIORef ui.uiScrollOff
+      if off > 0
+        then writeIORef ui.uiScrollOff (minus off 1)
+        else pure ()
+    MouseClick col row => do
+      -- Click in the bottom area goes to composer focus
+      h <- readIORef ui.uiHeight
+      if row >= h - 5
+        then pure ()  -- Composer area, no special action
+        else pure ()  -- Other clicks are no-ops for now
+    MouseNone => pure ()
+
+------------------------------------------------------------------------
 -- Top-level key dispatch
 ------------------------------------------------------------------------
 handleKey : UIState -> KeyEvent -> IO ()
+handleKey ui KeyMouse = handleMouseEvent ui
 handleKey ui key = do
   mode <- readIORef ui.uiMode
   case mode of
@@ -908,6 +1218,7 @@ handleKey ui key = do
     HelpModal => handleHelpKey ui key
     ConfigModal cur => handleConfigKey ui cur key
     AtlasModal cur soff => handleAtlasKey ui cur soff key
+    EditModal buf cr cc => handleEditKey ui buf cr cc key
 
 ------------------------------------------------------------------------
 -- Main loop
@@ -984,11 +1295,16 @@ runTUIWith be mp principles = do
   uiH <- newIORef (the Int 30)
   uiModeRef <- newIORef Normal
   beRef <- newIORef be
+  themeName <- newIORef "amberDark"
+  lowMotion <- newIORef sessProf.spLowMotion
+  screenReader <- newIORef False
+  lastResponse <- newIORef ""
 
   let ui = MkUIState env beRef mp turnIdx composer dialogue feedback
                      lastActive lastHum lastBudget lastProj
                      focusPanel scrollOff quit uiW uiH uiModeRef
                      sessMeta sessProfRef
+                     themeName lowMotion screenReader lastResponse
 
   -- Run graph audit at session start (normalization + taxonomy)
   _ <- runEden env runSessionStartAudit

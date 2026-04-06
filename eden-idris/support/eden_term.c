@@ -372,6 +372,63 @@ static int read_byte(int timeout_ms) {
 #endif /* _WIN32 */
 
 /* ================================================================== */
+/* Mouse tracking (SGR mode 1006)                                     */
+/* ================================================================== */
+
+/* Last mouse event data (read by FFI after key code indicates mouse) */
+static volatile int mouse_button = 0;
+static volatile int mouse_col = 0;
+static volatile int mouse_row = 0;
+static volatile int mouse_press = 0;  /* 1=press, 0=release */
+
+/* Read last mouse event fields */
+int eden_term_mouse_button(void) { return mouse_button; }
+int eden_term_mouse_col(void)    { return mouse_col; }
+int eden_term_mouse_row(void)    { return mouse_row; }
+int eden_term_mouse_press(void)  { return mouse_press; }
+
+/* Parse an SGR mouse sequence: ESC [ < button ; col ; row M/m
+ * Returns 1 if successfully parsed, 0 otherwise.
+ * Consumes bytes from the input. */
+static int parse_sgr_mouse(void) {
+    /* Already consumed ESC [ <, now read button;col;row;M/m */
+    int nums[3] = {0, 0, 0};
+    int ni = 0;
+    while (ni < 3) {
+        int c = read_byte(100);
+        if (c < 0) return 0;
+        if (c >= '0' && c <= '9') {
+            nums[ni] = nums[ni] * 10 + (c - '0');
+        } else if (c == ';') {
+            ni++;
+        } else if (c == 'M' || c == 'm') {
+            if (ni == 2) {
+                mouse_button = nums[0];
+                mouse_col = nums[1];
+                mouse_row = nums[2];
+                mouse_press = (c == 'M') ? 1 : 0;
+                return 1;
+            }
+            return 0;
+        } else {
+            return 0;
+        }
+    }
+    /* If we got here with ni==3, read the terminator */
+    {
+        int c = read_byte(100);
+        if (c == 'M' || c == 'm') {
+            mouse_button = nums[0];
+            mouse_col = nums[1];
+            mouse_row = nums[2];
+            mouse_press = (c == 'M') ? 1 : 0;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* ================================================================== */
 /* Shared: ANSI key parser                                            */
 /* ================================================================== */
 
@@ -389,6 +446,11 @@ int eden_term_read_key(int timeout_ms) {
         if (b3 == 'C') return 1003; if (b3 == 'D') return 1004;
         if (b3 == 'H') return 1005; if (b3 == 'F') return 1006;
         if (b3 == 'Z') return 5001;
+        /* SGR mouse: ESC [ < button ; col ; row M/m */
+        if (b3 == '<') {
+            if (parse_sgr_mouse()) return 7001;  /* mouse event */
+            return 27;
+        }
         if (b3 >= '0' && b3 <= '9') {
             int b4 = read_byte(100);
             if (b4 == '~') {
@@ -467,6 +529,16 @@ char *eden_term_drain_paste(int timeout_ms) {
 #else
 #define RAW_WRITE(buf, len) write(STDOUT_FILENO, (buf), (len))
 #endif
+
+void eden_term_enable_mouse(void) {
+    const char *seq = "\x1b[?1000h\x1b[?1006h";
+    RAW_WRITE(seq, (int)strlen(seq));
+}
+
+void eden_term_disable_mouse(void) {
+    const char *seq = "\x1b[?1000l\x1b[?1006l";
+    RAW_WRITE(seq, (int)strlen(seq));
+}
 
 void eden_term_write(char *s) {
     if (s) {

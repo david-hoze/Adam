@@ -8,6 +8,9 @@ import Data.String
 import Eden.Types
 import Eden.Config
 import Eden.Storage
+import Eden.Retrieval
+
+%hide Eden.Retrieval.tokenize
 
 ------------------------------------------------------------------------
 -- SQLite FFI (inline declarations to avoid circular import)
@@ -136,6 +139,7 @@ record StoreState where
   chunks         : IORef (List Chunk)
   documents      : IORef (List Document)
   ftsIndex       : InvertedIndex
+  embeddings     : EmbeddingCache
 
 ------------------------------------------------------------------------
 -- Create a fresh store
@@ -163,7 +167,8 @@ newStore = do
   chnks <- newIORef []
   docs  <- newIORef []
   fts   <- newInvertedIndex
-  pure (MkStoreState exps sess trns mms mds eds fbs mbes tres nid dbh ags asets msev exart tmeta chnks docs fts)
+  embc  <- newEmbeddingCache
+  pure (MkStoreState exps sess trns mms mds eds fbs mbes tres nid dbh ags asets msev exart tmeta chnks docs fts embc)
 
 ------------------------------------------------------------------------
 -- FTS tokenization helpers
@@ -188,9 +193,12 @@ tokenize s = filter (\t => length t >= 2) (go (unpack (toLower s)) [] [])
 ||| Add postings for a meme to the inverted index.
 indexMemeTerms : InvertedIndex -> MemeId -> String -> String -> IO ()
 indexMemeTerms idx mid label text = do
-  let labelTerms = map (\t => (t, MkPosting mid "label")) (tokenize label)
+  let labelTerms : List (String, Posting)
+      labelTerms = map (\t => (t, MkPosting mid "label")) (tokenize label)
+      textTerms  : List (String, Posting)
       textTerms  = map (\t => (t, MkPosting mid "text"))  (tokenize text)
-      allTerms   = labelTerms ++ textTerms
+      allTerms   : List (String, Posting)
+      allTerms   = Prelude.List.(++) labelTerms textTerms
   entries <- readIORef idx.iiEntries
   let updated = foldl addPosting entries allTerms
   writeIORef idx.iiEntries updated
@@ -683,7 +691,7 @@ documentExistsBySha st eid sha = do
 export
 ftsSearchMemes : StoreState -> ExperimentId -> String -> IO (List Meme)
 ftsSearchMemes st eid query = do
-  let queryTerms = tokenize query
+  let queryTerms = Eden.Store.InMemory.tokenize query
   entries <- readIORef st.ftsIndex.iiEntries
   allMemes <- readIORef st.memes
   -- Collect all matching meme IDs with hit counts
@@ -753,3 +761,32 @@ revertMeasurementEvent st eid sid originalEventId now = do
                   orig.committedState orig.beforeState orig.beforeState
                   originalEventId now
       pure (Just revEvt)
+
+------------------------------------------------------------------------
+-- Embedding cache operations
+------------------------------------------------------------------------
+
+||| Get a cached embedding, or compute and cache it using the provided callback.
+||| The callback (e.g., Claude CLI call) is only invoked on cache miss.
+export
+getOrComputeEmbedding : StoreState -> String -> (String -> IO (List Double)) -> IO (List Double)
+getOrComputeEmbedding st key compute = do
+  cached <- lookupEmbedding st.embeddings key
+  case cached of
+    Just vec => pure vec
+    Nothing  => do
+      vec <- compute key
+      cacheEmbedding st.embeddings key vec
+      pure vec
+
+||| Get the number of cached embeddings.
+export
+embeddingCacheSize : StoreState -> IO Nat
+embeddingCacheSize st = do
+  entries <- readIORef st.embeddings.ecEntries
+  pure (length entries)
+
+||| Clear the embedding cache.
+export
+clearEmbeddingCache : StoreState -> IO ()
+clearEmbeddingCache st = writeIORef st.embeddings.ecEntries []

@@ -18,6 +18,9 @@ import Eden.Regard
 import Eden.Hum
 import Eden.Store.InMemory
 import Eden.OntologyProjection
+import Eden.Tanakh
+
+%hide System.File.Meta.Timestamp
 
 ------------------------------------------------------------------------
 -- Field escaping for tab-separated persistence
@@ -368,10 +371,12 @@ parseDocStatus "failed"     = Failed
 parseDocStatus _            = Processing
 
 parseMeasurementAction : String -> MeasurementAction
-parseMeasurementAction "edge_add"    = EdgeAdd
-parseMeasurementAction "edge_remove" = EdgeRemove
-parseMeasurementAction "node_edit"   = NodeEdit
-parseMeasurementAction _             = MeasurementRevert
+parseMeasurementAction "edge_add"      = EdgeAdd
+parseMeasurementAction "edge_update"   = EdgeUpdate
+parseMeasurementAction "edge_remove"   = EdgeRemove
+parseMeasurementAction "memode_assert" = MemodeAssert
+parseMeasurementAction "node_edit"     = NodeEdit
+parseMeasurementAction _               = MeasurementRevert
 
 parseMeasurementState : String -> MeasurementState
 parseMeasurementState "committed" = Committed
@@ -1153,6 +1158,345 @@ exportMemeIndex st eid = do
   pure path
 
 ------------------------------------------------------------------------
+-- Basin projection export
+------------------------------------------------------------------------
+
+||| Compute regard for a meme (reused helper).
+memeRegard : Meme -> Double
+memeRegard m =
+  let ns = MkNodeState m.rewardEma m.riskEma m.evidenceN m.usageCount m.activationTau 0.0
+      gm = MkGraphMetrics 0.5 0.4 0.3
+      rb = regardBreakdown defaultRegardWeights ns gm
+  in rb.totalRegard
+
+||| Build a basin summary for memes in a single domain.
+basinSummary : String -> List Meme -> String
+basinSummary domainLabel memes =
+  let count = length memes
+      regards = map memeRegard memes
+      sumRegard = foldl (+) 0.0 regards
+      centroid = if count == 0 then 0.0
+                 else sumRegard / cast count
+      -- Variance: sum of (r - centroid)^2 / n
+      variance = if count == 0 then 0.0
+                 else let sumSqDiff = foldl (\acc, r => acc + (r - centroid) * (r - centroid)) 0.0 regards
+                      in sumSqDiff / cast count
+      -- Top-k members by regard (descending), k=5
+      sorted = sortBy (\a, b => compare (memeRegard b) (memeRegard a)) memes
+      topK = take 5 sorted
+      topKJson = map (\m => jsonObj
+        [ ("id",     jsonStr (show m.id))
+        , ("label",  jsonStr m.label)
+        , ("regard", jsonNum (memeRegard m))
+        ]) topK
+  in jsonObj
+    [ ("domain",    jsonStr domainLabel)
+    , ("count",     jsonNat count)
+    , ("centroid",  jsonNum centroid)
+    , ("radius",    jsonNum variance)
+    , ("top_members", jsonArr topKJson)
+    ]
+
+||| Export basin projection: groups memes by domain, computes centroid,
+||| radius (variance), count, and top-k members per basin.
+export
+exportBasinProjection : StoreState -> ExperimentId -> IO String
+exportBasinProjection st eid = do
+  _ <- createDir "data"
+  _ <- createDir "data/export"
+  allMemes <- readIORef st.memes
+  let memes = filter (\m => m.experimentId == eid) allMemes
+      knowledge = filter (\m => m.domain == Knowledge) memes
+      behavior  = filter (\m => m.domain == Behavior) memes
+      basins = [ basinSummary "knowledge" knowledge
+               , basinSummary "behavior"  behavior
+               ]
+      content = jsonObj
+        [ ("experiment_id", jsonStr (show eid))
+        , ("total_memes",   jsonNat (length memes))
+        , ("basins",        jsonArr basins)
+        ]
+      path = "data/export/" ++ show eid ++ "-basins.json"
+  Right () <- writeFile path content
+    | Left err => do putStrLn ("  (basin projection write failed: " ++ show err ++ ")")
+                     pure path
+  pure path
+
+------------------------------------------------------------------------
+-- Geometry diagnostics export
+------------------------------------------------------------------------
+
+||| Compute graph density: edges / (nodes * (nodes - 1) / 2).
+||| Returns 0.0 for graphs with fewer than 2 nodes.
+graphDensity : List Meme -> List Edge -> Double
+graphDensity memes edges =
+  let n = length memes
+      e = length edges
+  in if n < 2 then 0.0
+     else let maxEdges = (cast n * (cast n - 1.0)) / 2.0
+          in cast e / maxEdges
+
+||| Compute average degree: 2 * edges / nodes.
+||| Returns 0.0 for empty graphs.
+averageDegree : List Meme -> List Edge -> Double
+averageDegree memes edges =
+  let n = length memes
+      e = length edges
+  in if n == 0 then 0.0
+     else (2.0 * cast e) / cast n
+
+||| Get the degree of a single node by counting edges incident to it.
+nodeDegree : String -> List Edge -> Nat
+nodeDegree nid edges =
+  length (filter (\e => e.srcId == nid || e.dstId == nid) edges)
+
+||| Find isolated nodes: nodes with degree 0.
+isolatedNodes : List Meme -> List Edge -> List Meme
+isolatedNodes memes edges =
+  filter (\m => nodeDegree (show m.id) edges == 0) memes
+
+||| BFS to find all nodes reachable from a start node.
+||| Returns set of visited node IDs.
+bfsComponent : List Edge -> List String -> List String -> List String
+bfsComponent _ [] visited = visited
+bfsComponent edges queue visited =
+  let newVisited = nub (visited ++ queue)
+      neighbors = concatMap (\nid =>
+        let outgoing = map (\e => e.dstId) (filter (\e => e.srcId == nid) edges)
+            incoming = map (\e => e.srcId) (filter (\e => e.dstId == nid) edges)
+        in outgoing ++ incoming) queue
+      unvisited = filter (\n => not (elem n newVisited)) (nub neighbors)
+  in case unvisited of
+    [] => newVisited
+    _  => bfsComponent edges unvisited newVisited
+
+||| Count connected components using BFS.
+connectedComponents : List Meme -> List Edge -> Nat
+connectedComponents memes edges =
+  let allIds = map (\m => show m.id) memes
+  in countComps allIds 0
+  where
+    countComps : List String -> Nat -> Nat
+    countComps [] acc = acc
+    countComps (n :: rest) acc =
+      let component = bfsComponent edges [n] []
+          remaining = filter (\x => not (elem x component)) rest
+      in countComps remaining (acc + 1)
+
+||| BFS shortest path lengths from src to all reachable nodes.
+||| Returns list of (nodeId, distance) pairs.
+bfsDistances : String -> List Edge -> List (String, Nat)
+bfsDistances start edges = go [start] [] 0 []
+  where
+    go : List String -> List String -> Nat -> List (String, Nat) -> List (String, Nat)
+    go [] _ _ acc = acc
+    go queue visited dist acc =
+      let newAcc = acc ++ map (\n => (n, dist)) queue
+          allVisited = nub (visited ++ queue)
+          neighbors = concatMap (\nid =>
+            let outgoing = map (\e => e.dstId) (filter (\e => e.srcId == nid) edges)
+                incoming = map (\e => e.srcId) (filter (\e => e.dstId == nid) edges)
+            in outgoing ++ incoming) queue
+          nextQueue = filter (\n => not (elem n allVisited)) (nub neighbors)
+      in go nextQueue allVisited (dist + 1) newAcc
+
+||| Compute graph diameter: longest shortest path between any pair.
+||| Bounded to 100 nodes to avoid excessive computation.
+graphDiameter : List Meme -> List Edge -> Nat
+graphDiameter memes edges =
+  let nodeIds = take 100 (map (\m => show m.id) memes)
+  in foldl (\acc, nid =>
+       let dists = bfsDistances nid edges
+           maxDist = foldl (\mx, pair => max mx (snd pair)) 0 dists
+       in max acc maxDist) 0 nodeIds
+
+||| Generate all unordered pairs from a list.
+allPairs : List String -> List (String, String)
+allPairs [] = []
+allPairs (x :: xs) = map (\y => (x, y)) xs ++ allPairs xs
+
+||| Compute local clustering coefficient for a single node.
+||| C(v) = 2 * triangles(v) / (deg(v) * (deg(v) - 1))
+localClustering : String -> List Edge -> Double
+localClustering nid edges =
+  let neighborIds = nub (map (\e => e.dstId) (filter (\e => e.srcId == nid) edges)
+                      ++ map (\e => e.srcId) (filter (\e => e.dstId == nid) edges))
+      deg = length neighborIds
+  in if deg < 2 then 0.0
+     else let pairs = allPairs neighborIds
+              triangles = foldl (\acc, pair =>
+                let (a, b) = pair
+                in if any (\e => (e.srcId == a && e.dstId == b) || (e.srcId == b && e.dstId == a)) edges
+                   then acc + 1
+                   else acc) 0 pairs
+              maxTriangles = (cast deg * (cast deg - 1.0)) / 2.0
+          in if maxTriangles == 0.0 then 0.0
+             else cast triangles / maxTriangles
+
+||| Compute average clustering coefficient across all nodes.
+||| Bounded to 100 nodes for performance.
+clusteringCoefficient : List Meme -> List Edge -> Double
+clusteringCoefficient memes edges =
+  let nodeIds = take 100 (map (\m => show m.id) memes)
+      n = length nodeIds
+  in if n == 0 then 0.0
+     else let sumCC = foldl (\acc, nid => acc + localClustering nid edges) 0.0 nodeIds
+          in sumCC / cast n
+
+||| Export geometry diagnostics as JSON.
+export
+exportGeometryDiagnostics : StoreState -> ExperimentId -> IO String
+exportGeometryDiagnostics st eid = do
+  _ <- createDir "data"
+  _ <- createDir "data/export"
+  allMemes <- readIORef st.memes
+  allEdges <- readIORef st.edges
+  let memes = filter (\m => m.experimentId == eid) allMemes
+      edges = filter (\e => e.experimentId == eid) allEdges
+      iso   = isolatedNodes memes edges
+      content = jsonObj
+        [ ("experiment_id",         jsonStr (show eid))
+        , ("node_count",            jsonNat (length memes))
+        , ("edge_count",            jsonNat (length edges))
+        , ("density",               jsonNum (graphDensity memes edges))
+        , ("average_degree",        jsonNum (averageDegree memes edges))
+        , ("connected_components",  jsonNat (connectedComponents memes edges))
+        , ("isolated_node_count",   jsonNat (length iso))
+        , ("isolated_nodes",        jsonArr (map (\m => jsonStr (show m.id)) iso))
+        , ("diameter",              jsonNat (graphDiameter memes edges))
+        , ("clustering_coefficient", jsonNum (clusteringCoefficient memes edges))
+        ]
+      path = "data/export/" ++ show eid ++ "-geometry.json"
+  Right () <- writeFile path content
+    | Left err => do putStrLn ("  (geometry diagnostics write failed: " ++ show err ++ ")")
+                     pure path
+  pure path
+
+------------------------------------------------------------------------
+-- Tanakh surface bundle export
+------------------------------------------------------------------------
+
+||| Check if any memes contain Hebrew text.
+hasHebrewContent : List Meme -> Bool
+hasHebrewContent memes = any (\m => any isHebrew (unpack m.text)) memes
+
+||| Render a letter breakdown entry to JSON.
+letterEntryToJson : (Char, String, Int) -> String
+letterEntryToJson entry =
+  let c    = fst entry
+      name = fst (snd entry)
+      val  = snd (snd entry)
+  in jsonObj
+    [ ("letter", jsonStr (singleton c))
+    , ("name",   jsonStr name)
+    , ("value",  jsonNat (cast val))
+    ]
+
+||| Analyze a single meme's Hebrew text and produce a JSON bundle.
+memeHebrewBundle : Meme -> String
+memeHebrewBundle m =
+  let analysis = analyzeHebrewExt m.text
+      base = analysis.haeBase
+  in jsonObj
+    [ ("meme_id",       jsonStr (show m.id))
+    , ("label",         jsonStr m.label)
+    , ("passage_text",  jsonStr (substr 0 500 m.text))
+    , ("stripped_text",  jsonStr (substr 0 500 base.strippedText))
+    , ("letter_count",  jsonNat base.letterCount)
+    , ("gematria_standard", jsonNat (cast base.gematriaValue))
+    , ("gematria_gadol",    jsonNat (cast analysis.haeGadol))
+    , ("gematria_katan",    jsonNat (cast analysis.haeKatan))
+    , ("gematria_ordinal",  jsonNat (cast analysis.haeOrdinal))
+    , ("roshei_teivot",  jsonStr base.rosheiResult)
+    , ("sofei_teivot",   jsonStr base.sofeiResult)
+    , ("atbash",         jsonStr base.atBashResult)
+    , ("letter_breakdown", jsonArr (map letterEntryToJson analysis.haeLetters))
+    ]
+
+||| Export Tanakh surface bundle for all Hebrew-containing memes.
+||| Returns empty string if no Hebrew content exists.
+export
+exportTanakhBundle : StoreState -> ExperimentId -> IO String
+exportTanakhBundle st eid = do
+  _ <- createDir "data"
+  _ <- createDir "data/export"
+  allMemes <- readIORef st.memes
+  let memes = filter (\m => m.experimentId == eid) allMemes
+      hebrewMemes = filter (\m => any isHebrew (unpack m.text)) memes
+  case hebrewMemes of
+    [] => pure ""
+    _  => do
+      let bundles = map memeHebrewBundle hebrewMemes
+          content = jsonObj
+            [ ("experiment_id",    jsonStr (show eid))
+            , ("hebrew_meme_count", jsonNat (length hebrewMemes))
+            , ("passages",         jsonArr bundles)
+            ]
+          path = "data/export/" ++ show eid ++ "-tanakh.json"
+      Right () <- writeFile path content
+        | Left err => do putStrLn ("  (tanakh bundle write failed: " ++ show err ++ ")")
+                         pure path
+      pure path
+
+------------------------------------------------------------------------
+-- Full artifact family export (manifest)
+------------------------------------------------------------------------
+
+||| Export manifest: describes all artifacts produced in a single export run.
+export
+exportManifest : ExperimentId -> List (String, String) -> IO String
+exportManifest eid artifacts = do
+  _ <- createDir "data"
+  _ <- createDir "data/export"
+  let entries = map (\pair =>
+        jsonObj [ ("path",  jsonStr (fst pair))
+                , ("type",  jsonStr (snd pair))
+                ]) artifacts
+      content = jsonObj
+        [ ("experiment_id",    jsonStr (show eid))
+        , ("artifact_count",   jsonNat (length artifacts))
+        , ("artifacts",        jsonArr entries)
+        ]
+      path = "data/export/" ++ show eid ++ "-manifest.json"
+  Right () <- writeFile path content
+    | Left err => do putStrLn ("  (manifest write failed: " ++ show err ++ ")")
+                     pure path
+  pure path
+
+------------------------------------------------------------------------
+-- Membrane trace export (CSV)
+------------------------------------------------------------------------
+
+||| Format a membrane event as a CSV row.
+||| Columns: event_index, event_type, detail, timestamp
+membraneTraceCsvRow : Nat -> MembraneEventType -> String -> Eden.Types.Timestamp -> String
+membraneTraceCsvRow idx evt detail ts =
+  show idx ++ ","
+  ++ show evt ++ ","
+  ++ "\"" ++ escapeStr (substr 0 500 detail) ++ "\","
+  ++ show ts
+
+||| Export membrane trace as CSV for all membrane events.
+export
+exportMembraneTrace : StoreState -> ExperimentId -> IO String
+exportMembraneTrace st eid = do
+  _ <- createDir "data"
+  _ <- createDir "data/export"
+  allMbe <- readIORef st.membraneEvts
+  let header = "event_index,event_type,detail,timestamp"
+      rows   = zipIndex 0 allMbe
+      content = unlines (header :: rows)
+      path = "data/export/" ++ show eid ++ "-membrane-trace.csv"
+  Right () <- writeFile path content
+    | Left err => do putStrLn ("  (membrane trace write failed: " ++ show err ++ ")")
+                     pure path
+  pure path
+  where
+    zipIndex : Nat -> List (MembraneEventType, String, Eden.Types.Timestamp) -> List String
+    zipIndex _ [] = []
+    zipIndex n ((evt, detail, ts) :: xs) = membraneTraceCsvRow n evt detail ts :: zipIndex (S n) xs
+
+------------------------------------------------------------------------
 -- Combined export (all formats)
 ------------------------------------------------------------------------
 
@@ -1163,4 +1507,17 @@ exportAll st eid = do
   p1 <- writeGraphExport st eid
   p2 <- exportRegardTimeline st eid
   p3 <- exportMemeIndex st eid
-  pure [p1, p2, p3]
+  p4 <- exportBasinProjection st eid
+  p5 <- exportGeometryDiagnostics st eid
+  p6 <- exportMembraneTrace st eid
+  -- Tanakh bundle: only if Hebrew content exists
+  allMemes <- readIORef st.memes
+  let memes = filter (\m => m.experimentId == eid) allMemes
+  p7 <- if hasHebrewContent memes
+        then exportTanakhBundle st eid
+        else pure ""
+  let basePaths = [p1, p2, p3, p4, p5, p6]
+      allPaths  = if p7 == "" then basePaths else basePaths ++ [p7]
+      artifacts = map (\p => (p, "json")) allPaths
+  p8 <- exportManifest eid artifacts
+  pure (allPaths ++ [p8])

@@ -16,7 +16,10 @@ import Eden.Types
 import Eden.Config
 import Eden.Inference
 import Eden.Store.InMemory
+import Eden.Regard
 import Eden.Monad
+
+%hide System.File.Meta.Timestamp
 
 ------------------------------------------------------------------------
 -- Session profile (inference settings per session)
@@ -456,6 +459,219 @@ sessionSnapshot st sms sid = do
         ])
 
 ------------------------------------------------------------------------
+-- Session sort fields
+------------------------------------------------------------------------
+
+||| Fields by which sessions can be sorted.
+public export
+data SessionSortField = SortByDate | SortByTurns | SortByFeedback
+
+------------------------------------------------------------------------
+-- Session statistics
+------------------------------------------------------------------------
+
+||| Comprehensive statistics for a single session.
+public export
+record SessionStats where
+  constructor MkSessionStats
+  ssTurnCount       : Nat
+  ssFeedbackCount   : Nat
+  ssAcceptRate      : Double
+  ssRejectRate      : Double
+  ssEditRate        : Double
+  ssMemeGrowth      : Nat
+  ssTopRegardMemes  : List (String, Double)
+  ssAvgResponseLen  : Double
+
+||| Compute comprehensive statistics for a session.
+export
+sessionStats : StoreState -> SessionId -> IO SessionStats
+sessionStats st sid = do
+  allTurns  <- readIORef st.turns
+  allFb     <- readIORef st.feedbackEvents
+  allMemes  <- readIORef st.memes
+  let turns    = filter (\t => t.sessionId == sid) allTurns
+      fbs      = filter (\fb => fb.frSessionId == sid) allFb
+      turnCt   = length turns
+      fbCt     = length fbs
+      accepts  = length (filter (\fb => fb.frVerdict == Accept) fbs)
+      rejects  = length (filter (\fb => fb.frVerdict == Reject) fbs)
+      edits    = length (filter (\fb => fb.frVerdict == Edit) fbs)
+      fbDbl    = if fbCt == 0 then 1.0 else cast fbCt
+      acceptRate = cast accepts / fbDbl
+      rejectRate = cast rejects / fbDbl
+      editRate   = cast edits / fbDbl
+      -- Meme growth: memes created by turns in this session (source = turn_adam or turn_user)
+      sessionMemes = filter (\m =>
+        case m.scope of
+          SessionScoped s => s == sid
+          _ => False) allMemes
+      memeGrowth = length sessionMemes
+      -- Top regard memes (up to 5, from memes associated with this session)
+      allExpMemes = allMemes
+      memeRegards = map (\m =>
+        let ns = MkNodeState m.rewardEma m.riskEma m.evidenceN m.usageCount m.activationTau 0.0
+            gm = MkGraphMetrics 0.5 0.4 0.3
+            rb = regardBreakdown defaultRegardWeights ns gm
+        in (m.label, rb.totalRegard)) allExpMemes
+      sortedRegards = sortBy (\a, b => compare (snd b) (snd a)) memeRegards
+      topRegard = take 5 sortedRegards
+      -- Average response length
+      totalRespLen = foldl (\acc, t => acc + cast (length t.membraneText)) 0.0 turns
+      avgRespLen = if turnCt == 0 then 0.0 else totalRespLen / cast turnCt
+  pure (MkSessionStats turnCt fbCt acceptRate rejectRate editRate
+                       memeGrowth topRegard avgRespLen)
+
+||| Serialize SessionStats to JSON.
+statsToJson : SessionStats -> String
+statsToJson ss = jObj
+  [ ("turn_count",         jNat ss.ssTurnCount)
+  , ("feedback_count",     jNat ss.ssFeedbackCount)
+  , ("accept_rate",        jNum ss.ssAcceptRate)
+  , ("reject_rate",        jNum ss.ssRejectRate)
+  , ("edit_rate",          jNum ss.ssEditRate)
+  , ("meme_growth",        jNat ss.ssMemeGrowth)
+  , ("avg_response_length", jNum ss.ssAvgResponseLen)
+  , ("top_regard_memes",   jArr (map (\pair =>
+      jObj [ ("label",  jStr (fst pair))
+           , ("regard", jNum (snd pair))
+           ]) ss.ssTopRegardMemes))
+  ]
+
+------------------------------------------------------------------------
+-- Session comparison
+------------------------------------------------------------------------
+
+||| Compare two sessions side by side.
+||| Returns a formatted text summary showing turn counts, feedback
+||| distribution, meme growth, and regard delta.
+export
+compareSessions : StoreState -> SessionId -> SessionId -> IO String
+compareSessions st sid1 sid2 = do
+  mSess1 <- getSession st sid1
+  mSess2 <- getSession st sid2
+  stats1 <- sessionStats st sid1
+  stats2 <- sessionStats st sid2
+  let title1 = case mSess1 of
+                 Just s  => s.title
+                 Nothing => show sid1
+      title2 = case mSess2 of
+                 Just s  => s.title
+                 Nothing => show sid2
+  pure (unlines
+    [ "=== Session Comparison ==="
+    , ""
+    , "Session A: " ++ title1 ++ " (" ++ show sid1 ++ ")"
+    , "Session B: " ++ title2 ++ " (" ++ show sid2 ++ ")"
+    , ""
+    , "--- Turn Counts ---"
+    , "  A: " ++ show stats1.ssTurnCount ++ "  |  B: " ++ show stats2.ssTurnCount
+    , ""
+    , "--- Feedback Distribution ---"
+    , "  A: " ++ show stats1.ssFeedbackCount ++ " total"
+    , "    accept=" ++ jNum stats1.ssAcceptRate
+      ++ "  reject=" ++ jNum stats1.ssRejectRate
+      ++ "  edit=" ++ jNum stats1.ssEditRate
+    , "  B: " ++ show stats2.ssFeedbackCount ++ " total"
+    , "    accept=" ++ jNum stats2.ssAcceptRate
+      ++ "  reject=" ++ jNum stats2.ssRejectRate
+      ++ "  edit=" ++ jNum stats2.ssEditRate
+    , ""
+    , "--- Meme Growth ---"
+    , "  A: " ++ show stats1.ssMemeGrowth ++ "  |  B: " ++ show stats2.ssMemeGrowth
+    , ""
+    , "--- Average Response Length ---"
+    , "  A: " ++ jNum stats1.ssAvgResponseLen ++ "  |  B: " ++ jNum stats2.ssAvgResponseLen
+    ])
+
+------------------------------------------------------------------------
+-- Session search / filter / sort
+------------------------------------------------------------------------
+
+||| Search sessions by title substring (case-insensitive).
+export
+searchSessions : StoreState -> String -> IO (List Session)
+searchSessions st query = do
+  allSess <- readIORef st.sessions
+  let q = toLower query
+  pure (filter (\s => isInfixOf q (toLower s.title)) allSess)
+
+||| Filter sessions created between two timestamps.
+||| Comparison is lexicographic on ISO 8601 strings.
+export
+filterSessionsByDate : StoreState -> Timestamp -> Timestamp -> IO (List Session)
+filterSessionsByDate st from to = do
+  allSess <- readIORef st.sessions
+  pure (filter (\s => s.createdAt.isoString >= from.isoString
+                   && s.createdAt.isoString <= to.isoString) allSess)
+
+||| Sort sessions by the specified field.
+export
+sortSessionsBy : StoreState -> SessionSortField -> IO (List Session)
+sortSessionsBy st field = do
+  allSess  <- readIORef st.sessions
+  allTurns <- readIORef st.turns
+  allFb    <- readIORef st.feedbackEvents
+  pure (case field of
+    SortByDate     => sortBy (\a, b => compare b.createdAt.isoString a.createdAt.isoString) allSess
+    SortByTurns    =>
+      let turnCount : Session -> Nat
+          turnCount s = length (filter (\t => t.sessionId == s.id) allTurns)
+      in sortBy (\a, b => compare (turnCount b) (turnCount a)) allSess
+    SortByFeedback =>
+      let fbCount : Session -> Nat
+          fbCount s = length (filter (\fb => fb.frSessionId == s.id) allFb)
+      in sortBy (\a, b => compare (fbCount b) (fbCount a)) allSess)
+
+------------------------------------------------------------------------
+-- Session export enhancements
+------------------------------------------------------------------------
+
+||| Export a markdown comparison report for two sessions.
+export
+exportSessionComparison : StoreState -> SessionId -> SessionId -> IO String
+exportSessionComparison st sid1 sid2 = do
+  report <- compareSessions st sid1 sid2
+  stats1 <- sessionStats st sid1
+  stats2 <- sessionStats st sid2
+  let content = report ++ "\n\n"
+             ++ "## Session A Statistics (JSON)\n\n"
+             ++ "```json\n" ++ statsToJson stats1 ++ "\n```\n\n"
+             ++ "## Session B Statistics (JSON)\n\n"
+             ++ "```json\n" ++ statsToJson stats2 ++ "\n```\n"
+      path = "data/export/" ++ show sid1 ++ "-vs-" ++ show sid2 ++ ".md"
+  Right () <- writeFile path content
+    | Left err => do putStrLn ("  (comparison export failed: " ++ show err ++ ")")
+                     pure path
+  pure path
+
+||| Export a CSV timeline of events within a session.
+||| Columns: event_index, event_type, timestamp, detail
+export
+exportSessionTimeline : StoreState -> SessionId -> IO String
+exportSessionTimeline st sid = do
+  allTurns <- readIORef st.turns
+  allFb    <- readIORef st.feedbackEvents
+  let turns = sortBy (\a, b => compare a.turnIndex b.turnIndex)
+                (filter (\t => t.sessionId == sid) allTurns)
+      fbs   = filter (\fb => fb.frSessionId == sid) allFb
+      header = "event_index,event_type,timestamp,detail"
+      turnRows = zipWithIndex 0 (map (\t =>
+        "turn," ++ show t.createdAt ++ ",\"Turn " ++ show t.turnIndex ++ "\"") turns)
+      fbRows = zipWithIndex (length turns) (map (\fb =>
+        "feedback," ++ "," ++ "\"" ++ show fb.frVerdict ++ "\"") fbs)
+      content = unlines (header :: turnRows ++ fbRows)
+      path = "data/export/" ++ show sid ++ "-timeline.csv"
+  Right () <- writeFile path content
+    | Left err => do putStrLn ("  (session timeline export failed: " ++ show err ++ ")")
+                     pure path
+  pure path
+  where
+    zipWithIndex : Nat -> List String -> List String
+    zipWithIndex _ [] = []
+    zipWithIndex n (x :: xs) = (show n ++ "," ++ x) :: zipWithIndex (S n) xs
+
+------------------------------------------------------------------------
 -- EdenM wrappers (monadic convenience)
 ------------------------------------------------------------------------
 
@@ -509,3 +725,52 @@ mSessionSnapshot sms = do
   st <- getStore
   sid <- getSessId
   liftIO (sessionSnapshot st sms sid)
+
+||| Compare current session with another session in EdenM.
+export
+mCompareSessions : SessionId -> SessionId -> EdenM String
+mCompareSessions sid1 sid2 = do
+  st <- getStore
+  liftIO (compareSessions st sid1 sid2)
+
+||| Search sessions by title substring in EdenM.
+export
+mSearchSessions : String -> EdenM (List Session)
+mSearchSessions query = do
+  st <- getStore
+  liftIO (searchSessions st query)
+
+||| Filter sessions by date range in EdenM.
+export
+mFilterSessionsByDate : Timestamp -> Timestamp -> EdenM (List Session)
+mFilterSessionsByDate from to = do
+  st <- getStore
+  liftIO (filterSessionsByDate st from to)
+
+||| Sort sessions by field in EdenM.
+export
+mSortSessionsBy : SessionSortField -> EdenM (List Session)
+mSortSessionsBy field = do
+  st <- getStore
+  liftIO (sortSessionsBy st field)
+
+||| Get comprehensive session statistics in EdenM.
+export
+mSessionStats : SessionId -> EdenM SessionStats
+mSessionStats sid = do
+  st <- getStore
+  liftIO (sessionStats st sid)
+
+||| Export session comparison report in EdenM.
+export
+mExportSessionComparison : SessionId -> SessionId -> EdenM String
+mExportSessionComparison sid1 sid2 = do
+  st <- getStore
+  liftIO (exportSessionComparison st sid1 sid2)
+
+||| Export session timeline CSV in EdenM.
+export
+mExportSessionTimeline : SessionId -> EdenM String
+mExportSessionTimeline sid = do
+  st <- getStore
+  liftIO (exportSessionTimeline st sid)

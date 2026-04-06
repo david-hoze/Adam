@@ -14,6 +14,14 @@ void eden_term_flush(void);
 /* Paste drain: read all available chars with short timeout */
 char *eden_term_drain_paste(int timeout_ms);
 
+/* Mouse tracking (SGR mode) */
+void eden_term_enable_mouse(void);
+void eden_term_disable_mouse(void);
+int eden_term_mouse_button(void);
+int eden_term_mouse_col(void);
+int eden_term_mouse_row(void);
+int eden_term_mouse_press(void);
+
 /* Subprocess execution — returns "<exit_code>\n<output>" */
 char *eden_run_cmd(const char *cmd);
 

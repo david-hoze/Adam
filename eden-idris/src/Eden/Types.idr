@@ -514,12 +514,14 @@ Show TraceEventType where
 ------------------------------------------------------------------------
 
 public export
-data MeasurementAction = EdgeAdd | EdgeRemove | NodeEdit | MeasurementRevert
+data MeasurementAction = EdgeAdd | EdgeUpdate | EdgeRemove | MemodeAssert | NodeEdit | MeasurementRevert
 
 public export
 Show MeasurementAction where
   show EdgeAdd           = "edge_add"
+  show EdgeUpdate        = "edge_update"
   show EdgeRemove        = "edge_remove"
+  show MemodeAssert      = "memode_assert"
   show NodeEdit          = "node_edit"
   show MeasurementRevert = "revert"
 

@@ -432,4 +432,36 @@ main = do
       case mdb2 of
         Just db => do closeDB db; pure ()
         Nothing => pure ()
+    ("--observatory" :: _) => do
+      putStrLn "=== Starting EDEN Observatory ==="
+      store <- newStore
+      ts <- currentTimestamp
+
+      -- Open SQLite database and load existing graph
+      mdb <- openDB "data/eden.db"
+      case mdb of
+        Just db => do writeIORef store.dbHandle (Just db)
+                      _ <- loadFromDB db store
+                      pure ()
+        Nothing => pure ()
+
+      -- Ensure we have at least one experiment
+      existingMemes <- readIORef store.memes
+      eid <- case existingMemes of
+        [] => do
+          exp <- createExperiment store "observatory" "live observatory" Blank ts
+          agent <- createAgent store exp.id "Adam" "Curious, honest thinker" ts
+          _ <- createSession store exp.id agent.id "observatory" ts
+          _ <- upsertMeme store exp.id "Curiosity" "Drive to explore" Behavior SeedSource Global ts
+          _ <- upsertMeme store exp.id "Honesty" "Truthful communication" Behavior SeedSource Global ts
+          _ <- upsertMeme store exp.id "Clarity" "Clear explanations" Behavior SeedSource Global ts
+          pure exp.id
+        _ => do
+          exps <- readIORef store.experiments
+          case exps of
+            (e :: _) => pure e.id
+            [] => do exp <- createExperiment store "observatory" "live observatory" Blank ts
+                     pure exp.id
+
+      runObservatory 3141 store eid
     _                 => runInvariantDemo

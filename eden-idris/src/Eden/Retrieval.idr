@@ -7,8 +7,10 @@
 |||   - Jaccard: word-level set overlap (original, fast)
 |||   - TFIDF: term frequency-inverse document frequency with cosine similarity
 |||   - Bigram: character bigram overlap (useful for Hebrew and other scripts)
+|||   - Embedding: cosine similarity over semantic feature vectors (via Claude CLI)
 module Eden.Retrieval
 
+import Data.IORef
 import Data.List
 import Data.String
 import Eden.Types
@@ -23,20 +25,22 @@ import Eden.Regard
 
 ||| Available similarity computation methods.
 public export
-data SimilarityMethod = Jaccard | TFIDF | Bigram
+data SimilarityMethod = Jaccard | TFIDF | Bigram | Embedding
 
 public export
 Eq SimilarityMethod where
-  Jaccard == Jaccard = True
-  TFIDF   == TFIDF   = True
-  Bigram  == Bigram  = True
-  _       == _       = False
+  Jaccard   == Jaccard   = True
+  TFIDF     == TFIDF     = True
+  Bigram    == Bigram    = True
+  Embedding == Embedding = True
+  _         == _         = False
 
 public export
 Show SimilarityMethod where
-  show Jaccard = "jaccard"
-  show TFIDF   = "tfidf"
-  show Bigram  = "bigram"
+  show Jaccard   = "jaccard"
+  show TFIDF     = "tfidf"
+  show Bigram    = "bigram"
+  show Embedding = "embedding"
 
 ------------------------------------------------------------------------
 -- Stopword filtering
@@ -255,14 +259,139 @@ tfidfSimilarityCorpus query memeText corpus =
   in cosineSim qVec mVec
 
 ------------------------------------------------------------------------
+-- Embedding-based similarity
+------------------------------------------------------------------------
+
+||| Cosine similarity over two embedding vectors.
+||| Returns 0.0 for empty or mismatched vectors.
+public export
+embeddingSimilarity : List Double -> List Double -> Double
+embeddingSimilarity v1 v2 =
+  let magA = magnitude v1
+      magB = magnitude v2
+  in if magA == 0.0 || magB == 0.0 then 0.0
+     else dotProduct v1 v2 / (magA * magB)
+
+||| The 64 semantic dimensions used for Claude-generated embeddings.
+||| Each dimension is rated from -1.0 to 1.0 by the model.
+public export
+embeddingDimensions : List String
+embeddingDimensions =
+  [ "concreteness", "emotionality", "formality", "technicality"
+  , "abstractness", "urgency", "certainty", "subjectivity"
+  , "complexity", "novelty", "positivity", "negativity"
+  , "agency", "temporality", "spatiality", "causality"
+  , "morality", "aesthetics", "sociality", "cognition"
+  , "embodiment", "spirituality", "humor", "irony"
+  , "narrative", "analytical", "poetic", "pragmatic"
+  , "philosophical", "scientific", "political", "personal"
+  , "universal", "cultural", "historical", "futuristic"
+  , "relational", "hierarchical", "cyclical", "linear"
+  , "visual", "auditory", "tactile", "olfactory"
+  , "emotional_intensity", "intellectual_depth", "accessibility", "ambiguity"
+  , "assertiveness", "receptivity", "playfulness", "gravity"
+  , "intimacy", "distance", "warmth", "coolness"
+  , "tradition", "innovation", "stability", "dynamism"
+  , "simplicity", "richness", "precision", "evocativeness"
+  , "groundedness", "transcendence", "vulnerability", "resilience"
+  ]
+
+||| Build the prompt to send to Claude for embedding generation.
+||| Asks Claude to output exactly 64 comma-separated floats.
+public export
+embeddingPrompt : String -> String
+embeddingPrompt text =
+  "Rate the following text on these 64 semantic dimensions from -1.0 to 1.0. "
+  ++ "Output ONLY a comma-separated list of 64 floating point numbers, nothing else. "
+  ++ "Dimensions: " ++ joinDims embeddingDimensions ++ ". "
+  ++ "Text: " ++ text
+  where
+    joinDims : List String -> String
+    joinDims [] = ""
+    joinDims [x] = x
+    joinDims (x :: rest) = x ++ ", " ++ joinDims rest
+
+||| Parse a comma-separated string of doubles into a list.
+||| Tolerates whitespace around values. Returns empty list on parse failure.
+public export
+parseEmbeddingOutput : String -> List Double
+parseEmbeddingOutput s =
+  let cleaned = pack (filter (\c => c /= '\n' && c /= '\r') (unpack s))
+      parts = splitOn ',' cleaned
+  in mapMaybe parseDouble' parts
+  where
+    splitOn : Char -> String -> List String
+    splitOn sep str = go (unpack str) [] []
+      where
+        go : List Char -> List Char -> List String -> List String
+        go []        acc toks = reverse (pack (reverse acc) :: toks)
+        go (c :: cs) acc toks =
+          if c == sep
+            then go cs [] (pack (reverse acc) :: toks)
+            else go cs (c :: acc) toks
+    parseDouble' : String -> Maybe Double
+    parseDouble' str =
+      let trimmed = trim str
+      in if trimmed == "" then Nothing
+         else Just (cast {to=Double} trimmed)
+
+||| Embedding cache: maps keys to embedding vectors.
+||| Backed by an IORef association list.
+public export
+record EmbeddingCache where
+  constructor MkEmbeddingCache
+  ecEntries : IORef (List (String, List Double))
+
+||| Create a fresh empty embedding cache.
+export
+newEmbeddingCache : IO EmbeddingCache
+newEmbeddingCache = do
+  ref <- newIORef []
+  pure (MkEmbeddingCache ref)
+
+||| Look up a cached embedding by key.
+export
+lookupEmbedding : EmbeddingCache -> String -> IO (Maybe (List Double))
+lookupEmbedding cache key = do
+  entries <- readIORef cache.ecEntries
+  pure (lookup key entries)
+
+||| Store an embedding in the cache.
+export
+cacheEmbedding : EmbeddingCache -> String -> List Double -> IO ()
+cacheEmbedding cache key vec = do
+  entries <- readIORef cache.ecEntries
+  let filtered = filter (\p => fst p /= key) entries
+  writeIORef cache.ecEntries ((key, vec) :: filtered)
+
+||| Re-rank a list of TF-IDF-scored candidates using embedding similarity.
+||| Takes the query embedding and a list of (candidate, embedding) pairs.
+||| The embedding similarity is blended with the original TF-IDF score:
+|||   blended = 0.6 * embeddingSim + 0.4 * originalSim
+||| Then re-scores the candidate with the blended similarity.
+public export
+rerankWithEmbeddings : List Double -> List (CandidateScore, List Double) -> List CandidateScore
+rerankWithEmbeddings queryEmb pairs =
+  let reranked = map (\p =>
+        let cs = fst p
+            mEmb = snd p
+            embSim = embeddingSimilarity queryEmb mEmb
+            blended = 0.6 * embSim + 0.4 * cs.semanticSimilarity
+        in { semanticSimilarity := blended
+           , selection := cs.selection - cs.semanticSimilarity + blended
+           } cs) pairs
+  in sortBy (\a, b => compare b.selection a.selection) reranked
+
+------------------------------------------------------------------------
 -- Unified similarity dispatch
 ------------------------------------------------------------------------
 
 public export
 computeSimilarity : SimilarityMethod -> String -> String -> Double
-computeSimilarity Jaccard q t = jaccardSimilarity q t
-computeSimilarity TFIDF   q t = tfidfSimilarity q t
-computeSimilarity Bigram  q t = bigramSimilarity q t
+computeSimilarity Jaccard   q t = jaccardSimilarity q t
+computeSimilarity TFIDF     q t = tfidfSimilarity q t
+computeSimilarity Bigram    q t = bigramSimilarity q t
+computeSimilarity Embedding q t = tfidfSimilarity q t  -- fallback; real embeddings need IO
 
 public export
 defaultSimilarityMethod : SimilarityMethod
@@ -394,15 +523,19 @@ selectTopK k candidates =
 ------------------------------------------------------------------------
 
 ||| Score all memes and select the top k, using the given similarity method.
+||| For the Embedding method, this function uses TF-IDF as a pre-filter;
+||| actual embedding re-ranking requires IO and is done via assembleActiveSetEmbedding.
 public export
 assembleActiveSetWith : SimilarityMethod -> SelectionWeights -> SessionId
                      -> (deltaSec : Double) -> (k : Nat)
                      -> (query : String) -> List Meme -> List CandidateScore
 assembleActiveSetWith method w curSess deltaSec k query memes =
   let memeTexts = map (\m => tokenize (m.label ++ " " ++ m.text)) memes
+      -- For Embedding method, use TF-IDF as pre-filter (re-ranking happens in IO)
       simFn = case method of
-        TFIDF => \mText => tfidfSimilarityCorpus query mText memeTexts
-        _     => \mText => computeSimilarity method query mText
+        TFIDF     => \mText => tfidfSimilarityCorpus query mText memeTexts
+        Embedding => \mText => tfidfSimilarityCorpus query mText memeTexts
+        _         => \mText => computeSimilarity method query mText
       candidates = map (\m => buildCandidateScore w curSess
                           (simFn (m.label ++ " " ++ m.text))
                           deltaSec m) memes
@@ -414,3 +547,44 @@ assembleActiveSet : SelectionWeights -> SessionId
                  -> (deltaSec : Double) -> (k : Nat)
                  -> (query : String) -> List Meme -> List CandidateScore
 assembleActiveSet = assembleActiveSetWith defaultSimilarityMethod
+
+------------------------------------------------------------------------
+-- Embedding-aware active-set assembly (IO)
+------------------------------------------------------------------------
+
+||| Pre-filter expansion factor: how many TF-IDF candidates to consider
+||| before embedding re-ranking (3x the final k).
+public export
+embeddingPrefilterFactor : Nat
+embeddingPrefilterFactor = 3
+
+||| Assemble the active set using embedding re-ranking.
+||| 1. TF-IDF pre-filter selects top (k * prefilterFactor) candidates
+||| 2. Embeddings are computed for the query and each pre-filtered candidate
+||| 3. Candidates are re-ranked by blended embedding + TF-IDF similarity
+||| 4. Final top-k is selected from the re-ranked set
+|||
+||| The getOrComputeEmbedding callback handles caching and CLI calls.
+||| Falls back to pure TF-IDF if embeddings are empty/unavailable.
+export
+assembleActiveSetEmbedding : SelectionWeights -> SessionId
+                          -> (deltaSec : Double) -> (k : Nat)
+                          -> (query : String) -> List Meme
+                          -> (getOrComputeEmbedding : String -> String -> IO (List Double))
+                          -> IO (List CandidateScore)
+assembleActiveSetEmbedding w curSess deltaSec k query memes getEmb = do
+  -- Step 1: TF-IDF pre-filter (wider than final k)
+  let preK = k * embeddingPrefilterFactor
+      preFiltered = assembleActiveSetWith TFIDF w curSess deltaSec preK query memes
+  -- Step 2: Get query embedding
+  queryEmb <- getEmb "query" query
+  if length queryEmb == 0
+    then pure (selectTopK k preFiltered)  -- fallback to TF-IDF only
+    else do
+      -- Step 3: Get embeddings for each candidate, pair them
+      pairs <- traverse (\cs => do
+        emb <- getEmb cs.nodeId (cs.label ++ " " ++ cs.text)
+        pure (cs, emb)) preFiltered
+      -- Step 4: Re-rank and take top-k
+      let reranked = rerankWithEmbeddings queryEmb pairs
+      pure (take k reranked)
