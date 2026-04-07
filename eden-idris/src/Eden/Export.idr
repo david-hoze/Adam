@@ -948,8 +948,40 @@ exportGraphJson st eid = do
       -- Regard history (current snapshot for each meme)
       regardHist = map memeRegardToJson memes
       -- Assembly planes (§4.2): assembly_nodes and assembly_edges
-      assemblyNodes = jsonArr []
-      assemblyEdges = jsonArr []
+      -- Nodes: memes + memodes projected into assembly space
+      assemblyNodes = jsonArr (
+        map (\m => jsonObj
+          [ ("id",          jsonStr (show m.id))
+          , ("label",       jsonStr m.label)
+          , ("domain",      jsonStr (show m.domain))
+          , ("source_kind", jsonStr (show m.sourceKind))
+          , ("kind",        jsonStr "meme")
+          ]) memes
+        ++ map (\md => jsonObj
+          [ ("id",          jsonStr (show md.id))
+          , ("label",       jsonStr md.label)
+          , ("domain",      jsonStr (show md.domain))
+          , ("kind",        jsonStr "memode")
+          ]) memodes)
+      -- Edges: only assembly-relevant types
+      isAssemblyEdge : Edge -> Bool
+      isAssemblyEdge e = case e.edgeType of
+        MemberOf               => True
+        Supports               => True
+        Reinforces             => True
+        CoOccursWith           => True
+        AuthorOf               => True
+        Influences             => True
+        DerivedFrom            => True
+        ContextualizesDocument => True
+        _                      => False
+      assemblyEdges = jsonArr (map (\e => jsonObj
+        [ ("id",        jsonStr (show e.id))
+        , ("source",    jsonStr e.srcId)
+        , ("target",    jsonStr e.dstId)
+        , ("edge_type", jsonStr (show e.edgeType))
+        , ("weight",    jsonNum e.weight)
+        ]) (filter isAssemblyEdge edges))
       -- Memode audit plane (§4.2): id, label, member_count, admissible
       memodeAudit = map (\md =>
         let memberIds = parseMemberHash md.memberHash

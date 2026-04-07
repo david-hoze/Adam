@@ -383,18 +383,81 @@ basinJson b = jObj
   ]
 
 ------------------------------------------------------------------------
+-- Turn trajectory projection (basin overlay)
+------------------------------------------------------------------------
+
+record TurnOverlay where
+  constructor MkTurnOverlay
+  toTurnId         : String
+  toTurnIndex      : Nat
+  toX              : Double
+  toY              : Double
+  toActiveSetSize  : Nat
+  toBudgetPressure : Double
+
+computeTurnTrajectory : List Turn -> List ActiveSetEntry -> List TurnMetadata -> List TurnOverlay
+computeTurnTrajectory turns asets metas =
+  let maxIdx = foldl (\mx, t => max mx t.turnIndex) 0 turns
+      normFactor = if maxIdx > 0 then cast {to=Double} maxIdx else 1.0
+  in map (\t =>
+    let tidStr = show t.id
+        asSize = length (filter (\a => show a.turnId == tidStr) asets)
+        pressure = case find (\m => show m.turnId == tidStr) metas of
+                     Just md => case parseDouble md.budgetPressure of
+                                  Just d  => d
+                                  Nothing => 0.0
+                     Nothing => 0.0
+        nx = cast {to=Double} t.turnIndex / normFactor
+    in MkTurnOverlay tidStr t.turnIndex nx pressure asSize pressure
+  ) turns
+
+turnOverlayJson : TurnOverlay -> String
+turnOverlayJson to2 = jObj
+  [ ("turn_id",          jStr to2.toTurnId)
+  , ("turn_index",       jNat to2.toTurnIndex)
+  , ("x",               jNum to2.toX)
+  , ("y",               jNum to2.toY)
+  , ("active_set_size",  jNat to2.toActiveSetSize)
+  , ("budget_pressure",  jNum to2.toBudgetPressure)
+  ]
+
+basinWithTrajectoryJson : List Basin -> List TurnOverlay -> Nat -> Nat -> String
+basinWithTrajectoryJson basins trajectory sourceTurnCount filteredTurnCount =
+  jObj
+    [ ("basins",     jArr (map basinJson basins))
+    , ("trajectory", jArr (map turnOverlayJson trajectory))
+    , ("projection_metadata", jObj
+        [ ("projection_method",    jStr "turn_index_vs_pressure")
+        , ("source_turn_count",    jNat sourceTurnCount)
+        , ("filtered_turn_count",  jNat filteredTurnCount)
+        ])
+    ]
+
+------------------------------------------------------------------------
 -- Geometry diagnostics (pure computation)
 ------------------------------------------------------------------------
 
+record NodeCoord where
+  constructor MkNodeCoord
+  ncNodeId : String
+  ncX      : Double
+  ncY      : Double
+
 record GeometryDiagnostics where
   constructor MkGeometryDiagnostics
-  gdNodeCount        : Nat
-  gdEdgeCount        : Nat
-  gdDensity          : Double
-  gdAverageDegree    : Double
+  gdNodeCount           : Nat
+  gdEdgeCount           : Nat
+  gdDensity             : Double
+  gdAverageDegree       : Double
   gdConnectedComponents : Nat
-  gdDiameterEstimate : Nat
-  gdClusteringCoeff  : Double
+  gdDiameterEstimate    : Nat
+  gdClusteringCoeff     : Double
+  gdCircularity         : Double
+  gdLinearity           : Double
+  gdCommunityCount      : Nat
+  gdTriadicClosure      : Double
+  gdMirrorSymmetry      : Double
+  gdProjection          : List NodeCoord
 
 estimateComponents : List Meme -> List Edge -> Nat
 estimateComponents memes edges =
@@ -444,6 +507,97 @@ localClust nid edges =
       let xPairs = length (filter (\y => edgeExists x y es) xs)
       in xPairs + countPairs xs es
 
+||| Compute node degree (undirected) for a given node ID.
+nodeDegree : String -> List Edge -> Nat
+nodeDegree nid edges =
+  length (filter (\e => e.srcId == nid || e.dstId == nid) edges)
+
+||| Simple pseudo-random number from seed in [0, 1).
+pseudoRand : Nat -> Double
+pseudoRand seed =
+  let s1 : Integer
+      s1 = cast seed * 1103515245 + 12345
+      masked = mod s1 65536
+  in cast {to=Double} masked / 65536.0
+
+||| Fruchterman-Reingold-style force-directed layout approximation.
+forceLayout : List String -> List Edge -> List NodeCoord
+forceLayout nodeIds edges =
+  let initCoords = initPos nodeIds 0
+      final = iterateLayout 10 1.0 initCoords
+  in map (\t => MkNodeCoord (fst t) (fst (snd t)) (snd (snd t))) final
+  where
+    initPos : List String -> Nat -> List (String, Double, Double)
+    initPos [] _ = []
+    initPos (nid :: rest) idx =
+      let x = pseudoRand (idx * 7 + 3) * 2.0 - 1.0
+          y = pseudoRand (idx * 13 + 7) * 2.0 - 1.0
+      in (nid, x, y) :: initPos rest (idx + 1)
+
+    lookupPos : String -> List (String, Double, Double) -> (Double, Double)
+    lookupPos _ [] = (0.0, 0.0)
+    lookupPos nid ((n2, x, y) :: rest) =
+      if nid == n2 then (x, y) else lookupPos nid rest
+
+    clampD : Double -> Double -> Double -> Double
+    clampD lo hi v = if v < lo then lo else if v > hi then hi else v
+
+    repelForce : String -> Double -> Double -> List (String, Double, Double) -> Double -> Double -> (Double, Double)
+    repelForce nid px py [] accX accY = (accX, accY)
+    repelForce nid px py ((oid, ox, oy) :: rest) accX accY =
+      if oid == nid then repelForce nid px py rest accX accY
+      else
+        let dx = px - ox
+            dy = py - oy
+            dist = sqrt (dx * dx + dy * dy) + 0.001
+            force = 0.5 / (dist * dist)
+        in repelForce nid px py rest (accX + dx / dist * force) (accY + dy / dist * force)
+
+    attractForce : String -> Double -> Double -> List (String, Double, Double) -> List Edge -> Double -> Double -> (Double, Double)
+    attractForce nid px py coords [] accX accY = (accX, accY)
+    attractForce nid px py coords (e :: rest) accX accY =
+      let other = if e.srcId == nid then Just e.dstId
+                  else if e.dstId == nid then Just e.srcId
+                  else Nothing
+      in case other of
+           Nothing => attractForce nid px py coords rest accX accY
+           Just oid =>
+             let opos = lookupPos oid coords
+                 ox2 = fst opos
+                 oy2 = snd opos
+                 dx = ox2 - px
+                 dy = oy2 - py
+                 dist = sqrt (dx * dx + dy * dy) + 0.001
+                 force = dist * 0.1
+             in attractForce nid px py coords rest (accX + dx / dist * force) (accY + dy / dist * force)
+
+    computeDisp : String -> List (String, Double, Double) -> List Edge -> Double -> (String, Double, Double)
+    computeDisp nid coords es temp =
+      let posResult = lookupPos nid coords
+          px = fst posResult
+          py = snd posResult
+          repResult = repelForce nid px py coords 0.0 0.0
+          rx = fst repResult
+          ry = snd repResult
+          atResult = attractForce nid px py coords es 0.0 0.0
+          atx = fst atResult
+          aty = snd atResult
+          totalX = rx + atx
+          totalY = ry + aty
+          mag = sqrt (totalX * totalX + totalY * totalY) + 0.001
+          dx2 = totalX / mag * min mag temp
+          dy2 = totalY / mag * min mag temp
+      in (nid, clampD (-5.0) 5.0 (px + dx2), clampD (-5.0) 5.0 (py + dy2))
+
+    applyForces : List (String, Double, Double) -> List Edge -> Double -> List (String, Double, Double)
+    applyForces coords es temp = map (\t => computeDisp (fst t) coords es temp) coords
+
+    iterateLayout : Nat -> Double -> List (String, Double, Double) -> List (String, Double, Double)
+    iterateLayout Z _ coords = coords
+    iterateLayout (S k) temp coords =
+      let newCoords = applyForces coords edges temp
+      in iterateLayout k (temp * 0.9) newCoords
+
 computeGeometry : List Meme -> List Edge -> GeometryDiagnostics
 computeGeometry memes edges =
   let n = length memes
@@ -460,7 +614,73 @@ computeGeometry memes edges =
       avgClust = if n > 0
                  then foldl (+) 0.0 coeffs / cast n
                  else 0.0
+      -- Circularity: fraction of nodes with degree >= 2
+      nodeIds = map (\m2 => show m2.id) memes
+      degrees = map (\nid => nodeDegree nid edges) nodeIds
+      circCount = length (filter (\d => d >= 2) degrees)
+      circularity = if n > 0 then cast circCount / cast n else 0.0
+      -- Linearity: fraction of nodes with degree <= 2
+      linCount = length (filter (\d => d <= 2) degrees)
+      linearity = if n > 0 then cast linCount / cast n else 0.0
+      -- Community count = connected components
+      communityCount = components
+      -- Triadic closure: closed triangles / (closed + open triads)
+      closedTriads = foldl (\acc, nid =>
+        let nbrs = nub (mapMaybe (\e =>
+              if e.srcId == nid then Just e.dstId
+              else if e.dstId == nid then Just e.srcId
+              else Nothing) edges)
+            pairs = concatMap (\u => map (\v => (u, v)) (filter (\v => v > u) nbrs)) nbrs
+            closed = length (filter (\p =>
+              any (\e => (e.srcId == fst p && e.dstId == snd p) ||
+                         (e.srcId == snd p && e.dstId == fst p)) edges) pairs)
+        in acc + closed) 0 nodeIds
+      totalTriads = foldl (\acc, nid =>
+        let nbrs = nub (mapMaybe (\e =>
+              if e.srcId == nid then Just e.dstId
+              else if e.dstId == nid then Just e.srcId
+              else Nothing) edges)
+            k = length nbrs
+            pairInt : Integer
+            pairInt = if k >= 2 then (cast k * (cast k - 1)) `div` 2 else 0
+            pairs = cast {to=Nat} pairInt
+        in acc + pairs) 0 nodeIds
+      triadicClosure = if totalTriads > 0
+                       then cast closedTriads / cast totalTriads
+                       else 0.0
+      -- Mirror symmetry: compare sorted degree sequence to its reverse
+      sortedDegs = sortBy compare degrees
+      revDegs = reverse sortedDegs
+      matchCount = length (filter (\p => fst p == snd p) (zip sortedDegs revDegs))
+      mirrorSym = if n > 0 then cast matchCount / cast n else 1.0
+      -- Projection coordinates via force-directed layout
+      projection = forceLayout nodeIds edges
   in MkGeometryDiagnostics n m density avgDeg components diamEst avgClust
+       circularity linearity communityCount triadicClosure mirrorSym projection
+
+sessionAsets : Maybe Session -> List ActiveSetEntry -> List ActiveSetEntry
+sessionAsets Nothing  _     = []
+sessionAsets (Just s) asets = filter (\a => a.sessionId == s.id) asets
+
+computeGeometrySliced : String -> List Meme -> List Edge
+                     -> List Session -> List ActiveSetEntry
+                     -> GeometryDiagnostics
+computeGeometrySliced "current_session" memes edges sessions asets =
+  let latestSess = head' (sortBy (\a, b => compare (show b.createdAt) (show a.createdAt)) sessions)
+      filtAsets = sessionAsets latestSess asets
+      activeNodeIds = nub (map (\a => a.nodeId) filtAsets)
+      filteredMemes = filter (\m => any (== show m.id) activeNodeIds) memes
+      filteredEdges = filter (\e =>
+        any (== e.srcId) activeNodeIds && any (== e.dstId) activeNodeIds) edges
+  in computeGeometry filteredMemes filteredEdges
+computeGeometrySliced _ memes edges _ _ = computeGeometry memes edges
+
+nodeCoordJson : NodeCoord -> String
+nodeCoordJson nc = jObj
+  [ ("node_id", jStr nc.ncNodeId)
+  , ("x",       jNum nc.ncX)
+  , ("y",       jNum nc.ncY)
+  ]
 
 geometryJson : GeometryDiagnostics -> String
 geometryJson g = jObj
@@ -471,6 +691,12 @@ geometryJson g = jObj
   , ("connected_components", jNat g.gdConnectedComponents)
   , ("diameter_estimate",    jNat g.gdDiameterEstimate)
   , ("clustering_coefficient", jNum g.gdClusteringCoeff)
+  , ("circularity",          jNum g.gdCircularity)
+  , ("linearity",            jNum g.gdLinearity)
+  , ("community_count",      jNat g.gdCommunityCount)
+  , ("triadic_closure",      jNum g.gdTriadicClosure)
+  , ("mirror_symmetry",      jNum g.gdMirrorSymmetry)
+  , ("projection",           jArr (map nodeCoordJson g.gdProjection))
   , ("evidence_labels", jObj
       [ ("node_count",             jStr "OBSERVED")
       , ("edge_count",             jStr "OBSERVED")
@@ -478,6 +704,11 @@ geometryJson g = jObj
       , ("average_degree",         jStr "DERIVED")
       , ("connected_components",   jStr "DERIVED")
       , ("clustering_coefficient", jStr "DERIVED")
+      , ("circularity",            jStr "DERIVED")
+      , ("linearity",              jStr "DERIVED")
+      , ("community_count",        jStr "DERIVED")
+      , ("triadic_closure",        jStr "DERIVED")
+      , ("mirror_symmetry",        jStr "DERIVED")
       ])
   ]
 
@@ -605,8 +836,17 @@ serveGetRoute st eid fd "/api/turns" = do
   primIO (prim__httpSendResponse fd "application/json" (jArr (map turnJson (take 50 sorted))))
 serveGetRoute st eid fd "/api/basins" = do
   allMemes <- readIORef st.memes
+  allTurns <- readIORef st.turns
+  allAsets <- readIORef st.activeSetSnaps
+  allMeta  <- readIORef st.turnMetadata
   let memes = filter (\m => m.experimentId == eid) allMemes
-  primIO (prim__httpSendResponse fd "application/json" (jArr (map basinJson (computeBasins memes))))
+  let turns = filter (\t => t.experimentId == eid) allTurns
+  let asets = filter (\a => a.experimentId == eid) allAsets
+  let basins = computeBasins memes
+  let trajectory = computeTurnTrajectory turns asets allMeta
+  let turnCount = length turns
+  primIO (prim__httpSendResponse fd "application/json"
+    (basinWithTrajectoryJson basins trajectory turnCount turnCount))
 serveGetRoute st eid fd "/api/geometry" = do
   allMemes <- readIORef st.memes
   allEdges <- readIORef st.edges
@@ -742,6 +982,58 @@ serveGetRoute st eid fd path =
         "/graph" => do
           body <- exportGraphJson st scopedEid
           primIO (prim__httpSendResponse fd "application/json" body)
+        "/payload" => do
+          body <- exportGraphJson st scopedEid
+          primIO (prim__httpSendResponse fd "application/json" body)
+        "/overview" => do
+          allMemes <- readIORef st.memes
+          allEdges <- readIORef st.edges
+          allMemodes <- readIORef st.memodes
+          allTurns <- readIORef st.turns
+          allFb <- readIORef st.feedbackEvents
+          allSess <- readIORef st.sessions
+          let memes = filter (\m => m.experimentId == scopedEid) allMemes
+          let edges = filter (\e => e.experimentId == scopedEid) allEdges
+          let memodes = filter (\m => m.experimentId == scopedEid) allMemodes
+          let turns = filter (\t => t.experimentId == scopedEid) allTurns
+          let fbs = filter (\fb => fb.frExperimentId == scopedEid) allFb
+          let sessions = filter (\s => s.experimentId == scopedEid) allSess
+          let recentSess = take 5 (sortBy (\a, b => compare (show b.createdAt) (show a.createdAt)) sessions)
+          let body = jObj
+                [ ("experiment_id", jStr expIdStr)
+                , ("counts", jObj
+                    [ ("meme_count",     jNat (length memes))
+                    , ("edge_count",     jNat (length edges))
+                    , ("memode_count",   jNat (length memodes))
+                    , ("turn_count",     jNat (length turns))
+                    , ("feedback_count", jNat (length fbs))
+                    ])
+                , ("recent_sessions", jArr (map sessionJson recentSess))
+                ]
+          primIO (prim__httpSendResponse fd "application/json" body)
+        "/measurement-events" => do
+          allMeas <- readIORef st.measurements
+          let meas = filter (\e => e.experimentId == scopedEid) allMeas
+          primIO (prim__httpSendResponse fd "application/json" (jArr (map measurementJson meas)))
+        "/basin" => do
+          allMemes <- readIORef st.memes
+          allTurns <- readIORef st.turns
+          allAsets <- readIORef st.activeSetSnaps
+          allMeta  <- readIORef st.turnMetadata
+          let memes = filter (\m => m.experimentId == scopedEid) allMemes
+          let turns = filter (\t => t.experimentId == scopedEid) allTurns
+          let asets = filter (\a => a.experimentId == scopedEid) allAsets
+          let basins = computeBasins memes
+          let trajectory = computeTurnTrajectory turns asets allMeta
+          let turnCount = length turns
+          primIO (prim__httpSendResponse fd "application/json"
+            (basinWithTrajectoryJson basins trajectory turnCount turnCount))
+        "/geometry" => do
+          allMemes <- readIORef st.memes
+          allEdges <- readIORef st.edges
+          let memes = filter (\m => m.experimentId == scopedEid) allMemes
+          let edges = filter (\e => e.experimentId == scopedEid) allEdges
+          primIO (prim__httpSendResponse fd "application/json" (geometryJson (computeGeometry memes edges)))
         _ => send404 fd path
 
 ------------------------------------------------------------------------
@@ -855,11 +1147,17 @@ handlePostPreview st eid pvRef fd body = do
   let edges = filter (\e => e.experimentId == eid) allEdges
   let beforeGeom = computeGeometry memes edges
   let action = case actionStr of
-                 "edge_add"      => EdgeAdd
-                 "edge_update"   => EdgeUpdate
-                 "edge_remove"   => EdgeRemove
-                 "memode_assert" => MemodeAssert
-                 _               => EdgeAdd
+                 "edge_add"                  => EdgeAdd
+                 "edge_update"               => EdgeUpdate
+                 "edge_remove"               => EdgeRemove
+                 "memode_assert"             => MemodeAssert
+                 "memode_update_membership"  => MemodeUpdateMembership
+                 "node_edit"                 => NodeEdit
+                 "motif_annotation"          => MotifAnnotation
+                 "geometry_measurement_run"  => GeometryMeasurementRun
+                 "ablation_measurement_run"  => AblationMeasurementRun
+                 "measurement_revert"        => MeasurementRevert
+                 _                           => EdgeAdd
   let beforeState = geometryJson beforeGeom
   let proposedEdges = case action of
         EdgeAdd    => MkEdge (MkId "preview") eid MemeNode src MemeNode target
@@ -881,7 +1179,15 @@ handlePostPreview st eid pvRef fd body = do
                             ("relation", jStr relation),  ("weight", jNum weight) ]
         MemodeAssert => jObj [ ("type", jStr "memode_assert"),
                               ("member_ids", jArr (map jStr memberIds)) ]
-        _ => jObj [("type", jStr "unknown")]
+        MemodeUpdateMembership => jObj [ ("type", jStr "memode_update_membership"),
+                              ("member_ids", jArr (map jStr memberIds)) ]
+        NodeEdit => jObj [ ("type", jStr "node_edit"),
+                          ("source", jStr src) ]
+        MotifAnnotation => jObj [ ("type", jStr "motif_annotation") ]
+        GeometryMeasurementRun => jObj [ ("type", jStr "geometry_measurement_run") ]
+        AblationMeasurementRun => jObj [ ("type", jStr "ablation_measurement_run") ]
+        MeasurementRevert => jObj [ ("type", jStr "measurement_revert"),
+                                   ("edge_id", jStr edgeId) ]
   let resp = jObj
         [ ("status",         jStr "previewed")
         , ("action",         jStr actionStr)
@@ -928,7 +1234,45 @@ handlePostCommit st eid pvRef fd body = do
           _ <- traverse (\mid =>
             createEdge st eid MemeNode (show mid) MemodeNode (show memode.id) MemberOf 1.0 now) mids
           pure (show memode.id)
-        _ => pure ""
+        MemodeUpdateMembership => do
+          recordTraceEvent st TraceObservatoryCommit Info
+            ("memode_update_membership: members=" ++ show pv.pvMemberIds) now
+          pure (case pv.pvMemberIds of
+                  (x :: _) => x
+                  []       => "memode-update")
+        NodeEdit => do
+          allMemes <- readIORef st.memes
+          let memeIdStr = pv.pvSource
+          let newLabel = pv.pvRationale
+          case filter (\m => show m.id == memeIdStr && m.experimentId == eid) allMemes of
+            [] => do
+              recordTraceEvent st TraceObservatoryCommit Info
+                ("node_edit: meme not found " ++ memeIdStr) now
+              pure memeIdStr
+            (old :: _) => do
+              let upd = { label := (if newLabel /= "" then newLabel else old.label)
+                        , updatedAt := now } old
+              let others = filter (\m => show m.id /= memeIdStr) allMemes
+              writeIORef st.memes (upd :: others)
+              recordTraceEvent st TraceObservatoryCommit Info
+                ("node_edit: updated label for " ++ memeIdStr) now
+              pure memeIdStr
+        MotifAnnotation => do
+          recordTraceEvent st TraceObservatoryCommit Info
+            ("motif_annotation: " ++ pv.pvEvidence) now
+          pure "motif-annotation"
+        GeometryMeasurementRun => do
+          recordTraceEvent st TraceObservatoryCommit Info
+            "geometry_measurement_run: computed" now
+          pure "geometry-run"
+        AblationMeasurementRun => do
+          recordTraceEvent st TraceObservatoryCommit Info
+            "ablation_measurement_run: computed" now
+          pure "ablation-run"
+        MeasurementRevert => do
+          recordTraceEvent st TraceObservatoryCommit Info
+            ("measurement_revert: " ++ pv.pvEdgeId) now
+          pure pv.pvEdgeId
       let committedState = jObj [("committed_id", jStr committedId)]
       evt <- recordMeasurementEvent st eid sessId pv.pvAction Committed
                pv.pvOperator pv.pvEvidence pv.pvBeforeState pv.pvProposedState

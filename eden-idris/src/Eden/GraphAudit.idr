@@ -361,10 +361,35 @@ runBehaviorTaxonomy = do
     findInadmissible edges mids =
       filter (\mid => not (hasSupportEdge edges mid)) mids
 
+    ||| Check whether the support subgraph induced by the given node IDs
+    ||| is connected. Uses BFS starting from the first node, following
+    ||| only support edges whose both endpoints are in the node set.
+    isConnectedSubgraph : List String -> List Edge -> Bool
+    isConnectedSubgraph [] _ = True
+    isConnectedSubgraph [_] _ = True
+    isConnectedSubgraph (start :: rest) edges =
+      let nodeSet = start :: rest
+          supportEdges = filter (\e => isSupportEdgeType e.edgeType
+                                    && elem e.srcId nodeSet
+                                    && elem e.dstId nodeSet) edges
+          reached = bfs [start] [start] supportEdges
+      in length reached >= length nodeSet
+      where
+        bfsNeighbors : String -> List Edge -> List String
+        bfsNeighbors nid es =
+          Prelude.List.(++) (map (.dstId) (filter (\e => e.srcId == nid) es))
+                            (map (.srcId) (filter (\e => e.dstId == nid) es))
+        bfs : List String -> List String -> List Edge -> List String
+        bfs [] visited _ = visited
+        bfs (q :: qs) visited es =
+          let nbrs = filter (\n => not (elem n visited)) (bfsNeighbors q es)
+          in bfs (Prelude.List.(++) qs nbrs) (Prelude.List.(++) visited nbrs) es
+
     ||| Materialize memode groupings from Claude's response.
     ||| Validates memode admissibility: each member must have at least
     ||| one qualifying support edge (Supports, Reinforces, CoOccursWith,
     ||| RelatesTo, Influences, or DerivedFrom).
+    ||| Also validates that the support subgraph is connected (§2.5).
     materializeGroups : StoreState -> ExperimentId -> List Meme -> List Edge
                      -> List (String, List String) -> Timestamp -> EdenM Nat
     materializeGroups st eid allBehavior expEdges groupings now = go 0 groupings
@@ -385,6 +410,11 @@ runBehaviorTaxonomy = do
                   liftIO (putStrLn ("  [taxonomy] Skipping memode '" ++ name
                     ++ "': members lack support edges: "
                     ++ concat (intersperse ", " (map show inadmissible))))
+                  go n rest
+                else if not (isConnectedSubgraph (map show memberIds) expEdges)
+                then do
+                  liftIO (putStrLn ("  [taxonomy] Skipping memode '" ++ name
+                    ++ "': support subgraph is not connected"))
                   go n rest
                 else do
                   let summary = "Behavior cluster: " ++ concat (intersperse ", " memberLabels)

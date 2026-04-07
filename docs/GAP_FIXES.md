@@ -3,7 +3,7 @@
 Tracked gaps between normative specs and Idris2 implementation.
 Each item has a status: `[ ]` pending, `[x]` done, `[-]` deferred.
 
-Last audited: 2026-04-07 (branch `david`, post gap-fix session).
+Last audited: 2026-04-07 (branch `david`, final gap-fix session).
 
 ---
 
@@ -53,16 +53,16 @@ Last audited: 2026-04-07 (branch `david`, post gap-fix session).
 
 ### 2.2 Feedback propagation to memodes
 **Spec:** `REGARD_MECHANISM.md` §feedback-propagation
-**File:** `eden-idris/src/Eden/Pipeline.idr`
+**File:** `eden-idris/src/Eden/Pipeline.idr`, `eden-idris/src/Eden/Store/InMemory.idr`, `eden-idris/src/Eden/Monad.idr`
 - [x] Memodes read and logged in feedback propagation
 - [x] Constituent memes (via MemberOf edges) get 0.85 attenuation; non-constituent get 0.5
-- [-] Direct memode-first signal deferred (memode channels not yet per-memode)
-- [-] Re-ingest feedback text as behavior meme material deferred
+- [x] Direct memode-first signal (scale 1.0) via `updateMemodeChannels` + `eUpdateMemodeChannels`
+- [x] Re-ingest feedback text as behavior meme (Edit verdict creates feedback meme + FedBackBy edge)
 
 ### 2.3 Budget-aware history trimming
 **Spec:** `INFERENCE_PROFILES.md` §budget-envelope
 **File:** `eden-idris/src/Eden/Pipeline.idr`, `eden-idris/src/Eden/Budget.idr`
-- [-] Deferred: after active set + feedback + operator text, trim history against remaining budget
+- [x] After assembly, if budget pressure is High, halves history depth and re-assembles
 
 ### 2.4 Edge types
 - [x] `Reinforces`, `Refines`, `ContextualizesDocument`, `FedBackBy`, `OccursIn`
@@ -74,7 +74,7 @@ Last audited: 2026-04-07 (branch `david`, post gap-fix session).
 - [x] `findInadmissible` validates member memes have >= 1 qualifying support edge
 - [x] Support edge types: Supports, Reinforces, CoOccursWith, RelatesTo, Influences, DerivedFrom
 - [x] Memodes with inadmissible members skipped during audit
-- [-] Connected subgraph validation deferred
+- [x] Connected subgraph validation via `isConnectedSubgraph` BFS
 
 ### 2.6 Session wakeup audit trace events
 **Spec:** `TURN_LOOP_AND_MEMBRANE.md` §wake-up
@@ -297,7 +297,7 @@ Last audited: 2026-04-07 (branch `david`, post gap-fix session).
 
 1. **CRITICAL** (2 items): §1.6 ✅, §2.1 ✅
 2. **HIGH** (12 items): §2.2 ✅, §2.5 ✅, §2.6 ✅, §2.7 ✅, §2.8 ✅, §3.6 ✅, §3.7 ✅, §3.8 ✅, §4.1 partial, §4.2 partial, §5.1 ✅, §5.2 ✅
-3. **MEDIUM** (14 items): §2.3 deferred, §3.5 ✅, §3.9 ✅, §3.10 ✅, §3.11 ✅, §3.12 ✅, §3.13 ✅, §4.3 deferred, §4.4 deferred, §4.5 partial, §5.5 ✅, §5.6 ✅, §5.7 ✅, §5.8 ✅
+3. **MEDIUM** (14 items): §2.3 ✅, §3.5 ✅, §3.9 ✅, §3.10 ✅, §3.11 ✅, §3.12 ✅, §3.13 ✅, §4.3 deferred, §4.4 deferred, §4.5 partial, §5.5 ✅, §5.6 ✅, §5.7 ✅, §5.8 ✅
 4. **LOW** (6 items): §6.1 ✅, §6.2 deferred, §6.3 ✅, §6.4 ✅, §6.5 ✅, §6.6 ✅, §6.7 ✅, §6.8 ✅
 
-Total: 45 done, 7 deferred.
+Total: 49 done, 4 deferred.

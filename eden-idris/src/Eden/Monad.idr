@@ -219,6 +219,13 @@ eUpdateMemeChannels mid rw rk ed = do
   st <- getStore
   liftIO (updateMemeChannels st mid rw rk ed)
 
+||| Update memode channels in EdenM.
+public export
+eUpdateMemodeChannels : MemodeId -> Double -> Double -> Double -> EdenM ()
+eUpdateMemodeChannels mid rw rk ed = do
+  st <- getStore
+  liftIO (updateMemodeChannels st mid rw rk ed)
+
 ||| Get session turns in EdenM.
 public export
 eGetSessionTurns : EdenM (List Turn)

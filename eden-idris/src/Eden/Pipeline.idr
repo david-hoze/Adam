@@ -214,7 +214,16 @@ mExecuteTurnWith be mp historyDepth idx userText = do
   traverse_ (\cs => eRecordActiveSetEntry turnId cs.nodeId cs.label cs.domain
     cs.selection cs.semanticSimilarity cs.activationVal cs.regard) activeSet
   -- Step 2: Assemble prompt (§2.1: profile-driven history depth)
-  assembly  <- mAssembleWith historyDepth activeSet userText
+  assembly0 <- mAssembleWith historyDepth activeSet userText
+  -- §2.3: Budget-aware history trimming — if pressure is High, halve
+  -- history depth and re-assemble to fit within the budget envelope
+  assembly  <- case assembly0.arBudget.pressure of
+    High => do
+      let halved = max 1 (natDiv historyDepth 2)
+      eTraceTurn turnId ("budget-trim: pressure=HIGH, halving history "
+                       ++ show historyDepth ++ " -> " ++ show halved)
+      mAssembleWith halved activeSet userText
+    _ => pure assembly0
   eTraceTurn turnId ("assemble: profile=" ++ show assembly.arProfile.rpEffective
                    ++ " budget=" ++ show assembly.arBudget.pressure)
   -- Step 3: Generate (pass profile sampling params)
@@ -268,8 +277,9 @@ mExecuteTurn = mExecuteTurnWith Mock Nothing 5
 ------------------------------------------------------------------------
 
 ||| Process feedback in EdenM — no parameter threading needed.
-||| Propagates to memodes first, then to constituent memes (via MemberOf
-||| edges) with 0.85 attenuation, and non-constituent memes with 0.5.
+||| Propagates memode-first (scale 1.0), then to constituent memes
+||| (via MemberOf edges, 0.85 attenuation), then non-constituent (0.5).
+||| Re-ingests feedback text as a behavior-domain meme (§2.2).
 export
 mProcessFeedback : TurnId -> Verdict -> String -> EdenM ()
 mProcessFeedback tid verdict explanation = do
@@ -279,9 +289,10 @@ mProcessFeedback tid verdict explanation = do
   env <- ask
   let scale = propagateScale verdict
 
-  -- Step a: Read memodes and log feedback propagation
+  -- Step a: Propagate to memodes first (direct signal, scale 1.0)
   allMemodes <- liftIO (readIORef env.store.memodes)
   eTraceFeedback tid ("memode_propagation: " ++ show (length allMemodes) ++ " memodes")
+  propagateMemodes sig scale allMemodes
 
   -- Step b: Find constituent meme IDs via MemberOf edges
   allEdges <- liftIO (readIORef env.store.edges)
@@ -290,22 +301,38 @@ mProcessFeedback tid verdict explanation = do
 
   -- Step c: Propagate to memes with differentiated attenuation
   memes <- eGetMemes
-  propagateAll sig scale constituentIds memes
+  propagateMemes sig scale constituentIds memes
+
+  -- Step d: Re-ingest feedback text as a behavior meme
+  case verdict of
+    Edit => do
+      _ <- eUpsertMeme ("feedback:" ++ show tid) explanation Behavior FeedbackSource Global
+      -- Create FedBackBy edge from feedback meme to the turn
+      _ <- eCreateEdge MemeNode ("feedback:" ++ show tid) MemeNode (show tid) FedBackBy 0.9
+      pure ()
+    _ => pure ()
 
   -- Trace the event
   eTraceFeedback tid ("verdict=" ++ show verdict)
   where
+    propagateMemodes : FeedbackSignal -> Double -> List Memode -> EdenM ()
+    propagateMemodes _   _     []        = pure ()
+    propagateMemodes sig scale (md :: mds) = do
+      let (rw', rk', ed') = applyFeedback md.rewardEma md.riskEma md.editEma sig scale
+      eUpdateMemodeChannels md.id rw' rk' ed'
+      propagateMemodes sig scale mds
+
     isConstituent : List String -> Meme -> Bool
     isConstituent cids m = elem (show m.id) cids
 
-    propagateAll : FeedbackSignal -> Double -> List String -> List Meme -> EdenM ()
-    propagateAll _   _     _    []        = pure ()
-    propagateAll sig scale cids (m :: ms) = do
+    propagateMemes : FeedbackSignal -> Double -> List String -> List Meme -> EdenM ()
+    propagateMemes _   _     _    []        = pure ()
+    propagateMemes sig scale cids (m :: ms) = do
       let atten = if isConstituent cids m then 0.85 else 0.5
           s = scale * atten
           (rw', rk', ed') = applyFeedback m.rewardEma m.riskEma m.editEma sig s
       eUpdateMemeChannels m.id rw' rk' ed'
-      propagateAll sig scale cids ms
+      propagateMemes sig scale cids ms
 
 ------------------------------------------------------------------------
 -- Monadic hum generation

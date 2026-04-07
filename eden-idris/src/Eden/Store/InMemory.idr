@@ -545,6 +545,19 @@ updateMemeChannels st mid newRw newRk newEd = do
   withDB st (\db => wt_ (primIO (prim__wt_memech db (show mid) newRw newRk newEd)))
 
 ------------------------------------------------------------------------
+-- Update feedback channels on a memode
+------------------------------------------------------------------------
+
+export
+updateMemodeChannels : StoreState -> MemodeId -> Double -> Double -> Double -> IO ()
+updateMemodeChannels st mid newRw newRk newEd = do
+  allMemodes <- readIORef st.memodes
+  let updated = map (\m => if m.id == mid
+                           then { rewardEma := newRw, riskEma := newRk, editEma := newEd } m
+                           else m) allMemodes
+  writeIORef st.memodes updated
+
+------------------------------------------------------------------------
 -- Agent operations
 ------------------------------------------------------------------------
 
