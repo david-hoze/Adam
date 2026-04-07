@@ -169,9 +169,9 @@ Last audited: 2026-04-07 (branch `david`, final gap-fix session).
 - [x] `GET /api/experiments/<id>/memes`
 - [x] `GET /api/experiments/<id>/sessions`
 - [x] `GET /api/experiments/<id>/graph`
-- [-] `GET /api/experiments/<id>/payload` deferred
-- [-] `GET /api/experiments/<id>/overview` deferred
-- [-] Scope basin, geometry, measurements under experiment ID deferred
+- [x] `GET /api/experiments/<id>/payload`
+- [x] `GET /api/experiments/<id>/overview`
+- [x] Scope basin, geometry, measurements under experiment ID
 
 ### 4.2 Export payload planes
 **Spec:** `OBSERVATORY_SPEC.md` §graph-payload
@@ -179,22 +179,23 @@ Last audited: 2026-04-07 (branch `david`, final gap-fix session).
 - [x] `assembly_nodes` and `assembly_edges` planes (empty placeholder)
 - [x] `memode_audit` plane with id, label, member_count, admissible
 - [x] Graph metadata: `layout_families`, `layout_catalog`, `layout_defaults`, `appearance_dimensions`, `filter_dimensions`, `statistics_capabilities`, `export_formats`
-- [-] Actual assembly data population deferred
+- [x] Assembly planes populated with real meme/memode/edge data
 
 ### 4.3 Geometry lab
 **Spec:** `OBSERVATORY_SPEC.md` §geometry, `OBSERVATORY_GEOMETRY_SPEC.md`
-- [-] Deferred: projection methods, symmetry diagnostics, ablation support require non-trivial math libraries
+- [x] Force-directed layout (Fruchterman-Reingold), symmetry diagnostics (circularity, mirror, triadic closure), geometry slicing
+- [-] Ablation support deferred
 
 ### 4.4 Basin projection
 **Spec:** `OBSERVATORY_SPEC.md` §basin
-- [-] Deferred: real turn-trajectory projection, per-turn overlays
+- [x] Turn-trajectory projection via `computeTurnTrajectory` with `TurnOverlay` per-turn overlays
 
 ### 4.5 Missing measurement action types
 **Spec:** `OBSERVATORY_INTERACTION_SPEC.md`, `MEASUREMENT_EVENT_MODEL.md`
 **File:** `eden-idris/src/Eden/Types.idr`
 - [x] `MemodeUpdateMembership`, `MotifAnnotation`, `GeometryMeasurementRun`, `AblationMeasurementRun` added to enum
 - [x] `Show` instance updated
-- [-] Observatory commit flow handlers deferred
+- [x] Observatory commit flow: preview, commit, revert handlers with measurement event recording
 
 ---
 
@@ -258,7 +259,7 @@ Last audited: 2026-04-07 (branch `david`, final gap-fix session).
 ### 6.2 MLX contextualization pass
 **Spec:** `DOCUMENT_INGEST.md` §contextualization
 **File:** `eden-idris/src/Eden/Ingest/Pipeline.idr`
-- [-] Deferred: Adam-identity MLX contextualization pass during ingest
+- [x] `runMLXContextualization` samples chunks, builds Adam-identity prompt, creates behavior memes with ContextualizesDocument edges (gated by `EDEN_ENABLE_MLX_INGEST`)
 
 ### 6.3 Hum derivedFrom format
 **Spec:** `HUM_SPEC.md`
@@ -296,8 +297,8 @@ Last audited: 2026-04-07 (branch `david`, final gap-fix session).
 ## Priority Order
 
 1. **CRITICAL** (2 items): §1.6 ✅, §2.1 ✅
-2. **HIGH** (12 items): §2.2 ✅, §2.5 ✅, §2.6 ✅, §2.7 ✅, §2.8 ✅, §3.6 ✅, §3.7 ✅, §3.8 ✅, §4.1 partial, §4.2 partial, §5.1 ✅, §5.2 ✅
-3. **MEDIUM** (14 items): §2.3 ✅, §3.5 ✅, §3.9 ✅, §3.10 ✅, §3.11 ✅, §3.12 ✅, §3.13 ✅, §4.3 deferred, §4.4 deferred, §4.5 partial, §5.5 ✅, §5.6 ✅, §5.7 ✅, §5.8 ✅
-4. **LOW** (6 items): §6.1 ✅, §6.2 deferred, §6.3 ✅, §6.4 ✅, §6.5 ✅, §6.6 ✅, §6.7 ✅, §6.8 ✅
+2. **HIGH** (12 items): §2.2 ✅, §2.5 ✅, §2.6 ✅, §2.7 ✅, §2.8 ✅, §3.6 ✅, §3.7 ✅, §3.8 ✅, §4.1 ✅, §4.2 ✅, §5.1 ✅, §5.2 ✅
+3. **MEDIUM** (14 items): §2.3 ✅, §3.5 ✅, §3.9 ✅, §3.10 ✅, §3.11 ✅, §3.12 ✅, §3.13 ✅, §4.3 ✅ (ablation deferred), §4.4 ✅, §4.5 ✅, §5.5 ✅, §5.6 ✅, §5.7 ✅, §5.8 ✅
+4. **LOW** (6 items): §6.1 ✅, §6.2 ✅, §6.3 ✅, §6.4 ✅, §6.5 ✅, §6.6 ✅, §6.7 ✅, §6.8 ✅
 
-Total: 49 done, 4 deferred.
+Total: 52 done, 1 deferred (§4.3 ablation support).
