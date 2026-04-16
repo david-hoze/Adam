@@ -17,6 +17,7 @@
 |||
 ||| Retrieve: eden --shamash-retrieve --query FILE --db PATH
 ||| Feedback: eden --shamash-feedback SIGNAL --content FILE --db PATH
+||| Upsert:   eden --shamash-upsert --label LABEL --content FILE --domain knowledge|behavior --db PATH
 ||| Record:   eden --shamash-record-turn --user FILE --response FILE --db PATH
 module Eden.Shamash
 
