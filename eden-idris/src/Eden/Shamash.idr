@@ -390,6 +390,32 @@ runShamashFeedback signalStr contentFile dbPath = do
   closeDB db
 
 ------------------------------------------------------------------------
+-- Upsert meme (manual knowledge/behavior insertion from conversation)
+------------------------------------------------------------------------
+
+||| Upsert a meme into the graph from the CLI.
+||| Called by Shamash when a conversation produces a new insight:
+|||   eden --shamash-upsert --label LABEL --content FILE --domain knowledge|behavior --db PATH
+export
+runShamashUpsertMeme : String -> String -> String -> String -> IO ()
+runShamashUpsertMeme label contentFile domainStr dbPath = do
+  Right content <- readFile contentFile
+    | Left _ => do putStrLn "error: cannot read content file"; pure ()
+
+  let domain = case toLower (trim domainStr) of
+                 "behavior"  => Behavior
+                 "behaviour" => Behavior
+                 _           => Knowledge
+
+  Just (store, eid, db) <- shamashOpen dbPath
+    | Nothing => do putStrLn "error: cannot open db"; pure ()
+  ts <- currentTimestamp
+
+  m <- upsertMeme store eid (trim label) (trim content) domain ManualSource Global ts
+  putStrLn $ "upserted meme: " ++ show m.id ++ " [" ++ show domain ++ "] " ++ trim label
+  closeDB db
+
+------------------------------------------------------------------------
 -- Phase 3: Record turn (for precedent accumulation)
 ------------------------------------------------------------------------
 
