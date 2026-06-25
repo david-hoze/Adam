@@ -435,12 +435,30 @@ loadFromDB db st = do
   meass <- pure $ mapMaybe (\l => deserializeMeasurementEvent (splitTabs l)) measLines
   writeIORef st.measurements meass
 
-  -- Restore next_id from config
+  -- Restore next_id from config, but never below the max id actually present.
+  -- (A stale next_id counter would otherwise mint ids that collide with and
+  --  overwrite existing memes via INSERT OR REPLACE. See loadGraph for the
+  --  file-based equivalent.)
   nidStr <- primIO (prim__dbGetConfig db "next_id")
-  let nid = case the (Maybe Integer) (parsePositive nidStr) of
-              Just n  => the Nat (cast n)
-              Nothing => 1
+  let idNum : String -> Nat
+      idNum s = case the (Maybe Integer)
+                       (parsePositive (pack (reverse
+                         (takeWhile (/= '-') (reverse (unpack s)))))) of
+                  Just n  => the Nat (cast n)
+                  Nothing => 0
+      cfgNid = case the (Maybe Integer) (parsePositive nidStr) of
+                 Just n  => the Nat (cast n)
+                 Nothing => 1
+      maxId  = foldl max 0 $
+                 map (\m  => idNum (show m.id))  memes    ++
+                 map (\e  => idNum (show e.id))  edges    ++
+                 map (\md => idNum (show md.id)) memodes  ++
+                 map (\t  => idNum (show t.id))  turns    ++
+                 map (\s  => idNum (show s.id))  sessions ++
+                 map (\x  => idNum (show x.id))  exps
+      nid = max cfgNid (S maxId)
   writeIORef st.nextId nid
+  dbSaveNextId db nid
 
   -- Rebuild FTS index from loaded memes
   rebuildFtsIndex st
