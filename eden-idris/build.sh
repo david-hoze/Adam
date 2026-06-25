@@ -59,19 +59,23 @@ case "$PLATFORM" in
         export PATH="/ucrt64/bin:/usr/bin:$PATH"
         export CC=gcc
         EXE_EXT=".exe"
-        PLAT_LDFLAGS="-lws2_32"
+        # 64 MB runtime stack: the RefC backend compiles Idris recursion to C
+        # recursion, and loadFromDB recurses to a depth proportional to the
+        # serialized graph size. The default 1 MB Windows stack overflows past
+        # ~32 KB of meme blob (~73 memes), crashing on load with exit 127.
+        PLAT_LDFLAGS="-lws2_32 -Wl,--stack,67108864"
         STAT_FMT='stat -c "%Y"'
         ;;
     macos)
         export CC="${CC:-cc}"
         EXE_EXT=""
-        PLAT_LDFLAGS=""
+        PLAT_LDFLAGS="-Wl,-stack_size,0x4000000"  # 64 MB runtime stack (see msys note)
         STAT_FMT='stat -f "%m"'
         ;;
     linux)
         export CC="${CC:-gcc}"
         EXE_EXT=""
-        PLAT_LDFLAGS=""
+        PLAT_LDFLAGS="-Wl,-z,stacksize=67108864"  # 64 MB runtime stack (see msys note)
         STAT_FMT='stat -c "%Y"'
         ;;
 esac
